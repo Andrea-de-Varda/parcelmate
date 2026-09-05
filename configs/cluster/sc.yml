@@ -1,0 +1,27 @@
+# Cluster profile for the Stanford SC cluster (NLP group / CLiMB lab).
+# Consumed by `python -m parcelmate.bin.make_jobs -c configs/cluster/sc.yml ...`.
+# See info/CLUSTER.md for partition choices and the rationale behind these values.
+
+workdir: /juice6/u/nlp/climblab/devarda/parcelmate
+log_dir: logs
+conda_sh: /juice6/u/nlp/climblab/devarda/miniforge3/etc/profile.d/conda.sh
+conda_env: parcelmate
+python: python
+
+env:
+  # /sailhome is capped at 20GB, so every cache must live on juice6.
+  HF_HOME: /juice6/u/nlp/climblab/devarda/.hf_cache
+  HF_HUB_DISABLE_TELEMETRY: 1
+  TOKENIZERS_PARALLELISM: 'false'
+
+slurm:
+  account: nlp
+  partition: jag-standard
+  time: 24
+  memory: 32
+  n_cores: 4
+  gpu: 1
+  gpu_type: a6000
+  constraint: null
+  qos: null
+  exclude: null

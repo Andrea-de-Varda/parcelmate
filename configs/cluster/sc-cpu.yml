@@ -1,0 +1,22 @@
+# CPU-only profile for the Stanford SC cluster: the `john` partition.
+# Use for the parcellation / subnetwork_extraction / plot_* steps, which are
+# sklearn workloads and would leave an allocated GPU idle. See info/CLUSTER.md.
+
+workdir: /juice6/u/nlp/climblab/devarda/parcelmate
+log_dir: logs
+conda_sh: /juice6/u/nlp/climblab/devarda/miniforge3/etc/profile.d/conda.sh
+conda_env: parcelmate
+python: python
+
+env:
+  HF_HOME: /juice6/u/nlp/climblab/devarda/.hf_cache
+  HF_HUB_DISABLE_TELEMETRY: 1
+  TOKENIZERS_PARALLELISM: 'false'
+
+slurm:
+  account: nlp
+  partition: john
+  time: 24
+  memory: 64
+  n_cores: 16
+  gpu: 0
