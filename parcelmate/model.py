@@ -477,13 +477,14 @@ def run_connectivity(
         _data_kwargs = copy.deepcopy(data_kwargs)
         if domain == 'wikitext':
             _data_kwargs.update(dict(
-                dataset='wikitext',
+                dataset='Salesforce/wikitext',
                 tokenizer= tokenizer,
                 name='wikitext-103-raw-v1',
             ))
         elif domain == 'bookcorpus':
+            # Parquet mirror; `bookcorpus` is script-based and unsupported since datasets 4.x.
             _data_kwargs.update(dict(
-                dataset='bookcorpus'
+                dataset='rojagtap/bookcorpus'
             ))
         elif domain == 'agnews':
             _data_kwargs.update(dict(
@@ -494,8 +495,9 @@ def run_connectivity(
                 dataset='codeparrot/codeparrot-clean'
             ))
         elif domain == 'tldr17':
+            # 50k-post parquet subset; `webis/tldr-17` is script-based and unsupported since datasets 4.x.
             _data_kwargs.update(dict(
-                dataset='webis/tldr-17'
+                dataset='dim/tldr_17_50k'
             ))
         elif domain == 'random':
             _data_kwargs.update(dict(
@@ -507,7 +509,6 @@ def run_connectivity(
             ))
         else:
             raise ValueError('Unrecognized input data name: %s' % domain)
-        _data_kwargs['trust_remote_code'] = True
         _data_kwargs['tokenizer'] = tokenizer
 
         input_ids, attention_mask = get_dataset(
