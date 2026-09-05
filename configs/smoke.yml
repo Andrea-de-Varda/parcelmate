@@ -1,0 +1,46 @@
+# Minimal smoke-test run: GPT-2, two domains, tiny token budget.
+# Purpose is to verify the cluster environment end to end in a few minutes,
+# NOT to produce usable results.
+# Consumed by `python -m parcelmate.bin.main configs/gpt2.yml -s <steps>`.
+# Every value below is written out explicitly (most match the code defaults) so
+# that the config alone documents the run for the paper's methods section.
+
+output_dir: results/smoke
+
+connectivity:
+  model_name: gpt2
+  # Independent samples averaged (Fisher-z) into the final connectivity matrix.
+  n_samples: 1
+  domains:
+    - wikitext
+    - bookcorpus
+  seq_len: 1024
+  n_tokens: 5000
+  split: train
+  take: 2000
+  wrap: true
+  shuffle: true
+  batch_size: 8
+  # Temporal filtering of unit timecourses (null = off).
+  highpass: null
+  lowpass: null
+  step: 0.2
+  # Optional dimensionality reduction of timecourses before correlation.
+  timecourse_pca_components: null
+  timecourse_ica_components: null
+  eps: 1.0e-3
+
+parcellation:
+  n_networks: 50              # k for MiniBatchKMeans
+  n_samples: 10
+  binarize_connectivity: true # threshold |r| at each unit's 90th percentile
+  connectivity_pca_components: 50
+  connectivity_ica_components: null
+  clustering_kwargs: null
+  n_alignments: null
+  weight_samples: false       # LOG.md S5 — fixed, but leave off
+
+# NOTE: leave `subnetwork_extraction` absent until LOG.md S3 is resolved.
+# main.py forwards this section to BOTH run_subnetwork_extraction (which accepts
+# only output_dir/verbose/indent) and run_knockout (which accepts model_name/steps),
+# so any key here raises TypeError in one of the two calls.

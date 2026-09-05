@@ -1,0 +1,62 @@
+# parcelmate — project log
+
+This is the running record of everything done to this codebase: project structure, all issues found, every design decision, and a dated log of every edit. It exists so that the eventual paper's methods section can be reconstructed exactly. Update it whenever anything changes. (Kept separate from README.md, which belongs to the upstream repo; merge relevant parts there later if desired.)
+
+## What the project does
+
+parcelmate applies the methodology of fMRI functional connectivity analysis to the internals of a language model. Each hidden unit of an LLM (a single dimension of the residual stream at a given layer boundary) is treated as a voxel; its "timecourse" is its activation across tokens of naturalistic text. The pipeline: (1) **connectivity** — run a HuggingFace model (default GPT-2) over text from several domains (wikitext, bookcorpus, agnews, tldr17, codeparrot, plus `random` and `whitespace` baselines), extract per-unit timecourses, and compute the unit-by-unit Pearson correlation matrix, averaged (Fisher-z) over 4 independent ~100k-token samples; (2) **parcellation** — binarize the absolute connectivity at each unit's 90th percentile, PCA to 200 components, run MiniBatchKMeans (k=50) 100 times, align the runs with the Hungarian algorithm, and average into a soft parcellation (unit × network membership probabilities); (3) **subnetwork extraction** — keep networks that are reciprocal best matches across all domains (chained in alphabetical domain order) and average them into a "shared" (domain-general) parcellation; (4) **knockout** — clamp the units belonging to shared subnetworks to zero via `PerturbedModel`/`PerturbedLayer` wrappers and re-run the connectivity pipeline on the lesioned model; (5) **plots** — connectivity clustermaps, network heatmaps, and stability analyses (correlations of connectivity matrices across samples and domains). Everything is cached as HDF5 under `results/`, driven by `python -m parcelmate.bin.main <config.yml> -s <steps>`; `parcelmate/bin/make_jobs.py` generates SLURM scripts.
+
+Code map: [parcelmate/model.py](../parcelmate/model.py) (pipeline + perturbation machinery), [parcelmate/data.py](../parcelmate/data.py) (datasets, tokenization, filtering, correlation), [parcelmate/plot.py](../parcelmate/plot.py), [parcelmate/util.py](../parcelmate/util.py) (HDF5 I/O), [parcelmate/cfg.py](../parcelmate/cfg.py) (YAML config), [parcelmate/constants.py](../parcelmate/constants.py), [parcelmate/bin/main.py](../parcelmate/bin/main.py) (CLI driver).
+
+## Iteration 0 — code review findings (2026-09-03)
+
+Full review of the codebase as inherited (commit 39bfe13). Environment used for verification: conda env `analysis` — torch 2.9.1+cu128, transformers 4.57.5, sklearn 1.8.0, datasets 4.5.0, CUDA available.
+
+### Serious
+
+| ID | Issue | Status |
+|----|-------|--------|
+| S1 | Knockout ablates the **union** of all shared subnetworks, never one at a time: `get_model_and_tokenizer` ORs the threshold mask across all parcellation columns, and `run_knockout` loops over files while subnetwork extraction writes all networks into one file. Cannot currently measure per-network causal contributions. | OPEN — design decision needed (intended union-lesion vs. missing per-network loop); discuss with Cory |
+| S2 | Connectivity binarization thresholded on the wrong axis: `np.quantile(X, 0.9, axis=1)` broadcasts column-wise, producing the transpose of the intended row-wise thresholding (verified empirically). Fingerprint density varied by unit hubness, so k-means partly clustered on degree rather than connectivity profile. | **FIXED** 2026-09-03 |
+| S3 | Knockout config plumbing broken: `main.py` forwards `**cfg['subnetwork_extraction']` into `run_knockout` (TypeError if that section holds `output_dir` or any subnetwork key); `cfg['connectivity']` containing `model_name` causes a duplicate-kwarg crash in `run_knockout`'s call to `run_connectivity`, and if absent the knockout silently uses `gpt2` regardless of pipeline model; `run_knockout`'s bare default `output_dir` points at `results/knockout/subnetwork` while extraction writes `results/subnetwork` (harmless when driven via `main.py`, which overrides it). | OPEN |
+| S4 | Final hidden state measured post-LayerNorm but lesioned pre-LayerNorm: HF appends `ln_f(...)` as the last `hidden_states` entry, while `PerturbedModel` mapped that layer index onto the last block's raw output — verified empirically that a layer-12 knockout left the recorded final state untouched. Residual caveat (open): the final layer's *connectivity* is still computed on post-LN values, i.e., not on the same footing as layers 0–11; alternative considered was dropping the final hidden state entirely. | **FIXED** 2026-09-03 (mapping); footing caveat noted |
+| S5 | `weight_samples=True` in `align_samples` computed `w = 1 - inertia` with inertias ~2×10⁶ (verified), giving huge negative weights and nonsense output; additionally, a zero-weight sample stalled the sample pointer (`continue` without advancing `i`). Dormant (default False) but a trap. | **FIXED** 2026-09-03 |
+| S6 | The `random` baseline is not random token IDs: `BaselineDataset` decodes sampled IDs to text and `get_dataset` re-tokenizes, and BPE decode→encode is not a round trip on random sequences — the model sees re-segmented text with more structure than uniform-random IDs. Honest implementation would feed the sampled IDs directly. | OPEN — affects the paper's null-baseline claim |
+| S7 | No random seeds anywhere (document shuffling, MiniBatchKMeans, FastICA; no config plumbing for seeds) — results not reproducible run-to-run. Ranked serious for this project because every result feeds a paper. | OPEN |
+
+### Moderate
+
+- M1. `correlate()` crashes on CPU-only machines: `use_gpu=True` unconditionally queries `torch.cuda.get_device_properties(0)`; `get_connectivity` doesn't expose the flag ([data.py](../parcelmate/data.py)). OPEN
+- M2. No `torch.no_grad()` in `get_timecourses` — autograd graphs are built and discarded, roughly doubling GPU memory and shrinking feasible batch size. OPEN
+- M3. `plot_stability` holds every connectivity matrix in RAM at once (~14 GB for GPT-2 at 7 domains × 5 files × 400 MB), scaling with (layers × width)²; also computes each pairwise correlation twice. OPEN
+- M4. `run_parcellation` parcellates the 4 per-sample files as well as the average (filename regex matches both) — 5× the clustering cost while downstream only consumes `avg`. Possibly intended groundwork for parcellation-stability analyses; decide and document. OPEN
+- M5. Perturbation machinery is GPT-2-only: hardcoded `layers_attr = 'h'`, `model.drop`, and (since the S4 fix) `model.ln_f`. Llama/Mistral-style models fail at knockout time only. OPEN
+- M6. Subnetwork chaining follows reciprocal best matches through domains in alphabetical order without a transitivity check, and the default domain list includes the `random`/`whitespace` baselines — so "domain-general" implicitly means "present even for degenerate input". Definitional choice; must be documented either way. OPEN — decision needed
+- M7. `datasets` 4.5 compatibility: `trust_remote_code=True` is force-passed (deprecation warning; wikitext verified working), script-based datasets (bookcorpus, webis/tldr-17, codeparrot) now depend on Hub parquet conversions; `get_dataset` materializes all `take=100000` documents in RAM to extract ~400k tokens (heavy for codeparrot). OPEN
+- M8. Recomputing connectivity rewrites the avg HDF5 with mode `'w'` and only `connectivity`+`coordinates`, silently truncating away a previously computed `parcellation` field. OPEN
+- M9. Documents are concatenated without EOS separators in wrap mode (model attends across unrelated-document boundaries); bandpass filtering, if enabled, runs across the same seams. OPEN — methodological, document in paper
+- M10. Plot functions `os.listdir` their input dirs unguarded — running a plot step standalone before its inputs exist dies with `FileNotFoundError`. OPEN
+
+### Minor (noted, not blocking)
+
+Dead/duplicated code in `BaselineDataset.take`; dead `assert split` after use; `n_tokens` default computes to 0 when `seq_len × batch_size > 100000`; `lfilter` is causal (phase-shifting) where `filtfilt` is standard (moot while filtering is off by default); `plot_parcellation` crashes on single-layer models (`max(*counts)`), and `ax._figure` is a private seaborn attribute; `correlate`/`fisher` mutate inputs in place; GPU sizing via `total_memory` rather than `mem_get_info`; unescaped `.` in the filename regex; hardcoded `'knockout'` string instead of the constant; `minmax_normalize_array` was unused (now used by the S5 fix); unused `copy` import in cfg.py; `make_jobs.py` assumes a 3-character config extension and generated scripts lack environment activation; no `requirements.txt`/`pyproject.toml`, no test infrastructure (started with `tests/` in this iteration), README empty.
+
+## Decisions made
+
+- 2026-09-03 (S4 fix): chose to map the final hidden-state index onto a wrapped `ln_f` (so the lesioned quantity is exactly the measured quantity) rather than dropping the final hidden state from the analysis. Rationale: preserves all 13 layers and all downstream shapes; the post-LN state is what downstream computation actually consumes. The alternative (excluding `hidden_states[-1]`, or re-deriving it pre-LN) remains on the table if the post-LN footing of layer 12's connectivity becomes a concern.
+- 2026-09-03 (S5 fix): chose min-max-normalized inverse-inertia weights (`w = 1 - minmax(inertia)`, best sample → 1, worst → 0, all-equal degenerates to unweighted). Note: the worst sample now gets weight 0, i.e., is excluded when weighting is on. Alternatives (rank weights, softmax over −z(inertia)) not pursued for now.
+- 2026-09-03: verification tests live in `tests/` as runnable scripts (no pytest infra yet); run with `PYTHONPATH=. python tests/verify_iter0_fixes.py` from the repo root in the `analysis` env.
+
+## Edit log
+
+Every code change to the repo, newest last. Format: date — files — what and why.
+
+- 2026-09-03 — [parcelmate/model.py](../parcelmate/model.py) (`sample_parcellations`) — **S2 fix**: added `keepdims=True` to the `np.quantile` call so binarization thresholds each unit's own row (each unit's fingerprint = its own top 10% of partners) instead of the broadcast transpose. One-token change; parcellations computed before and after this fix are NOT comparable.
+- 2026-09-03 — [parcelmate/model.py](../parcelmate/model.py) (`PerturbedModel.__init__`) — **S4 fix**: layer index `n_layers` (the final hidden state) now wraps `model.ln_f` under key `'final_norm'` instead of wrapping the last transformer block, because HF emits the final hidden state from the closing layer norm. Verified end-to-end on GPT-2 (pre-fix: layer-12 knockout had no effect on recorded states; post-fix: exact zeroing, untargeted units untouched).
+- 2026-09-03 — [parcelmate/model.py](../parcelmate/model.py) (`align_samples`, `_align_samples`) — **S5 fix**: `weight_samples=True` now uses `w = 1 - minmax_normalize_array(scores)` (bounded [0, 1]) instead of `1 - scores` (hugely negative for real inertias); restructured the alignment loop so a zero-weight sample no longer stalls the sample pointer (`continue` previously skipped the `i` increment).
+- 2026-09-03 — [tests/verify_iter0_fixes.py](tests/verify_iter0_fixes.py) (new) — runnable verification for S2/S4/S5: GPT-2 end-to-end knockout mapping across embedding/mid/final layers, binarization density equality, weighted alignment validity + ground-truth recovery (0.953 agreement on synthetic 5-cluster data with 10% label noise). All checks pass.
+- 2026-09-03 — [LOG.md](LOG.md) (new) — this document.
+
+## Cluster
+
+Compute for this project runs on the Stanford SC cluster (NLP group, CLiMB lab). Connection, storage layout, SLURM conventions and job-launching instructions are in [CLUSTER.md](CLUSTER.md).

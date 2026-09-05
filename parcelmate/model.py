@@ -32,9 +32,13 @@ class PerturbedModel(torch.nn.Module):
         layers = getattr(self.model, layers_attr)
         perturbation_coordinate_tensors = {}
         perturbation_value_tensors = {}
+        n_layers = len(layers)
         for l_ix in layer_indices:
             if l_ix == 0:
                 key = 'embedding'
+            elif l_ix == n_layers:
+                # The last hidden state is emitted by the closing layer norm (ln_f), not by the last block
+                key = 'final_norm'
             else:
                 key = l_ix - 1 # Shifted down bc of embedding layer
             sel = perturbation_coordinates[:, 0] == l_ix  # 0th dimension is layer
@@ -63,6 +67,9 @@ class PerturbedModel(torch.nn.Module):
             if l_ix == 0:
                 _l_ix = 'embedding'
                 source_layer = self.model.drop
+            elif l_ix == n_layers:
+                _l_ix = 'final_norm'
+                source_layer = self.model.ln_f
             else:
                 _l_ix = l_ix - 1  # Shifted down bc of embedding layer
                 source_layer = layers[_l_ix]
@@ -73,6 +80,8 @@ class PerturbedModel(torch.nn.Module):
             )
             if _l_ix == 'embedding':
                 self.model.drop = layer
+            elif _l_ix == 'final_norm':
+                self.model.ln_f = layer
             else:
                 layers[_l_ix] = layer
 
@@ -249,7 +258,7 @@ def sample_parcellations(
         clustering_kwargs = {}
     X = connectivity
     if binarize_connectivity:
-        X = (X > np.quantile(X, 0.9, axis=1)).astype(int)
+        X = (X > np.quantile(X, 0.9, axis=1, keepdims=True)).astype(int)
     if connectivity_pca_components:
         n_components = connectivity_pca_components
         if n_components == 'auto':
@@ -333,30 +342,30 @@ def _align_samples(
             _w = w[i]
         else:
             _w = 1
-        if _w == 0:
-            continue
 
-        if len(samples.shape) == 2:
-            s = (samples[i][None, ...] == np.arange(n_networks)[..., None])
-        else:
-            s = samples[i].T
-        s = s.astype(float)
-        _reference = standardize_array(reference)
-        _s = standardize_array(s)
-        scores = np.dot(
-            _reference,
-            _s.T,
-        ) / n_units
+        if _w != 0:
+            if len(samples.shape) == 2:
+                s = (samples[i][None, ...] == np.arange(n_networks)[..., None])
+            else:
+                s = samples[i].T
+            s = s.astype(float)
+            _reference = standardize_array(reference)
+            _s = standardize_array(s)
+            scores = np.dot(
+                _reference,
+                _s.T,
+            ) / n_units
 
-        _, ix_r = optimize.linear_sum_assignment(scores, maximize=True)
-        s = s[ix_r]
-        if parcellation is None:
-            parcellation = s * _w
-        else:
-            parcellation = parcellation + s * _w
-        if greedy:
-            reference = parcellation
-        C += _w
+            _, ix_r = optimize.linear_sum_assignment(scores, maximize=True)
+            s = s[ix_r]
+            if parcellation is None:
+                parcellation = s * _w
+            else:
+                parcellation = parcellation + s * _w
+            if greedy:
+                reference = parcellation
+            C += _w
+
         i += 1
         if i >= n_samples:
             i = 0
@@ -388,7 +397,9 @@ def align_samples(
     samples = samples[s_ix]
     scores = scores[s_ix]
     if weight_samples:
-        w = 1 - scores  # Flip to upweight lower inertia
+        # Min-max normalize inertias to [0, 1] and flip, so the best (lowest-inertia) sample gets weight 1
+        # and the worst gets weight 0. Raw inertias are unbounded, so 1 - scores would go negative.
+        w = 1 - minmax_normalize_array(scores)
     else:
         w = None
 
