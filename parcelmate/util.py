@@ -111,12 +111,25 @@ def warn_dropped_keys(path, keys_to_write, verbose=True, indent=0):
     return dropped
 
 
+def load_h5_array(path, key):
+    """Load a single dataset from an HDF5 file, without reading the rest of it.
+
+    `load_h5_data` reads every key, which for a connectivity file means pulling ~400 MB
+    into memory to get at a 9984-element vector.
+    """
+    with h5py.File(path, 'r') as f:
+        # `[()]` rather than `[:]`: it reads datasets of any shape, including the scalar
+        # ones (e.g. n_obs), where `[:]` raises "Illegal slicing argument for scalar
+        # dataspace".
+        return f[key][()]
+
+
 def load_h5_data(path, verbose=True, indent=0):
     if verbose:
         stderr('%sLoading from %s\n' % (' ' * indent, path))
     out = {}
     with h5py.File(path, 'r') as f:
         for key in f.keys():
-            out[key] = f[key][:]
+            out[key] = f[key][()]
 
     return out

@@ -200,7 +200,7 @@ check('M6: chain that drifts is rejected',
 import io                                               # noqa: E402
 import contextlib                                       # noqa: E402
 
-from parcelmate.util import h5_keys, warn_dropped_keys  # noqa: E402
+from parcelmate.util import h5_keys, load_h5_array, warn_dropped_keys  # noqa: E402
 
 tmp8 = tempfile.mkdtemp(prefix='parcelmate_m8_')
 try:
@@ -239,6 +239,15 @@ try:
     with contextlib.redirect_stderr(buf2):
         none_dropped = warn_dropped_keys(path, dict(connectivity=conn))
     check('M8: no report when no derived key is present', none_dropped == [])
+
+    # Scalar datasets must round-trip: load_h5_data reads every key, and `[:]` raises
+    # "Illegal slicing argument for scalar dataspace" on a 0-d dataset such as n_obs.
+    scal = os.path.join(tmp8, 'scalar.h5')
+    save_h5_data(dict(vec=np.arange(4), n_obs=np.asarray(1234)), scal, verbose=False)
+    back = load_h5_data(scal, verbose=False)
+    check('M8: scalar dataset round-trips through load_h5_data', int(back['n_obs']) == 1234)
+    check('M8: array alongside a scalar is unaffected', list(back['vec']) == [0, 1, 2, 3])
+    check('M8: load_h5_array reads a scalar', int(load_h5_array(scal, 'n_obs')) == 1234)
 
     fresh = os.path.join(tmp8, 'fresh.h5')
     save_h5_data(dict(a=np.zeros(3)), fresh, merge=True, verbose=False)

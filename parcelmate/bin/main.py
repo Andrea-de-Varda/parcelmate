@@ -69,9 +69,26 @@ if __name__ == '__main__':
         )
 
     if 'all' in steps or 'subnetwork_knockout' in steps:
+        # Reads its own `subnetwork_knockout` section (S3). It previously received
+        # `subnetwork_extraction`, whose signature is disjoint from run_knockout's, so any
+        # key there raised TypeError in one of the two calls -- including `domains`, which
+        # the M6 fix made a key you would actually want to set.
+        knockout_kwargs = dict(cfg.get('subnetwork_knockout', {}))
+        knockout_kwargs.setdefault('seed', seed)
+        # model_name is inherited from the connectivity section as the single source of
+        # truth. Previously it was neither forwarded nor overridable: run_knockout defaulted
+        # to 'gpt2' regardless of the configured model, and passing the connectivity section
+        # wholesale collided with its own model_name argument.
+        connectivity_cfg = cfg.get('connectivity', {})
+        assert 'model_name' not in knockout_kwargs, \
+            'set model_name under `connectivity`, not `subnetwork_knockout` - the lesioned ' \
+            'model must be the same model the baseline was measured on'
+        if 'model_name' in connectivity_cfg:
+            knockout_kwargs['model_name'] = connectivity_cfg['model_name']
         run_knockout(
             output_dir=cfg.get('output_dir', OUTPUT_DIR),
-            connectivity_kwargs=cfg.get('connectivity', {}),
-            **cfg.get('subnetwork_extraction', {})
+            connectivity_kwargs=connectivity_cfg,
+            overwrite=overwrite,
+            **knockout_kwargs
         )
 

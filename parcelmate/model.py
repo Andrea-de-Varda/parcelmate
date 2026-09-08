@@ -32,6 +32,7 @@ class PerturbedModel(torch.nn.Module):
         layers = getattr(self.model, layers_attr)
         perturbation_coordinate_tensors = {}
         perturbation_value_tensors = {}
+        layer_selection = {}  # key -> boolean mask into perturbation_coordinates, for value updates
         n_layers = len(layers)
         for l_ix in layer_indices:
             if l_ix == 0:
@@ -59,9 +60,11 @@ class PerturbedModel(torch.nn.Module):
                 requires_grad=False
             )
             perturbation_value_tensors[key] = layer_values
+            layer_selection[key] = sel
 
         self.perturbation_coordinate_tensors = perturbation_coordinate_tensors
         self.perturbation_value_tensors = perturbation_value_tensors
+        self._layer_selection = layer_selection
 
         for l_ix in layer_indices:
             if l_ix == 0:
@@ -84,6 +87,26 @@ class PerturbedModel(torch.nn.Module):
                 self.model.ln_f = layer
             else:
                 layers[_l_ix] = layer
+
+    def set_perturbation_values(self, perturbation_values):
+        """Replace the perturbation values in place, keeping the coordinates fixed.
+
+        Needed for mean-ablation, where the replacement value is each unit's mean
+        activation *under the domain currently being processed* -- a unit's mean differs
+        substantially across domains (see the Iteration 1 diagnostics), so one set of
+        values cannot serve every domain. Coordinates never change, so only the value
+        tensors are rewritten.
+        """
+        perturbation_values = np.asarray(perturbation_values)
+        assert len(perturbation_values) == len(self.perturbation_coordinates), \
+            'perturbation_values must match perturbation_coordinates'
+        self.perturbation_values = perturbation_values
+        for key, coords in self.perturbation_coordinate_tensors.items():
+            sel = self._layer_selection[key]
+            target = self.perturbation_value_tensors[key]
+            target.data.copy_(
+                torch.as_tensor(perturbation_values[sel], dtype=target.dtype, device=target.device)
+            )
 
     def forward(self, *args, **kwargs):
         out = self.model.forward(*args, **kwargs)
@@ -110,25 +133,40 @@ class PerturbedLayer(torch.nn.Module):
         return out
 
 
-def get_model_and_tokenizer(model_name, knockout_probs=None, knockout_thresh=0.5, coordinates=None):
+def select_network_units(parcellation, network, knockout_thresh=0.5):
+    """Boolean mask of units whose membership in `network` reaches the threshold.
+
+    One network at a time, deliberately. The previous implementation OR-ed the mask over
+    every column of the parcellation, so it could only ever build a single model with the
+    union of all shared subnetworks lesioned at once, and could not ask what any one
+    subnetwork contributes (LOG.md S1).
+    """
+    assert 0 <= network < parcellation.shape[1], \
+        'network %d out of range for a parcellation with %d networks' % (network, parcellation.shape[1])
+
+    return parcellation[:, network] >= knockout_thresh
+
+
+def get_model_and_tokenizer(
+        model_name,
+        knockout_probs=None,
+        knockout_thresh=0.5,
+        coordinates=None,
+        network=None,
+        perturbation_values=None
+):
     model = AutoModel.from_pretrained(model_name)
     if knockout_probs is not None:
         assert coordinates is not None, 'coordinates must be provided if knockout_probs is not None'
-        sel = None
-        for ix in range(knockout_probs.shape[1]):
-            inv_mask_ = knockout_probs[:, ix] >= knockout_thresh
-            if sel is None:
-                sel = inv_mask_
-            else:
-                sel |= inv_mask_
-        perturbation_coordinates = coordinates[sel]
-        perturbation_values = None
+        assert network is not None, 'network must be provided if knockout_probs is not None'
+        sel = select_network_units(knockout_probs, network, knockout_thresh=knockout_thresh)
         model = PerturbedModel(
             model,
-            perturbation_coordinates=perturbation_coordinates,
-            perturbation_values=perturbation_values
+            perturbation_coordinates=coordinates[sel],
+            perturbation_values=perturbation_values  # None -> zeros (zero-ablation)
         )
     tokenizer = AutoTokenizer.from_pretrained(model_name)
+
     return model, tokenizer
 
 
@@ -195,6 +233,14 @@ def get_timecourses(
     model.to('cpu')
     torch.cuda.empty_cache()
 
+    # Per-unit activation statistics, computed here because the PCA/ICA transforms below
+    # replace the token axis with a component axis, after which a "mean activation" no
+    # longer exists. Used as the replacement value for mean-ablation (LOG.md S1) and, for
+    # the std, to size variance-matched random-lesion controls later.
+    unit_means = timecourses.mean(axis=-1)
+    unit_stds = timecourses.std(axis=-1)
+    n_obs = timecourses.shape[-1]
+
     if timecourse_pca_components:
         t = timecourses.shape[-1]
         n_components = min(timecourse_pca_components, t)
@@ -224,8 +270,28 @@ def get_timecourses(
 
     return dict(
         timecourses=timecourses,  # <n_neurons, n_tokens/n_components>
-        coordinates=coordinates  # <n_neurons>
+        coordinates=coordinates,  # <n_neurons>
+        unit_means=unit_means,  # <n_neurons>
+        unit_stds=unit_stds,  # <n_neurons>
+        n_obs=n_obs  # tokens contributing to the two above, for pooling across samples
     )
+
+
+def pool_unit_stats(means, stds, counts):
+    """Pool per-unit means and stds over samples of possibly unequal token count.
+
+    Means combine linearly; stds go through the second moment, since averaging stds
+    directly would understate the spread whenever the sample means differ.
+    """
+    means = np.asarray(means, dtype=np.float64)
+    stds = np.asarray(stds, dtype=np.float64)
+    counts = np.asarray(counts, dtype=np.float64)[:, None]
+    n = counts.sum()
+    mean = (means * counts).sum(axis=0) / n
+    second = ((stds ** 2 + means ** 2) * counts).sum(axis=0) / n
+    var = np.maximum(second - mean ** 2, 0.0)  # clamp float error at exact-zero variance
+
+    return mean.astype(np.float32), np.sqrt(var).astype(np.float32)
 
 
 def get_connectivity(timecourses, n_components=None, seed=None, use_gpu=None):
@@ -453,7 +519,10 @@ def run_connectivity(
         data_kwargs=None,
         model_kwargs=None,
         knockout_filepath=None,
+        knockout_network=None,
         knockout_thresh=0.5,
+        ablation='mean',
+        ablation_stats_dir=None,
         seed=None,
         overwrite=False,
         verbose=True,
@@ -476,11 +545,22 @@ def run_connectivity(
         knockout_probs = data['parcellation']
         knockout_coordinates = data['coordinates']
 
+    assert ablation in ('mean', 'zero'), 'ablation must be "mean" or "zero", got %s' % ablation
+    knockout_sel = None
+    if knockout_probs is not None:
+        knockout_sel = select_network_units(knockout_probs, knockout_network, knockout_thresh=knockout_thresh)
+        if verbose:
+            stderr('%sLesioning network %d: %d/%d units at thresh %s (%s-ablation)\n' % (
+                ' ' * indent, knockout_network, int(knockout_sel.sum()),
+                knockout_sel.size, knockout_thresh, ablation
+            ))
+
     model, tokenizer = get_model_and_tokenizer(
         model_name,
         knockout_probs=knockout_probs,
         coordinates=knockout_coordinates,
-        knockout_thresh=knockout_thresh
+        knockout_thresh=knockout_thresh,
+        network=knockout_network
     )
 
     if isinstance(domains, str):
@@ -527,6 +607,25 @@ def run_connectivity(
             raise ValueError('Unrecognized input data name: %s' % domain)
         _data_kwargs['tokenizer'] = tokenizer
 
+        # Mean-ablation: replace the lesioned units with their mean activation under THIS
+        # domain, read from the baseline run's stats. A unit's mean differs substantially
+        # across domains, so a single set of values would put the ablation off-distribution
+        # for most of them -- which is the whole reason for preferring mean over zero.
+        if knockout_sel is not None and ablation == 'mean':
+            stats_path = os.path.join(
+                ablation_stats_dir or connectivity_dir,
+                '%s_%s_avg%s' % (CONNECTIVITY_NAME, domain, EXTENSION)
+            )
+            assert 'unit_means' in h5_keys(stats_path), (
+                'mean-ablation needs baseline unit_means for domain "%s" at %s. Run the '
+                'connectivity step on the unperturbed model first, or set ablation: zero.'
+                % (domain, stats_path)
+            )
+            domain_means = load_h5_array(stats_path, 'unit_means')
+            model.set_perturbation_values(domain_means[knockout_sel])
+            if verbose:
+                stderr('%sMean-ablation values set from %s\n' % (' ' * indent, os.path.basename(stats_path)))
+
         # Per-domain seed, so re-running one domain reproduces what the full run produced
         # for it (the HDF5 cache makes single-domain re-runs a normal operation).
         domain_seed = derive_seed(seed, 'data', domain)
@@ -552,6 +651,7 @@ def run_connectivity(
         n = int(np.ceil(len(input_ids) / n_samples))
         connectivity = []
         coordinates = None
+        sample_means, sample_stds, sample_counts = [], [], []
         indent += 2
         new = False
         for i in range(0, len(input_ids), n):
@@ -573,7 +673,9 @@ def run_connectivity(
             else:
                 out = {}
             indent += 2
-            if 'connectivity' not in out or 'coordinates' not in out:
+            # unit_means/unit_stds are part of this step's output as of the mean-ablation
+            # work, so a cached file lacking them counts as incomplete and is recomputed.
+            if not all(k in out for k in ('connectivity', 'coordinates', 'unit_means', 'unit_stds', 'n_obs')):
                 _input_ids = input_ids[i:i+n]
                 _attention_mask = attention_mask[i:i+n]
                 out = get_timecourses(
@@ -601,10 +703,16 @@ def run_connectivity(
                 coordinates = out['coordinates']
                 save = False
             connectivity.append(_connectivity)
+            sample_means.append(out['unit_means'])
+            sample_stds.append(out['unit_stds'])
+            sample_counts.append(int(np.asarray(out['n_obs']).item()))
             if n_samples > 1 and save:
                 out_data = dict(
                     connectivity=_connectivity,
-                    coordinates=coordinates
+                    coordinates=coordinates,
+                    unit_means=out['unit_means'],
+                    unit_stds=out['unit_stds'],
+                    n_obs=np.asarray(out['n_obs'])
                 )
                 warn_dropped_keys(filepath, out_data, verbose=verbose, indent=indent)
                 save_h5_data(
@@ -629,17 +737,21 @@ def run_connectivity(
                 EXTENSION
             ),
         )
+        pooled_means, pooled_stds = pool_unit_stats(sample_means, sample_stds, sample_counts)
         save = True
         if os.path.exists(filepath) and not overwrite:
             # Key check only -- loading the file here read the whole connectivity matrix
-            # (~400 MB for GPT-2) just to test for the presence of two keys.
+            # (~400 MB for GPT-2) just to test for the presence of a few keys.
             keys = h5_keys(filepath)
-            if 'connectivity' in keys and 'coordinates' in keys and not new:
+            if all(k in keys for k in ('connectivity', 'coordinates', 'unit_means', 'unit_stds')) and not new:
                 save = False
         if save:
             out_data = dict(
                 connectivity=connectivity,
-                coordinates=coordinates
+                coordinates=coordinates,
+                unit_means=pooled_means,
+                unit_stds=pooled_stds,
+                n_obs=np.asarray(sum(sample_counts))
             )
             # This write truncates, dropping any parcellation previously stored here. That
             # is correct -- it was derived from the old connectivity -- but say so (M8).
@@ -876,51 +988,117 @@ def run_subnetwork_extraction(
     )
 
 
+def resolve_networks(networks, n_networks):
+    """Turn the `networks` option into an explicit list of network indices.
+
+    None means "do not lesion anything" -- knocking out is opt-in, so that running `-s all`
+    never silently lesions a model. 'all' means every shared subnetwork; a list or a single
+    int names them explicitly.
+    """
+    if networks is None:
+        return []
+    if isinstance(networks, str):
+        assert networks == 'all', 'networks must be None, "all", an int, or a list of ints; got %r' % networks
+        return list(range(n_networks))
+    if isinstance(networks, (int, np.integer)):
+        networks = [networks]
+    networks = [int(k) for k in networks]
+    bad = [k for k in networks if not 0 <= k < n_networks]
+    assert not bad, 'network index/indices %s out of range for %d shared networks' % (bad, n_networks)
+
+    return networks
+
+
 def run_knockout(
-        output_dir=os.path.join(OUTPUT_DIR, KNOCKOUT_NAME),
+        output_dir=OUTPUT_DIR,
         model_name='gpt2',
+        networks=None,
+        ablation='mean',
+        knockout_thresh=0.5,
         connectivity_kwargs=None,
         steps=('plot_stability',),
+        seed=None,
+        overwrite=False,
         verbose=True,
         indent=0
 ):
+    """Lesion shared subnetworks one at a time and re-measure connectivity.
+
+    `networks` is opt-in: left unset, this is a no-op. Set it to 'all' or a list of indices
+    to build one perturbed model per named subnetwork (LOG.md S1). The union-lesion the
+    previous implementation performed -- every unit of every shared subnetwork removed in a
+    single model -- is no longer reachable; it could not answer what any one subnetwork
+    contributes, which is the question the step exists to ask.
+    """
     if connectivity_kwargs is None:
         connectivity_kwargs = {}
+    # model_name is the single source of truth from the connectivity config, so a lesioned
+    # run can never silently use a different model than the baseline it is compared with.
+    connectivity_kwargs = {
+        k: v for k, v in connectivity_kwargs.items()
+        if k not in ('model_name', 'output_dir', 'overwrite', 'seed',
+                     'knockout_filepath', 'knockout_network', 'knockout_thresh',
+                     'ablation', 'ablation_stats_dir')
+    }
     subnetwork_dir = os.path.join(output_dir, SUBNETWORK_NAME)
-    knockout_dir = os.path.join(output_dir, 'knockout')
+    baseline_connectivity_dir = os.path.join(output_dir, CONNECTIVITY_NAME)
+    knockout_root = os.path.join(output_dir, KNOCKOUT_NAME)
 
     if verbose:
         stderr('Running knockout\n')
     indent += 2
 
-    if not os.path.exists(knockout_dir):
-        os.makedirs(knockout_dir)
+    if not os.path.exists(subnetwork_dir):
+        stderr('%sNo subnetwork directory at %s; run subnetwork_extraction first. Skipping.\n' % (
+            ' ' * indent, subnetwork_dir))
+        return
 
-    for path in os.listdir(subnetwork_dir):
+    for path in sorted(os.listdir(subnetwork_dir)):
         match = INPUT_NAME_RE.match(path)
         if not match:
             continue
         knockout_filepath = os.path.join(subnetwork_dir, path)
-        data = load_h5_data(knockout_filepath, verbose=False)
-        if 'parcellation' not in data:
+        if 'parcellation' not in h5_keys(knockout_filepath):
+            continue
+        parcellation = load_h5_array(knockout_filepath, 'parcellation')
+        n_networks = parcellation.shape[1]
+        selected = resolve_networks(networks, n_networks)
+
+        if not selected:
+            stderr('%s%s: %d shared networks available, none selected. Set `networks: all` '
+                   '(or a list of indices) under `subnetwork_knockout` to run lesions.\n' % (
+                       ' ' * indent, path, n_networks))
             continue
 
-        run_connectivity(
-            model_name=model_name,
-            output_dir=knockout_dir,
-            knockout_filepath=knockout_filepath,
-            knockout_thresh=0.5,
-            verbose=verbose,
-            indent=indent,
-            **connectivity_kwargs
-        )
+        if verbose:
+            stderr('%s%s: lesioning %d of %d shared networks (%s-ablation)\n' % (
+                ' ' * indent, path, len(selected), n_networks, ablation))
 
-        for step in steps:
-            if step == 'plot_stability':
-                plot_stability(
-                    output_dir=knockout_dir,
-                    verbose=verbose,
-                    indent=indent
-                )
-            else:
-                raise ValueError('Unrecognized step: %s' % step)
+        for network in selected:
+            network_dir = os.path.join(knockout_root, '%s%d' % (SUBNETWORK_NAME, network))
+            if verbose:
+                stderr('%sNetwork %d -> %s\n' % (' ' * (indent + 2), network, network_dir))
+            run_connectivity(
+                model_name=model_name,
+                output_dir=network_dir,
+                knockout_filepath=knockout_filepath,
+                knockout_network=network,
+                knockout_thresh=knockout_thresh,
+                ablation=ablation,
+                ablation_stats_dir=baseline_connectivity_dir,
+                seed=derive_seed(seed, 'knockout', path, network),
+                overwrite=overwrite,
+                verbose=verbose,
+                indent=indent + 4,
+                **connectivity_kwargs
+            )
+
+            for step in steps:
+                if step == 'plot_stability':
+                    plot_stability(
+                        output_dir=network_dir,
+                        verbose=verbose,
+                        indent=indent + 4
+                    )
+                else:
+                    raise ValueError('Unrecognized step: %s' % step)

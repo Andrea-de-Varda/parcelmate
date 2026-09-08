@@ -38,7 +38,11 @@ probs = np.zeros((n_layers_plus_1 * d, 1))
 for layer in (0, 3, 12):
     probs[layer * d + 5, 0] = 1.0  # knock out unit (layer, 5)
 
-model, tok = get_model_and_tokenizer('gpt2', knockout_probs=probs, knockout_thresh=0.5, coordinates=coords)
+# network=0 is now required: knockout selects one network at a time rather than OR-ing
+# across every column of the parcellation (see LOG.md S1).
+model, tok = get_model_and_tokenizer(
+    'gpt2', knockout_probs=probs, knockout_thresh=0.5, coordinates=coords, network=0
+)
 enc = tok('The quick brown fox jumps over the lazy dog', return_tensors='pt')
 with torch.no_grad():
     out = model(**enc, output_hidden_states=True)
