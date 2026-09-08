@@ -12,6 +12,8 @@ if __name__ == '__main__':
                            )
     argparser.add_argument('-O', '--overwrite', action='store_true',
                            help='Recompute all outputs, even if they already exist.')
+    argparser.add_argument('--seed', type=int, default=None,
+                           help='Master random seed, overriding any `seed` in the config.')
     args = argparser.parse_args()
     config_path = args.config_path
     steps = set(args.steps)
@@ -22,18 +24,27 @@ if __name__ == '__main__':
     else:
         cfg = {}
 
+    # Top-level `seed` supplies the default for every step; a step's own section may
+    # override it, and --seed on the command line overrides both.
+    seed = cfg.get('seed', None) if args.seed is None else args.seed
+
+    def stepcfg(name):
+        out = dict(cfg.get(name, {}))
+        out.setdefault('seed', seed)
+        return out
+
     if 'all' in steps or 'connectivity' in steps:
         run_connectivity(
             output_dir=cfg.get('output_dir', OUTPUT_DIR),
             overwrite=overwrite,
-            **cfg.get('connectivity', {})
+            **stepcfg('connectivity')
         )
 
     if 'all' in steps or 'parcellation' in steps:
         run_parcellation(
             output_dir=cfg.get('output_dir', OUTPUT_DIR),
             overwrite=overwrite,
-            **cfg.get('parcellation', {})
+            **stepcfg('parcellation')
         )
 
     if 'all' in steps or 'subnetwork_extraction' in steps:

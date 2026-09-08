@@ -48,7 +48,7 @@ def resolve(cli, profile):
     return settings
 
 
-def get_job(config_path, settings, steps=None):
+def get_job(config_path, settings, steps=None, overwrite=False, seed=None):
     """Render a single SLURM batch script as a string."""
     job_name = os.path.splitext(os.path.basename(config_path))[0]
     if steps:
@@ -102,6 +102,10 @@ def get_job(config_path, settings, steps=None):
     cmd = '%s -m parcelmate.bin.main %s' % (settings['python'], config_path)
     if steps:
         cmd += ' -s %s' % ' '.join(steps)
+    if overwrite:
+        cmd += ' -O'
+    if seed is not None:
+        cmd += ' --seed %d' % int(seed)
     out.append(cmd)
     out.append('')
 
@@ -135,6 +139,11 @@ if __name__ == '__main__':
     argparser.add_argument('-q', '--qos', default=None, help='Value for SLURM --qos setting')
     argparser.add_argument('-e', '--exclude', nargs='+', default=None, help='Nodes to exclude')
     argparser.add_argument('-o', '--outdir', default='./', help='Directory in which to place generated batch scripts')
+    argparser.add_argument('-O', '--overwrite', action='store_true',
+                           help='Pass -O to main.py, recomputing outputs that are already cached. '
+                                'Without this a re-run silently skips every step whose HDF5 output exists.')
+    argparser.add_argument('--seed', type=int, default=None,
+                           help='Pass --seed to main.py, overriding the config seed.')
     args = argparser.parse_args()
 
     cli = {key: getattr(args, key) for key in (
@@ -152,5 +161,5 @@ if __name__ == '__main__':
             job_name = '%s.%s' % (job_name, '_'.join(args.steps))
         filename = os.path.join(outdir, job_name + '.pbs')
         with open(filename, 'w') as f:
-            f.write(get_job(path, settings, steps=args.steps))
+            f.write(get_job(path, settings, steps=args.steps, overwrite=args.overwrite, seed=args.seed))
         print(filename)

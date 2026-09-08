@@ -8,17 +8,21 @@ from parcelmate.util import stderr
 
 
 class BaselineDataset:
-    def __init__(self, dataset_type, seq_len, tokenizer=None):
+    def __init__(self, dataset_type, seq_len, tokenizer=None, seed=None):
         assert dataset_type in ('whitespace', 'random'), 'Unknown dataset type: %s' % dataset_type
         self.dataset_type = dataset_type
         self.seq_len = seq_len
         self.tokenizer = tokenizer
+        self.rng = np.random.RandomState(seed if seed is None else int(seed) % (2 ** 32))
         if self.dataset_type == 'random':
             assert self.tokenizer is not None, 'Tokenizer must be provided for random dataset type'
             tokens = self.tokenizer.get_vocab()
             special_tokens = set(self.tokenizer.all_special_tokens)
-            tokens = [tokens[x] for x in tokens if not x in special_tokens]
-            self.tokens = tokens
+            # Sorted, because get_vocab() returns a dict whose iteration order is
+            # randomized per process (it comes from a Rust HashMap). Without sorting, the
+            # same seed selects the same list *positions* but different token ids on every
+            # run, so the `random` baseline was not reproducible even when seeded.
+            self.tokens = sorted(tokens[x] for x in tokens if not x in special_tokens)
         else:
             self.tokens = {}
 
@@ -29,7 +33,7 @@ class BaselineDataset:
         if self.dataset_type == 'whitespace':
             text = ' ' * self.seq_len
         elif self.dataset_type == 'random':
-            toks = np.random.choice(self.tokens, size=self.seq_len, replace=True)
+            toks = self.rng.choice(self.tokens, size=self.seq_len, replace=True)
             text = self.tokenizer.decode(toks)
         else:
             raise ValueError('Unknown dataset type: %s' % self.dataset_type)
@@ -55,6 +59,7 @@ def get_dataset(
         take=100000,
         wrap=True,
         shuffle=True,
+        seed=None,
         verbose=True,
         indent=0,
         **kwargs
@@ -64,7 +69,7 @@ def get_dataset(
     assert seq_len > 0, 'seq_len must be positive'
 
     if dataset in ('whitespace', 'random'):
-        dataset = BaselineDataset(dataset, seq_len, tokenizer=tokenizer)
+        dataset = BaselineDataset(dataset, seq_len, tokenizer=tokenizer, seed=seed)
     else:
         dataset = datasets.load_dataset(dataset, split=split, streaming=True, **kwargs)
         if take:
@@ -82,7 +87,9 @@ def get_dataset(
             _dataset.append(instance[key])
         dataset = _dataset
         if shuffle and take:
-            np.random.shuffle(dataset)
+            # Local RNG rather than the global one, so a domain's document order is
+            # reproducible in isolation (see util.derive_seed).
+            np.random.RandomState(seed if seed is None else int(seed) % (2 ** 32)).shuffle(dataset)
         assert split, 'split must be specified when loading a HuggingFace dataset'
 
     _n_tokens = 0
@@ -190,7 +197,9 @@ def bandpass(arr, step=None, lower=None, upper=None, order=5, axis=-1):
     return out
 
 
-def correlate(X, rowvar=True, use_gpu=True):
+def correlate(X, rowvar=True, use_gpu=None):
+    if use_gpu is None:  # Auto-detect; previously defaulted to True and crashed on CPU nodes
+        use_gpu = torch.cuda.is_available()
     if rowvar:
         X = X.T
     t = X.shape[0]

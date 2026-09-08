@@ -142,6 +142,7 @@ def get_timecourses(
         step=0.2,
         timecourse_pca_components=None,
         timecourse_ica_components=None,
+        seed=None,
         verbose=True,
         indent=0,
         **kwargs
@@ -161,12 +162,13 @@ def get_timecourses(
             stderr('\r%sBatch %d/%d' % (' ' * indent, i // batch_size + 1, B))
         _input_ids = input_ids[i:i + batch_size].to(device)
         _attention_mask = attention_mask[i:i + batch_size].to(device)
-        states = model(
-            input_ids=_input_ids,
-            attention_mask=_attention_mask,
-            output_hidden_states=True,
-            **kwargs
-        ).hidden_states
+        with torch.no_grad():  # Activations are only ever read; graphs here doubled GPU memory
+            states = model(
+                input_ids=_input_ids,
+                attention_mask=_attention_mask,
+                output_hidden_states=True,
+                **kwargs
+            ).hidden_states
         mask = _attention_mask.detach().cpu().numpy().astype(bool)
         _t = int(mask.sum())
         if timecourses is None:
@@ -202,7 +204,7 @@ def get_timecourses(
         n_components = min(n_components, t)
         m = Pipeline([
             ('scaler', StandardScaler()),
-            ('pca', PCA(n_components=n_components, svd_solver='auto', whiten=True))
+            ('pca', PCA(n_components=n_components, svd_solver='auto', whiten=True, random_state=seed))
         ])
         timecourses = m.fit_transform(timecourses)
         stderr(' (%0.2fs)\n' % (time.time() - t1))
@@ -215,7 +217,7 @@ def get_timecourses(
         t1 = time.time()
         m = Pipeline([
             ('scaler', StandardScaler()),
-            ('ica', FastICA(n_components=n_components, whiten='unit-variance'))
+            ('ica', FastICA(n_components=n_components, whiten='unit-variance', random_state=seed))
         ])
         timecourses = m.fit_transform(timecourses)
         stderr(' (%0.2fs)\n' % (time.time() - t1))
@@ -226,15 +228,15 @@ def get_timecourses(
     )
 
 
-def get_connectivity(timecourses, n_components=None):
+def get_connectivity(timecourses, n_components=None, seed=None, use_gpu=None):
     X = timecourses
     if n_components:
         m = Pipeline([
             ('scaler', StandardScaler()),
-            ('pca', PCA(n_components=n_components))
+            ('pca', PCA(n_components=n_components, random_state=seed))
         ])
         X = m.fit_transform(X)
-    R = correlate(X, rowvar=True)
+    R = correlate(X, rowvar=True, use_gpu=use_gpu)
 
     return R
 
@@ -247,6 +249,7 @@ def sample_parcellations(
         connectivity_pca_components=None,
         connectivity_ica_components=None,
         clustering_kwargs=None,
+        seed=None,
         verbose=True,
         indent=0
 ):
@@ -256,6 +259,11 @@ def sample_parcellations(
 
     if clustering_kwargs is None:
         clustering_kwargs = {}
+    # One RNG shared across the reductions and all clustering restarts. Drawing from a
+    # single stream (rather than reusing one fixed random_state) keeps the restarts
+    # different from one another, which the consensus averaging depends on, while making
+    # the whole set of restarts reproducible.
+    rng = np.random.RandomState(seed if seed is None else int(seed) % (2 ** 32))
     X = connectivity
     if binarize_connectivity:
         X = (X > np.quantile(X, 0.9, axis=1, keepdims=True)).astype(int)
@@ -267,7 +275,7 @@ def sample_parcellations(
             stderr('%sPCA transforming (n components = %s)' % (' ' * indent, n_components))
         t1 = time.time()
         n_components = min(n_components, X.shape[-1])
-        m = PCA(n_components=n_components, svd_solver='auto', whiten=True)
+        m = PCA(n_components=n_components, svd_solver='auto', whiten=True, random_state=rng)
         X = m.fit_transform(X)
         stderr(' (%0.2fs)\n' % (time.time() - t1))
     if connectivity_ica_components:
@@ -278,7 +286,7 @@ def sample_parcellations(
         if verbose:
             stderr('%sICA transforming (n components = %s)' % (' ' * indent, n_components))
         t1 = time.time()
-        m = FastICA(n_components=n_components, whiten='unit-variance')
+        m = FastICA(n_components=n_components, whiten='unit-variance', random_state=rng)
         X = m.fit_transform(X)
         stderr(' (%0.2fs)\n' % (time.time() - t1))
 
@@ -291,7 +299,9 @@ def sample_parcellations(
     for i in range(n_samples):
         if verbose and n_samples > 1:
             stderr('\r%sSample %d/%d' % (' ' * indent, i + 1, n_samples))
-        m = MiniBatchKMeans(n_clusters=n_networks, **clustering_kwargs)
+        _clustering_kwargs = dict(clustering_kwargs)
+        _clustering_kwargs.setdefault('random_state', rng)  # Explicit config still wins
+        m = MiniBatchKMeans(n_clusters=n_networks, **_clustering_kwargs)
         _sample = m.fit_predict(X)
         _score = m.inertia_
         samples[i, :] = _sample
@@ -312,9 +322,11 @@ def _align_samples(
         n_alignments=None,
         shuffle=False,
         greedy=True,
+        seed=None,
         verbose=True,
         indent=0
 ):
+    rng = np.random.RandomState(seed if seed is None else int(seed) % (2 ** 32))
     if w is None:
         _w = 1
     else:
@@ -328,7 +340,7 @@ def _align_samples(
 
     # Align subsequent samples
     if shuffle:
-        s_ix = np.random.permutation(n_samples)
+        s_ix = rng.permutation(n_samples)
         samples = samples[s_ix]
     n = n_alignments
     if n is None:
@@ -370,7 +382,7 @@ def _align_samples(
         if i >= n_samples:
             i = 0
             if shuffle:
-                s_ix = np.random.permutation(n_samples)
+                s_ix = rng.permutation(n_samples)
                 samples = samples[s_ix]
 
     if verbose and n > 0:
@@ -386,6 +398,7 @@ def align_samples(
         scores,
         n_alignments=None,
         weight_samples=False,
+        seed=None,
         verbose=True,
         indent=0
 ):
@@ -409,6 +422,7 @@ def align_samples(
         n_alignments=n_alignments,
         shuffle=False,
         greedy=True,
+        seed=seed,
         verbose=verbose,
         indent=indent + 2
     ).T
@@ -440,6 +454,7 @@ def run_connectivity(
         model_kwargs=None,
         knockout_filepath=None,
         knockout_thresh=0.5,
+        seed=None,
         overwrite=False,
         verbose=True,
         indent=0
@@ -448,6 +463,7 @@ def run_connectivity(
         data_kwargs = {}
     if model_kwargs is None:
         model_kwargs = {}
+    set_seed(seed)
     if n_tokens is None:
         n_tokens = (N_TOKENS // (seq_len * batch_size)) * seq_len * batch_size
 
@@ -511,6 +527,10 @@ def run_connectivity(
             raise ValueError('Unrecognized input data name: %s' % domain)
         _data_kwargs['tokenizer'] = tokenizer
 
+        # Per-domain seed, so re-running one domain reproduces what the full run produced
+        # for it (the HDF5 cache makes single-domain re-runs a normal operation).
+        domain_seed = derive_seed(seed, 'data', domain)
+
         input_ids, attention_mask = get_dataset(
             n_tokens=n_tokens * n_samples,
             split=split,
@@ -518,6 +538,7 @@ def run_connectivity(
             seq_len=seq_len,
             wrap=wrap,
             shuffle=shuffle,
+            seed=domain_seed,
             verbose=verbose,
             indent=indent,
             **_data_kwargs
@@ -565,6 +586,7 @@ def run_connectivity(
                     step=step,
                     timecourse_pca_components=timecourse_pca_components,
                     timecourse_ica_components=timecourse_ica_components,
+                    seed=derive_seed(seed, 'timecourses', domain, i // n + 1),
                     verbose=verbose,
                     indent=indent,
                     **model_kwargs
@@ -633,16 +655,27 @@ def run_parcellation(
         clustering_kwargs=None,
         n_alignments=None,
         weight_samples=False,
+        parcellate_samples=False,
+        seed=None,
         overwrite=False,
         verbose=True,
         indent=0
 ):
     connectivity_dir = os.path.join(output_dir, CONNECTIVITY_NAME)
+    set_seed(seed)
 
-    for path in os.listdir(connectivity_dir):
+    for path in sorted(os.listdir(connectivity_dir)):
         t0 = time.time()
         match = INPUT_NAME_RE.match(path)
         if not match:
+            continue
+        # By default parcellate only the sample-averaged connectivity. The regex also
+        # matches the per-sample files, and parcellating those multiplied the cost of the
+        # pipeline's longest stage by (n_samples + 1) to produce output that nothing
+        # downstream reads. Set parcellate_samples=True to recover them (e.g. for a
+        # parcellation-stability analysis); the per-sample connectivity is cached, so this
+        # is reversible without recomputing the model forward passes.
+        if not parcellate_samples and match.group(3) != 'avg':
             continue
         inpath = os.path.join(connectivity_dir, path)
         data = load_h5_data(inpath, verbose=verbose, indent=indent)
@@ -659,6 +692,7 @@ def run_parcellation(
                 connectivity_pca_components=connectivity_pca_components,
                 connectivity_ica_components=connectivity_ica_components,
                 clustering_kwargs=clustering_kwargs,
+                seed=derive_seed(seed, 'parcellation', path),
                 verbose=verbose,
                 indent=indent + 2
             )
@@ -667,6 +701,7 @@ def run_parcellation(
                 sample['scores'],
                 n_alignments=n_alignments,
                 weight_samples=weight_samples,
+                seed=derive_seed(seed, 'alignment', path),
                 verbose=verbose,
                 indent=indent + 2
             )
@@ -683,8 +718,20 @@ def run_parcellation(
                 stderr('%sElapsed time: %.2f s\n' % (' ' * (indent + 2), time.time() - t0))
 
 
+def _is_reciprocal_clique(assignment, domains, shared_subnetworks):
+    """True iff every pair of domains agrees on a reciprocal best match for this assignment."""
+    for i, domain1 in enumerate(domains):
+        for domain2 in domains[i + 1:]:
+            match = shared_subnetworks.get(domain1, {}).get(domain2, {}).get(assignment[domain1])
+            if match != assignment[domain2]:
+                return False
+
+    return True
+
+
 def run_subnetwork_extraction(
         output_dir=OUTPUT_DIR,
+        domains=None,
         verbose=True,
         indent=0
 ):
@@ -716,7 +763,17 @@ def run_subnetwork_extraction(
         parcellations[domain] = data['parcellation']
 
     shared_subnetworks = {}
-    domains = sorted(list(parcellations.keys()))
+    if domains is None:
+        domains = sorted(list(parcellations.keys()))
+    else:
+        # Explicit domain list, so that e.g. the `random`/`whitespace` baselines can be
+        # excluded from the definition of "domain-general" (see LOG.md M6).
+        if isinstance(domains, str):
+            domains = (domains,)
+        missing = [d for d in domains if d not in parcellations]
+        assert not missing, 'No parcellation found for requested domain(s): %s' % ', '.join(missing)
+        domains = sorted(domains)
+    assert domains, 'No parcellated domains found in %s' % connectivity_dir
     n_domains = len(domains)
     for d1 in range(len(domains)):
         domain1 = domains[d1]
@@ -745,25 +802,45 @@ def run_subnetwork_extraction(
             shared_subnetworks[domain1][domain2] = {int(x):int(y) for x, y in zip(ix1, ix2)}
             shared_subnetworks[domain2][domain1] = {int(y):int(x) for x, y in zip(ix1, ix2)}
 
+    # A network survives only if its assignment forms a full clique of reciprocal best
+    # matches: for EVERY pair of domains, the two networks assigned must be each other's
+    # best match. The previous implementation chained matches along the alphabetically
+    # sorted domain list, which verified only n_domains - 1 of the
+    # n_domains * (n_domains - 1) / 2 pairs. That made the surviving set depend on domain
+    # *names* (sort position decided which domains were interior, load-bearing links) and
+    # let network identity drift across hops, since the two ends of the chain were never
+    # compared. The clique criterion is order-independent and checks every pair.
+    reference = domains[0]
+    n_units, n_networks = parcellations[reference].shape
     networks = []
-    for start in shared_subnetworks[domains[0]][domains[1]]:
-        d_ix = 0
-        n_ix = start
-        network = []
-        while d_ix < len(domains):
-            domain = domains[d_ix]
-            network.append(parcellations[domain][..., n_ix])
-            if d_ix < n_domains - 1 and n_ix in shared_subnetworks[domain][domains[d_ix + 1]]:
-                n_ix = shared_subnetworks[domain][domains[d_ix + 1]][n_ix]
-                d_ix += 1
-            else:
+    for start in range(n_networks):
+        assignment = {reference: start}
+        for domain in domains[1:]:
+            partner = shared_subnetworks.get(reference, {}).get(domain, {}).get(start)
+            if partner is None:
                 break
+            assignment[domain] = partner
+        if len(assignment) != n_domains:
+            continue
+        if not _is_reciprocal_clique(assignment, domains, shared_subnetworks):
+            continue
+        network = np.stack(
+            [parcellations[domain][..., assignment[domain]] for domain in domains],
+            axis=0
+        ).mean(axis=0)
+        networks.append(network)
 
-        if len(network) == len(domains):
-            network = np.stack(network, axis=0).mean(axis=0)
-            networks.append(network)
-
-    networks = np.stack(networks, axis=1)
+    if verbose:
+        stderr('%s%d/%d networks form a reciprocal-best-match clique across %d domains (%s)\n' % (
+            ' ' * indent, len(networks), n_networks, n_domains, ', '.join(domains)
+        ))
+    if networks:
+        networks = np.stack(networks, axis=1)
+    else:
+        # Possible with a strict criterion over many domains. Save an empty (n_units, 0)
+        # parcellation rather than letting np.stack raise on an empty list.
+        stderr('%sWARNING: no shared subnetworks found; saving an empty parcellation.\n' % (' ' * indent))
+        networks = np.zeros((n_units, 0), dtype=parcellations[reference].dtype)
 
     if not os.path.exists(subnetwork_dir):
         os.makedirs(subnetwork_dir)

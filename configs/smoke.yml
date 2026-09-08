@@ -7,6 +7,9 @@
 
 output_dir: results/smoke
 
+# Master seed; see configs/gpt2.yml for how sub-seeds are derived.
+seed: 42
+
 connectivity:
   model_name: gpt2
   # Independent samples averaged (Fisher-z) into the final connectivity matrix.
@@ -39,6 +42,7 @@ parcellation:
   clustering_kwargs: null
   n_alignments: null
   weight_samples: false       # LOG.md S5 — fixed, but leave off
+  parcellate_samples: false   # LOG.md M4 — parcellate only the sample-averaged connectivity
 
 # NOTE: leave `subnetwork_extraction` absent until LOG.md S3 is resolved.
 # main.py forwards this section to BOTH run_subnetwork_extraction (which accepts
