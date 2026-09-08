@@ -196,6 +196,57 @@ shared_broken = {
 check('M6: chain that drifts is rejected',
       not _is_reciprocal_clique({'a': 0, 'b': 5, 'c': 9}, ['a', 'b', 'c'], shared_broken))
 
+# ---------------------------------------------------------------- M8: merge semantics
+import io                                               # noqa: E402
+import contextlib                                       # noqa: E402
+
+from parcelmate.util import h5_keys, warn_dropped_keys  # noqa: E402
+
+tmp8 = tempfile.mkdtemp(prefix='parcelmate_m8_')
+try:
+    path = os.path.join(tmp8, 'f.h5')
+    conn = np.arange(12, dtype=float).reshape(3, 4)
+    save_h5_data(dict(connectivity=conn, coordinates=np.zeros((3, 2))), path, verbose=False)
+
+    check('M8: h5_keys reads keys without loading data',
+          sorted(h5_keys(path)) == ['connectivity', 'coordinates'])
+    check('M8: h5_keys on a missing file returns empty',
+          h5_keys(os.path.join(tmp8, 'nope.h5')) == [])
+
+    save_h5_data(dict(parcellation=np.ones((3, 5))), path, merge=True, verbose=False)
+    after = load_h5_data(path, verbose=False)
+    check('M8: merge preserves existing keys',
+          sorted(after) == ['connectivity', 'coordinates', 'parcellation'])
+    check('M8: merge leaves existing data unchanged', np.array_equal(after['connectivity'], conn))
+    check('M8: merge writes the new key', after['parcellation'].shape == (3, 5))
+
+    save_h5_data(dict(parcellation=np.ones((3, 9))), path, merge=True, verbose=False)
+    check('M8: merge replaces a key of different shape',
+          load_h5_data(path, verbose=False)['parcellation'].shape == (3, 9))
+
+    buf = io.StringIO()
+    with contextlib.redirect_stderr(buf):
+        dropped = warn_dropped_keys(path, dict(connectivity=conn, coordinates=np.zeros((3, 2))))
+    check('M8: truncating write reports the derived key it will discard', dropped == ['parcellation'])
+    check('M8: the report names the file and the key',
+          'parcellation' in buf.getvalue() and 'f.h5' in buf.getvalue())
+
+    save_h5_data(dict(connectivity=conn, coordinates=np.zeros((3, 2))), path, verbose=False)
+    check('M8: truncating write still drops the stale parcellation (correct invalidation)',
+          'parcellation' not in h5_keys(path))
+
+    buf2 = io.StringIO()
+    with contextlib.redirect_stderr(buf2):
+        none_dropped = warn_dropped_keys(path, dict(connectivity=conn))
+    check('M8: no report when no derived key is present', none_dropped == [])
+
+    fresh = os.path.join(tmp8, 'fresh.h5')
+    save_h5_data(dict(a=np.zeros(3)), fresh, merge=True, verbose=False)
+    check('M8: merge on a new file creates it', h5_keys(fresh) == ['a'])
+finally:
+    shutil.rmtree(tmp8, ignore_errors=True)
+
+
 print()
 if failures:
     raise SystemExit('%d check(s) failed: %s' % (len(failures), failures))

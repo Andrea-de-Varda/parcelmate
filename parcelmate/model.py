@@ -602,11 +602,13 @@ def run_connectivity(
                 save = False
             connectivity.append(_connectivity)
             if n_samples > 1 and save:
+                out_data = dict(
+                    connectivity=_connectivity,
+                    coordinates=coordinates
+                )
+                warn_dropped_keys(filepath, out_data, verbose=verbose, indent=indent)
                 save_h5_data(
-                    dict(
-                        connectivity=_connectivity,
-                        coordinates=coordinates
-                    ),
+                    out_data,
                     filepath,
                     verbose=verbose,
                     indent=indent
@@ -629,15 +631,21 @@ def run_connectivity(
         )
         save = True
         if os.path.exists(filepath) and not overwrite:
-            out = load_h5_data(filepath, verbose=False)
-            if 'connectivity' in out and 'coordinates' in out and not new:
+            # Key check only -- loading the file here read the whole connectivity matrix
+            # (~400 MB for GPT-2) just to test for the presence of two keys.
+            keys = h5_keys(filepath)
+            if 'connectivity' in keys and 'coordinates' in keys and not new:
                 save = False
         if save:
+            out_data = dict(
+                connectivity=connectivity,
+                coordinates=coordinates
+            )
+            # This write truncates, dropping any parcellation previously stored here. That
+            # is correct -- it was derived from the old connectivity -- but say so (M8).
+            warn_dropped_keys(filepath, out_data, verbose=verbose, indent=indent)
             save_h5_data(
-                dict(
-                    connectivity=connectivity,
-                    coordinates=coordinates
-                ),
+                out_data,
                 filepath,
                 verbose=verbose,
                 indent=indent
@@ -707,9 +715,13 @@ def run_parcellation(
             )
             data['parcellation'] = parcellation
 
+            # Merge, so only the parcellation is written. Re-saving the whole `data` dict
+            # rewrote the ~400 MB connectivity matrix to append a ~2 MB array, and left a
+            # window in which a crash mid-write destroyed the connectivity too.
             save_h5_data(
-                data,
+                dict(parcellation=parcellation),
                 inpath,
+                merge=True,
                 verbose=verbose,
                 indent=indent + 2
             )
