@@ -2,7 +2,6 @@ __pycache__
 
 # Local working notes and scratch — not part of the upstream project
 info/CLUSTER.md
-tests/
 
 # Results and caches
 results/
