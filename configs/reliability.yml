@@ -1,4 +1,4 @@
-# Reliability / fidelity experiment (see info/PARCELLATION_DESIGN.md section 9, and LOG.md
+# Reliability / fidelity experiment (see info/PARCELLATION_DESIGN.md section 6, and LOG.md
 # Iteration 3). GPT-2, all seven domains, with a circular-shift null computed in the same
 # forward pass.
 #

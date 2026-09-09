@@ -896,6 +896,7 @@ def run_parcellation(
         n_alignments=None,
         weight_samples=False,
         parcellate_samples=False,
+        parcellate_keys=None,
         seed=None,
         variant='default',
         overwrite=False,
@@ -925,13 +926,17 @@ def run_parcellation(
         match = INPUT_NAME_RE.match(path)
         if not match:
             continue
-        # By default parcellate only the sample-averaged connectivity. The regex also
-        # matches the per-sample files, and parcellating those multiplied the cost of the
-        # pipeline's longest stage by (n_samples + 1) to produce output that nothing
-        # downstream reads. Set parcellate_samples=True to recover them (e.g. for a
-        # parcellation-stability analysis); the per-sample connectivity is cached, so this
-        # is reversible without recomputing the model forward passes.
-        if not parcellate_samples and match.group(3) != 'avg':
+        # By default parcellate the sample-average and the two split halves; the halves
+        # are what reliability and fidelity are computed from. Per-sample files are skipped
+        # unless asked for (M4): parcellating those multiplies the cost of the longest
+        # stage to produce output nothing currently reads, and the per-sample connectivity
+        # is cached, so it stays recoverable without new forward passes.
+        keys = tuple(parcellate_keys) if parcellate_keys else ('avg',) + HALF_NAMES
+        if parcellate_samples:
+            keys = keys + tuple(
+                k for k in (match.group(3),) if k.startswith(SAMPLE_NAME)
+            )
+        if match.group(3) not in keys:
             continue
         inpath = os.path.join(connectivity_dir, path)
         outpath = os.path.join(
@@ -1001,6 +1006,87 @@ def run_parcellation(
 
         if verbose:
             stderr('%sElapsed time: %.2f s\n' % (' ' * (indent + 2), time.time() - t0))
+
+
+def run_split_halves(
+        output_dir=OUTPUT_DIR,
+        eps=1e-3,
+        overwrite=False,
+        verbose=True,
+        indent=0
+):
+    """Combine the per-sample connectivity into two independent halves per domain.
+
+    Reliability and fidelity both need two connectivity estimates of the same domain built
+    from disjoint tokens. With n_samples=4 the halves are Fisher-avg(samples 1,2) and
+    Fisher-avg(samples 3,4), ~197k tokens each. Written as first-class connectivity files
+    (`connectivity_<domain>_halfA.h5`) so the ordinary parcellation step consumes them,
+    they are cached, and every parcellation of a half carries the usual provenance --
+    rather than being recomputed in memory by whatever script happens to need them.
+    """
+    connectivity_dir = os.path.join(output_dir, CONNECTIVITY_NAME)
+    if verbose:
+        stderr('%sBuilding split halves in %s\n' % (' ' * indent, connectivity_dir))
+    indent += 2
+
+    by_domain = {}
+    for path in sorted(os.listdir(connectivity_dir)):
+        match = INPUT_NAME_RE.match(path)
+        if not match or match.group(1) != CONNECTIVITY_NAME:
+            continue
+        key = match.group(3)
+        if not key.startswith(SAMPLE_NAME):
+            continue
+        by_domain.setdefault(match.group(2), []).append((int(key[len(SAMPLE_NAME):]), path))
+
+    for domain in sorted(by_domain):
+        samples = [p for _, p in sorted(by_domain[domain])]
+        assert len(samples) >= 2, \
+            'domain %s has %d sample(s); split halves need at least 2' % (domain, len(samples))
+        if len(samples) % 2:
+            stderr('%sNOTE: %s has an odd number of samples (%d); dropping the last so the '
+                   'halves are balanced\n' % (' ' * indent, domain, len(samples)))
+            samples = samples[:-1]
+        mid = len(samples) // 2
+        for name, group in zip(HALF_NAMES, (samples[:mid], samples[mid:])):
+            outpath = os.path.join(
+                connectivity_dir,
+                '%s_%s_%s%s' % (CONNECTIVITY_NAME, domain, name, EXTENSION)
+            )
+            if os.path.exists(outpath) and not overwrite:
+                if verbose:
+                    stderr('%sSkipping %s (exists)\n' % (' ' * indent, os.path.basename(outpath)))
+                continue
+            mats, means, stds, counts, coordinates = [], [], [], [], None
+            for path in group:
+                d = load_h5_data(os.path.join(connectivity_dir, path), verbose=False)
+                mats.append(d['connectivity'])
+                means.append(d['unit_means'])
+                stds.append(d['unit_stds'])
+                counts.append(int(np.asarray(d['n_obs']).item()))
+                coordinates = d['coordinates']
+            connectivity = fisher_average(*mats, eps=eps) if len(mats) > 1 else mats[0]
+            pooled_means, pooled_stds = pool_unit_stats(means, stds, counts)
+            save_h5_data(
+                dict(
+                    connectivity=connectivity,
+                    coordinates=coordinates,
+                    unit_means=pooled_means,
+                    unit_stds=pooled_stds,
+                    n_obs=np.asarray(sum(counts))
+                ),
+                outpath,
+                attrs=dict(
+                    domain=domain,
+                    key=name,
+                    sources=', '.join(group),
+                    n_obs=int(sum(counts)),
+                    git_commit=git_commit(),
+                    created=time.strftime('%Y-%m-%dT%H:%M:%S'),
+                ),
+                verbose=verbose,
+                indent=indent
+            )
 
 
 def _is_reciprocal_clique(assignment, domains, shared_subnetworks):

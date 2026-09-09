@@ -1,4 +1,5 @@
 import argparse
+import os
 
 from parcelmate.cfg import get_cfg
 from parcelmate.model import *
@@ -49,6 +50,15 @@ if __name__ == '__main__':
             **connectivity_kwargs
         )
 
+    if 'all' in steps or 'split_halves' in steps:
+        # Must run after connectivity and before parcellation: it turns the per-sample
+        # matrices into the two independent halves that reliability and fidelity need.
+        for out_dir in [cfg.get('output_dir', OUTPUT_DIR)] + (
+                [cfg.get('output_dir', OUTPUT_DIR).rstrip('/') + '_null']
+                if cfg.get('connectivity', {}).get('null_model') else []):
+            if os.path.isdir(os.path.join(out_dir, CONNECTIVITY_NAME)):
+                run_split_halves(output_dir=out_dir, overwrite=overwrite)
+
     # Parcellation variants. `parcellation` holds settings common to every arm;
     # `parcellation_variants` maps a variant name to the settings that differ. With no
     # variants block there is a single arm named 'default', so a plain config behaves as
@@ -63,13 +73,22 @@ if __name__ == '__main__':
         out['variant'] = name
         return out
 
+    # Both trees get parcellated: the null is only useful if the *same* pipeline runs on
+    # it, and the metrics are reported as real-minus-null.
+    def trees():
+        out = [cfg.get('output_dir', OUTPUT_DIR)]
+        if cfg.get('connectivity', {}).get('null_model'):
+            out.append(cfg.get('output_dir', OUTPUT_DIR).rstrip('/') + '_null')
+        return [t for t in out if os.path.isdir(t)]
+
     if 'all' in steps or 'parcellation' in steps:
-        for name in variants:
-            run_parcellation(
-                output_dir=cfg.get('output_dir', OUTPUT_DIR),
-                overwrite=overwrite,
-                **variant_cfg(name)
-            )
+        for tree in trees():
+            for name in variants:
+                run_parcellation(
+                    output_dir=tree,
+                    overwrite=overwrite,
+                    **variant_cfg(name)
+                )
 
     if 'all' in steps or 'subnetwork_extraction' in steps:
         for name in variants:

@@ -54,7 +54,7 @@ Discarding half the variation would be reasonable if the discarded half were noi
 
 **Whitening.** `whiten=True` then rescales all 200 summaries to have equal spread before k-means measures distances. In effect it declares that every retained direction is equally important for deciding network membership. Concretely, the 200th direction carries 0.074% of the variation and the 1st carries 2.8%, yet after whitening they contribute equally to whether two units are judged similar — a 38-fold reweighting in favour of the weakest directions. This is a real statistical claim (formally, it turns Euclidean distance into Mahalanobis distance), and it is currently asserted by a default argument rather than argued for.
 
-The recommended fix in section 7 removes this step entirely rather than tuning it. Cosine similarity between standardized profiles is exactly the correlation between those two profiles, so profile similarity can be computed in full — all 9,984 columns, every direction at its natural weight — without any compression step to truncate or reweight.
+The recommended fix in section 8 removes this step entirely rather than tuning it. Cosine similarity between standardized profiles is exactly the correlation between those two profiles, so profile similarity can be computed in full — all 9,984 columns, every direction at its natural weight — without any compression step to truncate or reweight.
 
 **2.4 k = 50 is fixed, with no selection criterion.** See section 5 — the field's position is that no credible criterion exists.
 
@@ -105,7 +105,34 @@ The one principled exception is minimum description length inside a stochastic b
 
 **Practical consequence.** Do not select or defend a single k. Run a range of granularities, report the main result at each, and show the conclusion survives. Precedent for sweeping rather than fixing: Power et al. (2011) ran Infomap across tie densities from 10% down to 2%. A hard methodological rule from Schaefer et al. (2018): when comparing two parcellations, always match the number of parcels, or use a null of random parcellations with matched size distributions.
 
-## 6. Options assessed
+## 6. How we decide whether a change is an improvement
+
+There is no ground truth, so "better" has to be defined before any arm is run. Two metrics are used, chosen because they are **degenerate in opposite directions**: reliability is maximized by trivial solutions, fidelity by overfit ones. A change that improves both is a real improvement; a change that improves one at the expense of the other is a move along a tradeoff curve. This is the same tension Thirion et al. (2014) report when cross-validated likelihood and bootstrap reproducibility disagree by an order of magnitude on the same data.
+
+**Reliability** compares a partition to *another partition*. Parcellate half A and half B of the same domain independently, take argmax labels, and compute the adjusted Rand index between them. It asks: does the algorithm return the same answer twice? Its failure mode is that an algorithm which ignores the data entirely -- one that always returns the same labels -- scores 1.0.
+
+**Fidelity** compares a partition to *a data matrix*. Fit a parcellation on half A, estimate each (network, network) block's mean connectivity **on half A**, use those means to predict half B, and score `R2 = 1 - SS_res / SS_tot` over the strict upper triangle of half B. Both the partition and the values it predicts with are therefore out of sample. It asks: does the partition describe connectivity it has not seen? Its failure mode is that more blocks always explain more, so arms must be compared at matched `n_networks` (all three currently use 50).
+
+**Both are reported relative to the circular-shift null**, which is the only thing that makes reliability non-degenerate. The null rotates each unit's timecourse by an independent offset, preserving its marginal and autocorrelation exactly while destroying cross-unit correlation. The identical pipeline -- connectivity, split halves, all three variants -- is run on the null tree. An algorithm whose apparent stability comes from its own inductive bias scores the same on both, so the difference is zero:
+
+| metric | reported quantity |
+|---|---|
+| reliability | ARI(half A, half B) on real, minus ARI(half A, half B) on null |
+| fidelity | R2 on real, minus R2 on null |
+
+The null floor for fidelity is not exactly zero: with 50 blocks and ~50 million pairs, even a partition of pure noise explains a sliver of held-out variance by fitting block means to noise. The null measures precisely that floor.
+
+**Fidelity also gets an uncompressed reference**: predict half B from half A directly, with no parcellation, every unit keeping its own identity. Whatever is unexplained there is sampling noise between halves, so it converts fidelity from an arbitrary number into a fraction of what was achievable. It is *not* a strict upper bound, and the exception is informative: the uncompressed predictor carries all of half A's noise, whereas a block model averages that noise away, so a parcellation can beat the reference when the structure genuinely is block-like and the estimates are noisy. This is demonstrated on synthetic data in `tests/verify_iter4_metrics.py`. On real connectivity, whose structure is far richer than any 50-block summary, the reference should sit above every variant; a variant exceeding it would be a finding, not a bug.
+
+**Triviality checks** target the "a dumb algorithm could score well" objection directly: adjusted mutual information between the parcellation and the layer index, and between the parcellation and hubness decile. A parcellation largely recoverable from layer index is telling us nothing a `for layer in layers` loop would not. Hubness is included because the pre-S2 transposed binarization made clustering partly a function of degree, so it is a known failure mode in this codebase specifically.
+
+**Protocol choices**, settled 2026-09-09. Halves are Fisher-avg(samples 1,2) versus Fisher-avg(samples 3,4), ~197k tokens each. Block means are estimated on the fitting half, so fidelity is fully out of sample. Domains are weighted equally rather than by token count: the question is whether a method works across domains, and letting a large corpus dominate would answer a different one. Hard argmax labels are the headline; the soft-membership variant (predicting `P M P'`) is computed and reported alongside, because that choice was never settled and it is cheap to report both.
+
+**Within versus across domain** is just which matrix is held out. Within: fit on wikitext half A, score wikitext half B. Across: fit on wikitext's average, score codeparrot's. The across/within ratio is a *continuous* measure of domain-generality, and a better one than the reciprocal-best-match clique of section 1, which is a binary survive-or-die test that discards how *much* a network transfers.
+
+Implemented in [parcelmate/metrics.py](../parcelmate/metrics.py), driven by [parcelmate/bin/score.py](../parcelmate/bin/score.py), verified in [tests/verify_iter4_metrics.py](../tests/verify_iter4_metrics.py).
+
+## 7. Options assessed
 
 | method | auto-k | signed | scales to 30B | maintained | verdict |
 |---|---|---|---|---|---|
@@ -121,7 +148,7 @@ The one principled exception is minimum description length inside a stochastic b
 
 **Why not OSLOM.** It is not signed, it trades k for a tolerance parameter alpha rather than eliminating a free parameter, Palowitch et al. (2018) show it becomes increasingly anti-conservative as N grows (assigning background nodes to communities), and it has been unmaintained since roughly 2012 — CDlib declined to integrate it because only a subprocess wrapper exists. Defensible as a secondary robustness check, not as a backbone.
 
-## 7. Recommendation
+## 8. Recommendation
 
 Three stages, in priority order.
 
@@ -135,14 +162,14 @@ Note that Stage 1 keeps only the *local* part of the current sparsification and 
 
 **Risk to state explicitly.** Sparsifying too aggressively pushes the graph below the detectability threshold, where no algorithm can recover planted communities (Decelle et al. 2011; Krzakala et al. 2013).
 
-## 8. Ruled out, with reasons
+## 9. Ruled out, with reasons
 
 - **Backboning (disparity filter, Polya urn, noise-corrected).** All three test edges against nulls that assume non-negative apportioned flows such as traffic or counts. A correlation is signed, bounded, and a Gram entry with forced transitivity; node strength has no interpretation as a divisible quantity. They also operate on a materialized edge list, which is what we are avoiding. No published validation on correlation matrices was found.
 - **PMFG / TMFG.** Fixed at 3(N-2) edges, i.e. mean degree about 6, which at N = 4e5 is likely below the detectability threshold. PMFG's construction also requires sorting all N(N-1)/2 edges.
 - **Effective-resistance spectral sparsification.** Undefined for signed weights (the Laplacian is not PSD, so effective resistance is not a metric); the edge budget O(n log n / eps^2) is not competitive with kNN at this n; and its guarantee is the Laplacian quadratic form, not community structure. Chen et al. (2024) measured 990 s to compute effective resistances on a 132k-node, 40M-edge graph.
 - **Gradients as a replacement for parcellation.** Kong et al. (2023) found principal gradients need 40-60 dimensions to match hard parcellations, not the 1-3 usually reported. Note also that BrainSpace's default `sparsity=0.9` is itself an unswept arbitrary threshold.
 
-## 9. Open decisions
+## 10. Open decisions
 
 1. Adopt the Stage 1 change (Fisher-transformed `|r|` profiles, no binarization, no PCA, vMF) as the plan of record? This changes all existing parcellations, so results before and after are not comparable.
 2. Within Stage 1, keep a top-10% profile mask or cluster dense magnitude profiles? Test both; the supporting evidence for local selection was not gathered on profile clustering.
@@ -153,7 +180,7 @@ Note that Stage 1 keeps only the *local* part of the current sparsification and 
 
 Open question with no literature answer: no published work assembles implicit Gram products, RMT filtering, kNN construction and community detection for correlation graphs at N ~ 10^5-10^6. Building it would be a modest methodological contribution worth claiming.
 
-## 10. References
+## 11. References
 
 Verified by fetching the publisher or arXiv page unless marked otherwise.
 
@@ -175,7 +202,7 @@ Verified by fetching the publisher or arXiv page unless marked otherwise.
 
 **Preprints, not peer-reviewed** — cite with care: Bhattacharya et al. (2025), *Comparative Evaluation of Assumption Lean Community Detection Methods for Human Connectome Networks*, bioRxiv 2025.11.13.688333 (reports that silhouette, Calinski-Harabasz, modularity and NMI all failed to identify an optimal number of communities on real connectome data). Dicks et al. (2026), *GPU-accelerated single-cell analysis at scale with rapids-singlecell*, arXiv:2603.02402 (the 1M-cell kNN-plus-Leiden timing). Neuman, Smiljanic & Rosvall (2025), arXiv:2510.15013. Vu-Le et al. (2025), arXiv:2508.03843.
 
-## 11. Not verified — do not cite without checking
+## 12. Not verified — do not cite without checking
 
 Marchenko & Pastur (1967) original reference; Ledoit-Peche nonlinear shrinkage; PMFG's O(N^3) and TMFG's exact complexity claims; graph-tool's O(E log^2 N) per-sweep complexity and any concrete node/edge ceiling; the Leiden paper's own benchmark table; `leidenalg`'s current negative-weight API name (**verify before writing code**); cuGraph's 500M-edge figure; Infomap's scalability numbers; Jbabdi et al. (2009); Lashkari et al.; Caparelli et al. (2025); Bassett et al. (2013) Chaos DOI; Xiong et al. TAPER volume and pages; the `pyRMT` and `fast_tmfg` packages; Coscia's backboning code URL.
 

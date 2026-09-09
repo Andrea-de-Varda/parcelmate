@@ -10,7 +10,8 @@ SAMPLE_NAME = 'sample'
 N_SAMPLES = 4
 N_TOKENS = 100000
 EXTENSION = '.h5'
-INPUT_NAME_RE = re.compile(r'(%s|%s)_(.+)_(%s\d+|avg)%s' % (
+HALF_NAMES = ('halfA', 'halfB')  # split-half connectivity, for reliability/fidelity
+INPUT_NAME_RE = re.compile(r'(%s|%s)_(.+)_(%s\d+|halfA|halfB|avg)%s' % (
     CONNECTIVITY_NAME, PARCELLATION_NAME, SAMPLE_NAME, EXTENSION)
 )
 
