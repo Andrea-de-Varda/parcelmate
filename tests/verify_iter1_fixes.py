@@ -117,22 +117,28 @@ try:
                 verbose=False
             )
 
+    # Parcellations are written to <output_dir>/<variant>/parcellation/, never back into
+    # the connectivity file, so which sources were parcellated is read off that directory.
+    parc_dir = os.path.join(tmp, 'default', 'parcellation')
     run_parcellation(output_dir=tmp, seed=11, verbose=False, **kw)
-    has = {f: 'parcellation' in load_h5_data(os.path.join(conn_dir, f), verbose=False)
-           for f in sorted(os.listdir(conn_dir))}
-    check('M4: avg files are parcellated', all(v for f, v in has.items() if f.endswith('avg.h5')))
+    produced = sorted(os.listdir(parc_dir))
+    check('M4: avg files are parcellated',
+          sorted(produced) == ['parcellation_%s_avg.h5' % d for d in ('alpha', 'beta', 'gamma')])
     check('M4: per-sample files are skipped by default',
-          not any(v for f, v in has.items() if 'sample' in f))
+          not any('sample' in f for f in produced))
+    check('M4: the connectivity file is not written to',
+          'parcellation' not in load_h5_data(
+              os.path.join(conn_dir, 'connectivity_alpha_avg.h5'), verbose=False))
 
     run_parcellation(output_dir=tmp, seed=11, parcellate_samples=True, verbose=False, **kw)
-    has2 = {f: 'parcellation' in load_h5_data(os.path.join(conn_dir, f), verbose=False)
-            for f in sorted(os.listdir(conn_dir))}
-    check('M4: parcellate_samples=True recovers per-sample files', all(has2.values()))
+    produced2 = sorted(os.listdir(parc_dir))
+    check('M4: parcellate_samples=True recovers per-sample files',
+          len(produced2) == 9 and sum('sample' in f for f in produced2) == 6)
 
     # --- M6: clique extraction
     run_subnetwork_extraction(output_dir=tmp, verbose=False)
     out = load_h5_data(
-        os.path.join(tmp, SUBNETWORK_NAME, 'parcellation_shared_avg.h5'), verbose=False
+        os.path.join(tmp, 'default', SUBNETWORK_NAME, 'parcellation_shared_avg.h5'), verbose=False
     )
     n_all = out['parcellation'].shape[1]
     check('M6: extraction produces a (n_units, n_networks) parcellation',
@@ -142,7 +148,7 @@ try:
     # Order independence: the surviving set must not depend on which domain is first.
     run_subnetwork_extraction(output_dir=tmp, domains=['gamma', 'beta', 'alpha'], verbose=False)
     out_rev = load_h5_data(
-        os.path.join(tmp, SUBNETWORK_NAME, 'parcellation_shared_avg.h5'), verbose=False
+        os.path.join(tmp, 'default', SUBNETWORK_NAME, 'parcellation_shared_avg.h5'), verbose=False
     )
     check('M6: result is independent of the order domains are supplied in',
           np.allclose(np.sort(out['parcellation'], axis=None),
@@ -151,22 +157,21 @@ try:
     # Domain subsetting (the mechanism for excluding baselines).
     run_subnetwork_extraction(output_dir=tmp, domains=['alpha', 'beta'], verbose=False)
     out_sub = load_h5_data(
-        os.path.join(tmp, SUBNETWORK_NAME, 'parcellation_shared_avg.h5'), verbose=False
+        os.path.join(tmp, 'default', SUBNETWORK_NAME, 'parcellation_shared_avg.h5'), verbose=False
     )
     check('M6: subsetting domains is at least as permissive as using all',
           out_sub['parcellation'].shape[1] >= n_all)
 
     # Empty result must not raise (previously np.stack([]) crashed).
     empty_dir = os.path.join(tmp, 'empty')
-    os.makedirs(os.path.join(empty_dir, CONNECTIVITY_NAME))
     rng = np.random.RandomState(3)
     for domain in ('alpha', 'beta'):
         # Orthogonal random parcellations: reciprocal best matches are unlikely to be
         # consistent, and any that survive must still not crash the save path.
-        parc = rng.rand(R.shape[0], 4)
         save_h5_data(
-            dict(connectivity=R, coordinates=coords, parcellation=parc),
-            os.path.join(empty_dir, CONNECTIVITY_NAME, 'connectivity_%s_avg.h5' % domain),
+            dict(parcellation=rng.rand(R.shape[0], 4), coordinates=coords),
+            os.path.join(empty_dir, 'default', 'parcellation',
+                         'parcellation_%s_avg.h5' % domain),
             verbose=False
         )
     try:

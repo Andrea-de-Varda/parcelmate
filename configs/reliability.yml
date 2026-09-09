@@ -1,0 +1,85 @@
+# Reliability / fidelity experiment (see info/PARCELLATION_DESIGN.md section 9, and LOG.md
+# Iteration 3). GPT-2, all seven domains, with a circular-shift null computed in the same
+# forward pass.
+#
+# Connectivity (GPU) is computed once and shared; each parcellation arm is a named variant
+# writing to its own subtree, so arms never overwrite one another.
+#
+# Outputs:
+#   results/reliability/connectivity/              real connectivity (shared)
+#   results/reliability/<variant>/parcellation/    one per arm
+#   results/reliability/<variant>/subnetwork/
+#   results/reliability_null/...                   same shape, circshift null
+
+output_dir: results/reliability
+
+seed: 42
+
+connectivity:
+  model_name: gpt2
+  # 4 samples so the metrics script can form two independent halves as
+  # Fisher-avg(samples 1,2) vs Fisher-avg(samples 3,4), ~197k tokens each.
+  n_samples: 4
+  domains:
+    - wikitext
+    - bookcorpus
+    - agnews
+    - tldr17
+    - codeparrot
+    - random      # baseline; LOG.md S6 - not currently true random token ids
+    - whitespace  # baseline; degenerate connectivity, see Iteration 1 diagnostics
+  seq_len: 1024
+  n_tokens: null   # -> 98,304 per sample. Must exceed n_units (9,984) for the circshift null.
+  split: train
+  take: 100000
+  wrap: true
+  shuffle: true
+  batch_size: 8
+  highpass: null
+  lowpass: null
+  step: 0.2
+  timecourse_pca_components: null
+  timecourse_ica_components: null
+  eps: 1.0e-3
+  # Circular shift per unit: destroys cross-unit correlation, preserves each unit's
+  # marginal and autocorrelation. Written to `<output_dir>_null` with identical filenames.
+  # The key is `null_model`, not `null`: YAML parses a bare `null` key as None.
+  null_model: circshift
+
+# No `subnetwork_knockout` section: knockout is not part of this experiment and stays a
+# no-op (LOG.md S1).
+
+# Settings shared by every parcellation arm. Arm-specific overrides live in
+# `parcellation_variants` below.
+parcellation:
+  n_networks: 50
+  n_samples: 100              # clustering restarts, aligned and averaged
+  clustering_kwargs: null
+  n_alignments: null
+  weight_samples: false       # LOG.md S5 - fixed, but leave off
+  parcellate_samples: false   # LOG.md M4 - only the sample-averaged connectivity
+
+# The three arms of the method comparison. Each writes to
+# results/reliability/<name>/parcellation/, with its settings recorded in the file.
+parcellation_variants:
+
+  # The inherited pipeline, bug and all: the quantile broadcast column-wise, so the
+  # binarized matrix came out transposed and clustering was partly driven by hubness
+  # (LOG.md S2). Included so the comparison can say how much the bug alone was costing.
+  legacy:
+    binarize_connectivity: true
+    legacy_binarize: true
+    connectivity_pca_components: 200
+
+  # The corrected pipeline as it stands today. This is the reference point.
+  current:
+    binarize_connectivity: true
+    legacy_binarize: false
+    connectivity_pca_components: 200
+
+  # First ablation: keep the magnitudes (Fisher-transformed) instead of binarizing, and
+  # drop the PCA truncation and whitening entirely. See PARCELLATION_DESIGN.md 2.2 and 2.3.
+  nopca_fisher:
+    binarize_connectivity: false
+    fisher_transform: true
+    connectivity_pca_components: null

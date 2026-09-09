@@ -60,23 +60,28 @@ def plot_connectivity(
 
 def plot_parcellation(
         output_dir='results',
+        variant='default',
         verbose=True,
         indent=0
 ):
-    connectivity_dir = os.path.join(output_dir, CONNECTIVITY_NAME)
-    subnetwork_dir = os.path.join(output_dir, SUBNETWORK_NAME)
-    plot_dir = os.path.join(output_dir, PLOT_DIR, PARCELLATION_NAME)
+    parcellation_dir = os.path.join(output_dir, variant, PARCELLATION_NAME)
+    subnetwork_dir = os.path.join(output_dir, variant, SUBNETWORK_NAME)
+    plot_dir = os.path.join(output_dir, variant, PLOT_DIR, PARCELLATION_NAME)
 
     if verbose:
-        stderr('Plotting parcellations\n')
+        stderr('Plotting parcellations (variant=%s)\n' % variant)
     indent += 2
 
-    parents = (subnetwork_dir, connectivity_dir)
+    parents = [d for d in (subnetwork_dir, parcellation_dir) if os.path.isdir(d)]
+    if not parents:
+        stderr('%sNothing to plot for variant %r; run the parcellation step first.\n' % (
+            ' ' * indent, variant))
+        return
     for parent in parents:
-        paths = os.listdir(parent)
+        paths = sorted(os.listdir(parent))
         for path in paths:
             match = INPUT_NAME_RE.match(path)
-            if match and match.group(1) in (CONNECTIVITY_NAME, PARCELLATION_NAME):
+            if match and match.group(1) == PARCELLATION_NAME:
                 domain = match.group(2)
             else:
                 continue

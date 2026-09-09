@@ -34,24 +34,50 @@ if __name__ == '__main__':
         return out
 
     if 'all' in steps or 'connectivity' in steps:
+        connectivity_kwargs = stepcfg('connectivity')
+        # `null_output_dir` defaults to a sibling of output_dir, so a config need only say
+        # `null_model: circshift`. Filenames match the real tree exactly, so every later
+        # step (parcellation, metrics) runs on either tree unchanged by pointing at it.
+        # The key is `null_model`, not `null`: YAML parses a bare `null` key as None, which
+        # reaches run_connectivity as a non-string keyword and fails obscurely.
+        if connectivity_kwargs.get('null_model') and not connectivity_kwargs.get('null_output_dir'):
+            connectivity_kwargs['null_output_dir'] = \
+                cfg.get('output_dir', OUTPUT_DIR).rstrip('/') + '_null'
         run_connectivity(
             output_dir=cfg.get('output_dir', OUTPUT_DIR),
             overwrite=overwrite,
-            **stepcfg('connectivity')
+            **connectivity_kwargs
         )
+
+    # Parcellation variants. `parcellation` holds settings common to every arm;
+    # `parcellation_variants` maps a variant name to the settings that differ. With no
+    # variants block there is a single arm named 'default', so a plain config behaves as
+    # before. Each variant writes to <output_dir>/<variant>/, so arms never overwrite one
+    # another and one config documents the whole experiment.
+    variants = cfg.get('parcellation_variants') or {'default': {}}
+    assert isinstance(variants, dict), '`parcellation_variants` must be a mapping of name -> settings'
+
+    def variant_cfg(name):
+        out = stepcfg('parcellation')
+        out.update(variants[name] or {})
+        out['variant'] = name
+        return out
 
     if 'all' in steps or 'parcellation' in steps:
-        run_parcellation(
-            output_dir=cfg.get('output_dir', OUTPUT_DIR),
-            overwrite=overwrite,
-            **stepcfg('parcellation')
-        )
+        for name in variants:
+            run_parcellation(
+                output_dir=cfg.get('output_dir', OUTPUT_DIR),
+                overwrite=overwrite,
+                **variant_cfg(name)
+            )
 
     if 'all' in steps or 'subnetwork_extraction' in steps:
-        run_subnetwork_extraction(
-            output_dir=cfg.get('output_dir', OUTPUT_DIR),
-            **cfg.get('subnetwork_extraction', {})
-        )
+        for name in variants:
+            run_subnetwork_extraction(
+                output_dir=cfg.get('output_dir', OUTPUT_DIR),
+                variant=name,
+                **cfg.get('subnetwork_extraction', {})
+            )
 
     if 'all' in steps or 'plot_connectivity' in steps:
         plot_connectivity(
@@ -59,9 +85,11 @@ if __name__ == '__main__':
         )
 
     if 'all' in steps or 'plot_parcellation' in steps:
-        plot_parcellation(
-            output_dir=cfg.get('output_dir', OUTPUT_DIR)
-        )
+        for name in variants:
+            plot_parcellation(
+                output_dir=cfg.get('output_dir', OUTPUT_DIR),
+                variant=name
+            )
 
     if 'all' in steps or 'plot_stability' in steps:
         plot_stability(
@@ -85,10 +113,12 @@ if __name__ == '__main__':
             'model must be the same model the baseline was measured on'
         if 'model_name' in connectivity_cfg:
             knockout_kwargs['model_name'] = connectivity_cfg['model_name']
-        run_knockout(
-            output_dir=cfg.get('output_dir', OUTPUT_DIR),
-            connectivity_kwargs=connectivity_cfg,
-            overwrite=overwrite,
-            **knockout_kwargs
-        )
+        for name in variants:
+            run_knockout(
+                output_dir=cfg.get('output_dir', OUTPUT_DIR),
+                variant=name,
+                connectivity_kwargs=connectivity_cfg,
+                overwrite=overwrite,
+                **knockout_kwargs
+            )
 

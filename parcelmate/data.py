@@ -235,6 +235,40 @@ def correlate(X, rowvar=True, use_gpu=None):
     return R
 
 
+def circshift_timecourses(X, rng=None):
+    """Independently circularly shift each unit's timecourse. Returns a new array.
+
+    Null model for the connectivity matrix. A circular shift destroys cross-unit
+    correlation at lag zero while preserving each unit's marginal distribution and its own
+    autocorrelation exactly. That is the property we want: a method whose apparent
+    stability comes from its own inductive bias (say, one that effectively recovers layer
+    identity) will be just as "reliable" on this null as on real data, so reporting
+    reliability *relative to* the null makes the metric non-degenerate. An independent
+    permutation per unit would also destroy each unit's temporal structure, which would be
+    an unfairly harsh null for any method that legitimately exploits it.
+
+    Offsets are drawn without replacement, so no two units share a shift and no pair
+    retains its true correlation by accident (possible because n_tokens > n_units here).
+
+    Memory: allocates one array the size of X. The caller holds both the original and the
+    shifted copy, so peak usage is twice the timecourse array.
+    """
+    if rng is None:
+        rng = np.random.RandomState()
+    n_units, n_tokens = X.shape
+    assert n_tokens > n_units, \
+        'circshift null needs more tokens (%d) than units (%d) to give every unit a ' \
+        'distinct offset' % (n_tokens, n_units)
+    offsets = rng.choice(np.arange(1, n_tokens), size=n_units, replace=False)
+    out = np.empty_like(X)
+    for i in range(n_units):  # row-wise, to avoid allocating a second index array of X's size
+        k = offsets[i]
+        out[i, :k] = X[i, n_tokens - k:]
+        out[i, k:] = X[i, :n_tokens - k]
+
+    return out
+
+
 def fisher(arr, eps=1e-3):
     return np.arctanh(np.multiply(arr, 1 - eps, out=arr), out=arr)
 

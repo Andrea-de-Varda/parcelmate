@@ -14,5 +14,9 @@ INPUT_NAME_RE = re.compile(r'(%s|%s)_(.+)_(%s\d+|avg)%s' % (
     CONNECTIVITY_NAME, PARCELLATION_NAME, SAMPLE_NAME, EXTENSION)
 )
 
+# Names reserved at the top level of a run directory, so a variant cannot be called one of
+# them and collide with a shared artefact.
+RESERVED_VARIANT_NAMES = (CONNECTIVITY_NAME, SUBNETWORK_NAME, KNOCKOUT_NAME, 'plots', 'metrics')
+
 OUTPUT_DIR = 'results'
 PLOT_DIR = 'plots'

@@ -67,6 +67,7 @@ def save_h5_data(
         data,
         path,
         merge=False,
+        attrs=None,
         verbose=True,
         indent=0
 ):
@@ -83,16 +84,14 @@ def save_h5_data(
         os.makedirs(dirpath)
     if verbose:
         stderr('%sSaving to %s%s\n' % (' ' * indent, path, ' (merge)' if merge else ''))
-    if merge and os.path.exists(path):
-        with h5py.File(path, 'a') as f:
-            for key in data:
-                if key in f:  # h5py cannot resize in place, so replace
-                    del f[key]
-                f.create_dataset(key, data=data[key])
-    else:
-        with h5py.File(path, 'w') as f:
-            for key in data:
-                f.create_dataset(key, data=data[key])
+    mode = 'a' if (merge and os.path.exists(path)) else 'w'
+    with h5py.File(path, mode) as f:
+        for key in data:
+            if key in f:  # h5py cannot resize in place, so replace
+                del f[key]
+            f.create_dataset(key, data=data[key])
+        for key, value in (attrs or {}).items():
+            f.attrs[key] = '' if value is None else value
 
 
 def warn_dropped_keys(path, keys_to_write, verbose=True, indent=0):
@@ -133,3 +132,44 @@ def load_h5_data(path, verbose=True, indent=0):
             out[key] = f[key][()]
 
     return out
+
+def git_commit():
+    """Short hash of the current commit, with a `-dirty` suffix if the tree has changes.
+
+    Recorded in every derived file so a result can be traced back to the code that made it.
+    Returns 'unknown' outside a git checkout rather than raising.
+    """
+    import subprocess
+    try:
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        rev = subprocess.run(['git', '-C', root, 'rev-parse', '--short', 'HEAD'],
+                             capture_output=True, text=True, timeout=10)
+        if rev.returncode != 0:
+            return 'unknown'
+        dirty = subprocess.run(['git', '-C', root, 'status', '--porcelain'],
+                               capture_output=True, text=True, timeout=10)
+        return rev.stdout.strip() + ('-dirty' if dirty.stdout.strip() else '')
+    except Exception:  # noqa: BLE001 -- provenance must never break a pipeline run
+        return 'unknown'
+
+
+def array_fingerprint(arr):
+    """Content hash of an array, for detecting that a derived product is stale.
+
+    A parcellation is computed *from* a connectivity matrix. Storing the source's
+    fingerprint alongside it makes "this was built from a matrix that no longer exists"
+    a detectable condition rather than a silent inconsistency (the failure mode behind
+    M8). Hashes the full buffer -- ~0.3 s for a 400 MB matrix, once per parcellation.
+    """
+    return hashlib.sha256(np.ascontiguousarray(arr)).hexdigest()[:16]
+
+
+def read_attrs(path):
+    """Attributes of an HDF5 file as a plain dict. Empty if the file is absent/unreadable."""
+    if not os.path.exists(path):
+        return {}
+    try:
+        with h5py.File(path, 'r') as f:
+            return {k: (v.decode() if isinstance(v, bytes) else v) for k, v in f.attrs.items()}
+    except (OSError, KeyError):
+        return {}

@@ -315,10 +315,26 @@ def sample_parcellations(
         connectivity_pca_components=None,
         connectivity_ica_components=None,
         clustering_kwargs=None,
+        legacy_binarize=False,
+        fisher_transform=False,
         seed=None,
         verbose=True,
         indent=0
 ):
+    """Cluster units by their connectivity profiles.
+
+    Three arms are supported, for the reliability/fidelity comparison (see
+    PARCELLATION_DESIGN.md):
+
+      legacy    binarize_connectivity=True, legacy_binarize=True, pca=200
+                Reproduces the pre-2026-09-03 behaviour, in which the quantile was
+                broadcast column-wise and the binarized matrix came out transposed, so
+                clustering was partly driven by hubness. Kept only as a comparison arm.
+      current   binarize_connectivity=True, legacy_binarize=False, pca=200
+      ablation  binarize_connectivity=False, fisher_transform=True, pca=None
+                Keeps the magnitudes (Fisher-transformed to stabilize variance) and drops
+                the PCA truncation and whitening entirely.
+    """
     if verbose:
         stderr('%sSampling (n_networks=%d)\n' % (' ' * indent, n_networks))
     indent += 2
@@ -331,8 +347,26 @@ def sample_parcellations(
     # the whole set of restarts reproducible.
     rng = np.random.RandomState(seed if seed is None else int(seed) % (2 ** 32))
     X = connectivity
+    assert not (binarize_connectivity and fisher_transform), \
+        'fisher_transform is pointless after binarizing: arctanh of a 0/1 matrix is 0/inf'
     if binarize_connectivity:
-        X = (X > np.quantile(X, 0.9, axis=1, keepdims=True)).astype(int)
+        if legacy_binarize:
+            # Deliberately reproduces the pre-2026-09-03 bug (LOG.md S2): without keepdims
+            # the quantile broadcasts along the last axis, so the test is X[i,j] > q[j] and
+            # the result is the transpose of a row-wise threshold. Row densities then vary
+            # with hubness instead of being uniform. Comparison arm only -- never a default.
+            X = (X > np.quantile(X, 0.9, axis=1)).astype(int)
+        else:
+            X = (X > np.quantile(X, 0.9, axis=1, keepdims=True)).astype(int)
+    elif fisher_transform:
+        # Variance-stabilizing, and it spreads out the crowded high-|r| tail that otherwise
+        # dominates Euclidean distances. Copy first: fisher() writes in place, and the
+        # caller's connectivity array is reused across arms. Clip before transforming --
+        # arctanh is NaN outside [-1, 1], and while correlations are bounded in theory, a
+        # value fractionally above 1 from accumulation error would otherwise poison a whole
+        # row silently rather than raising.
+        X = fisher(np.clip(np.array(X, dtype=np.float64, copy=True), -1.0, 1.0))
+        assert np.isfinite(X).all(), 'Fisher transform produced non-finite values'
     if connectivity_pca_components:
         n_components = connectivity_pca_components
         if n_components == 'auto':
@@ -523,11 +557,22 @@ def run_connectivity(
         knockout_thresh=0.5,
         ablation='mean',
         ablation_stats_dir=None,
+        null_model=None,
+        null_output_dir=None,
         seed=None,
         overwrite=False,
         verbose=True,
         indent=0
 ):
+    """Estimate unit-by-unit connectivity, optionally alongside a null.
+
+    `null_model='circshift'` additionally computes connectivity from independently circularly
+    shifted timecourses and writes it to `null_output_dir`, using identical filenames so
+    every downstream step can be pointed at either tree unchanged. The null is computed
+    inside the same forward pass: the model queries dominate the cost, so this is far
+    cheaper than a second full run, and it guarantees the null sees exactly the same
+    tokens as the real data.
+    """
     if data_kwargs is None:
         data_kwargs = {}
     if model_kwargs is None:
@@ -537,6 +582,12 @@ def run_connectivity(
         n_tokens = (N_TOKENS // (seq_len * batch_size)) * seq_len * batch_size
 
     connectivity_dir = os.path.join(output_dir, CONNECTIVITY_NAME)
+    assert null_model in (None, 'circshift'), 'Unrecognized null_model: %s' % null_model
+    if null_model is not None:
+        assert null_output_dir, 'null_output_dir must be set when null_model is requested'
+        assert os.path.abspath(null_output_dir) != os.path.abspath(output_dir), \
+            'null_output_dir must differ from output_dir; filenames are identical in both trees'
+    null_connectivity_dir = os.path.join(null_output_dir, CONNECTIVITY_NAME) if null_model else None
 
     knockout_probs = knockout_coordinates = None
     if knockout_filepath is not None:
@@ -650,6 +701,7 @@ def run_connectivity(
             stderr('%sQuerying model\n' % (' ' * indent))
         n = int(np.ceil(len(input_ids) / n_samples))
         connectivity = []
+        null_connectivity = []
         coordinates = None
         sample_means, sample_stds, sample_counts = [], [], []
         indent += 2
@@ -668,14 +720,26 @@ def run_connectivity(
             )
             if verbose:
                 stderr('%sSample %d/%d\n' % (' ' * indent, i // n + 1, n_samples))
+            null_filepath = os.path.join(
+                null_connectivity_dir,
+                '%s_%s_%s%d%s' % (CONNECTIVITY_NAME, domain, SAMPLE_NAME, i // n + 1, EXTENSION)
+            ) if null_model else None
             if os.path.exists(filepath) and not overwrite:
                 out = load_h5_data(filepath, verbose=False)
             else:
                 out = {}
+            # A cached real matrix does not imply a cached null one, so the null's absence
+            # also forces a recompute. Both come from the same timecourses, so recomputing
+            # either means recomputing both -- the forward passes are the cost, not the
+            # correlations.
+            null_missing = bool(null_model) and not (
+                os.path.exists(null_filepath) and not overwrite
+                and 'connectivity' in h5_keys(null_filepath)
+            )
             indent += 2
             # unit_means/unit_stds are part of this step's output as of the mean-ablation
             # work, so a cached file lacking them counts as incomplete and is recomputed.
-            if not all(k in out for k in ('connectivity', 'coordinates', 'unit_means', 'unit_stds', 'n_obs')):
+            if null_missing or not all(k in out for k in ('connectivity', 'coordinates', 'unit_means', 'unit_stds', 'n_obs')):
                 _input_ids = input_ids[i:i+n]
                 _attention_mask = attention_mask[i:i+n]
                 out = get_timecourses(
@@ -695,14 +759,49 @@ def run_connectivity(
                 )
                 timecourses = out['timecourses']
                 coordinates = out['coordinates']
+                if null_model == 'circshift':
+                    # Before the real one: get_connectivity centers and normalizes its
+                    # input in place, so it consumes whichever array it is handed.
+                    if verbose:
+                        stderr('%sComputing circshift null\n' % (' ' * indent))
+                    shifted = circshift_timecourses(
+                        timecourses,
+                        rng=np.random.RandomState(
+                            derive_seed(seed, 'null', domain, i // n + 1) % (2 ** 32)
+                        )
+                    )
+                    _null_connectivity = get_connectivity(shifted)
+                    del shifted
+                else:
+                    _null_connectivity = None
                 _connectivity = get_connectivity(timecourses)
                 save = True
                 new = True
             else:
                 _connectivity = out['connectivity']
+                _null_connectivity = None
                 coordinates = out['coordinates']
                 save = False
             connectivity.append(_connectivity)
+            if null_model:
+                if _null_connectivity is None:  # cached; read it back for the average
+                    _null_connectivity = load_h5_data(null_filepath, verbose=False)['connectivity']
+                null_connectivity.append(_null_connectivity)
+                if n_samples > 1 and save:
+                    # Same unit_means/unit_stds as the real data: a circular shift permutes
+                    # each unit's timecourse, so its marginal statistics are unchanged.
+                    save_h5_data(
+                        dict(
+                            connectivity=_null_connectivity,
+                            coordinates=coordinates,
+                            unit_means=out['unit_means'],
+                            unit_stds=out['unit_stds'],
+                            n_obs=np.asarray(out['n_obs'])
+                        ),
+                        null_filepath,
+                        verbose=verbose,
+                        indent=indent
+                    )
             sample_means.append(out['unit_means'])
             sample_stds.append(out['unit_stds'])
             sample_counts.append(int(np.asarray(out['n_obs']).item()))
@@ -738,6 +837,25 @@ def run_connectivity(
             ),
         )
         pooled_means, pooled_stds = pool_unit_stats(sample_means, sample_stds, sample_counts)
+        if null_model:
+            null_avg = fisher_average(*null_connectivity, eps=eps) if n_samples > 1 \
+                else null_connectivity[0]
+            save_h5_data(
+                dict(
+                    connectivity=null_avg,
+                    coordinates=coordinates,
+                    unit_means=pooled_means,
+                    unit_stds=pooled_stds,
+                    n_obs=np.asarray(sum(sample_counts))
+                ),
+                os.path.join(
+                    null_connectivity_dir,
+                    '%s_%s_avg%s' % (CONNECTIVITY_NAME, domain, EXTENSION)
+                ),
+                verbose=verbose,
+                indent=indent
+            )
+            del null_avg, null_connectivity
         save = True
         if os.path.exists(filepath) and not overwrite:
             # Key check only -- loading the file here read the whole connectivity matrix
@@ -773,16 +891,34 @@ def run_parcellation(
         connectivity_pca_components=200,
         connectivity_ica_components=None,
         clustering_kwargs=None,
+        legacy_binarize=False,
+        fisher_transform=False,
         n_alignments=None,
         weight_samples=False,
         parcellate_samples=False,
         seed=None,
+        variant='default',
         overwrite=False,
         verbose=True,
         indent=0
 ):
+    """Cluster each connectivity matrix, writing one parcellation file per source matrix.
+
+    Output goes to `<output_dir>/<variant>/parcellation/`, NOT back into the connectivity
+    file. Connectivity is expensive and shared; parcellations are cheap and there are many
+    of them (one per arm of a method comparison), so a single `parcellation` slot inside
+    the connectivity file meant each arm silently overwrote the last. Every file records
+    the settings that produced it, the code commit, and a fingerprint of its source matrix,
+    so a stale parcellation is detectable rather than silently mismatched.
+    """
     connectivity_dir = os.path.join(output_dir, CONNECTIVITY_NAME)
+    assert variant not in RESERVED_VARIANT_NAMES, \
+        'variant name %r collides with a shared run directory; reserved: %s' % (
+            variant, ', '.join(RESERVED_VARIANT_NAMES))
+    parcellation_dir = os.path.join(output_dir, variant, PARCELLATION_NAME)
     set_seed(seed)
+    if verbose:
+        stderr('%sParcellating (variant=%s) -> %s\n' % (' ' * indent, variant, parcellation_dir))
 
     for path in sorted(os.listdir(connectivity_dir)):
         t0 = time.time()
@@ -798,48 +934,73 @@ def run_parcellation(
         if not parcellate_samples and match.group(3) != 'avg':
             continue
         inpath = os.path.join(connectivity_dir, path)
+        outpath = os.path.join(
+            parcellation_dir,
+            '%s_%s_%s%s' % (PARCELLATION_NAME, match.group(2), match.group(3), EXTENSION)
+        )
+        if os.path.exists(outpath) and not overwrite:
+            if verbose:
+                stderr('%sSkipping %s (exists)\n' % (' ' * indent, os.path.basename(outpath)))
+            continue
         data = load_h5_data(inpath, verbose=verbose, indent=indent)
 
-        if overwrite or not 'parcellation' in data:
-            R = np.nan_to_num(data['connectivity'])
-            R = np.abs(R)
+        R = np.nan_to_num(data['connectivity'])
+        R = np.abs(R)
 
-            sample = sample_parcellations(
-                R,
-                n_networks=n_networks,
-                n_samples=n_samples,
-                binarize_connectivity=binarize_connectivity,
-                connectivity_pca_components=connectivity_pca_components,
-                connectivity_ica_components=connectivity_ica_components,
-                clustering_kwargs=clustering_kwargs,
-                seed=derive_seed(seed, 'parcellation', path),
-                verbose=verbose,
-                indent=indent + 2
-            )
-            parcellation = align_samples(
-                sample['samples'],
-                sample['scores'],
-                n_alignments=n_alignments,
-                weight_samples=weight_samples,
-                seed=derive_seed(seed, 'alignment', path),
-                verbose=verbose,
-                indent=indent + 2
-            )
-            data['parcellation'] = parcellation
+        sample = sample_parcellations(
+            R,
+            n_networks=n_networks,
+            n_samples=n_samples,
+            binarize_connectivity=binarize_connectivity,
+            connectivity_pca_components=connectivity_pca_components,
+            connectivity_ica_components=connectivity_ica_components,
+            clustering_kwargs=clustering_kwargs,
+            legacy_binarize=legacy_binarize,
+            fisher_transform=fisher_transform,
+            seed=derive_seed(seed, 'parcellation', path),
+            verbose=verbose,
+            indent=indent + 2
+        )
+        parcellation = align_samples(
+            sample['samples'],
+            sample['scores'],
+            n_alignments=n_alignments,
+            weight_samples=weight_samples,
+            seed=derive_seed(seed, 'alignment', path),
+            verbose=verbose,
+            indent=indent + 2
+        )
+        save_h5_data(
+            dict(parcellation=parcellation, coordinates=data['coordinates']),
+            outpath,
+            attrs=dict(
+                variant=variant,
+                domain=match.group(2),
+                key=match.group(3),
+                n_networks=int(n_networks),
+                n_samples=int(n_samples),
+                binarize_connectivity=bool(binarize_connectivity),
+                legacy_binarize=bool(legacy_binarize),
+                fisher_transform=bool(fisher_transform),
+                connectivity_pca_components=str(connectivity_pca_components),
+                connectivity_ica_components=str(connectivity_ica_components),
+                weight_samples=bool(weight_samples),
+                n_alignments=str(n_alignments),
+                seed=str(seed),
+                # Source identity, so a parcellation built from a connectivity matrix
+                # that has since been recomputed is detectable instead of silently
+                # describing a matrix that no longer exists (the M8 failure mode).
+                source_path=os.path.relpath(inpath, output_dir),
+                source_fingerprint=array_fingerprint(data['connectivity']),
+                git_commit=git_commit(),
+                created=time.strftime('%Y-%m-%dT%H:%M:%S'),
+            ),
+            verbose=verbose,
+            indent=indent + 2
+        )
 
-            # Merge, so only the parcellation is written. Re-saving the whole `data` dict
-            # rewrote the ~400 MB connectivity matrix to append a ~2 MB array, and left a
-            # window in which a crash mid-write destroyed the connectivity too.
-            save_h5_data(
-                dict(parcellation=parcellation),
-                inpath,
-                merge=True,
-                verbose=verbose,
-                indent=indent + 2
-            )
-
-            if verbose:
-                stderr('%sElapsed time: %.2f s\n' % (' ' * (indent + 2), time.time() - t0))
+        if verbose:
+            stderr('%sElapsed time: %.2f s\n' % (' ' * (indent + 2), time.time() - t0))
 
 
 def _is_reciprocal_clique(assignment, domains, shared_subnetworks):
@@ -856,11 +1017,15 @@ def _is_reciprocal_clique(assignment, domains, shared_subnetworks):
 def run_subnetwork_extraction(
         output_dir=OUTPUT_DIR,
         domains=None,
+        variant='default',
         verbose=True,
         indent=0
 ):
-    connectivity_dir = os.path.join(output_dir, CONNECTIVITY_NAME)
-    subnetwork_dir = os.path.join(output_dir, SUBNETWORK_NAME)
+    parcellation_dir = os.path.join(output_dir, variant, PARCELLATION_NAME)
+    subnetwork_dir = os.path.join(output_dir, variant, SUBNETWORK_NAME)
+    assert os.path.isdir(parcellation_dir), \
+        'No parcellations for variant %r at %s -- run the parcellation step first' % (
+            variant, parcellation_dir)
 
     if verbose:
         stderr('Extracting subnetworks\n')
@@ -868,9 +1033,9 @@ def run_subnetwork_extraction(
 
     parcellations = {}
     coordinates = None
-    for path in os.listdir(connectivity_dir):
+    for path in sorted(os.listdir(parcellation_dir)):
         match = INPUT_NAME_RE.match(path)
-        if match and match.group(1) == CONNECTIVITY_NAME:
+        if match and match.group(1) == PARCELLATION_NAME:
             domain = match.group(2)
         else:
             continue
@@ -878,7 +1043,7 @@ def run_subnetwork_extraction(
         if key != 'avg':
             continue
 
-        filepath = os.path.join(connectivity_dir, path)
+        filepath = os.path.join(parcellation_dir, path)
         data = load_h5_data(filepath, verbose=verbose, indent=indent)
         if 'parcellation' not in data:
             continue
@@ -897,7 +1062,7 @@ def run_subnetwork_extraction(
         missing = [d for d in domains if d not in parcellations]
         assert not missing, 'No parcellation found for requested domain(s): %s' % ', '.join(missing)
         domains = sorted(domains)
-    assert domains, 'No parcellated domains found in %s' % connectivity_dir
+    assert domains, 'No parcellated domains found in %s' % parcellation_dir
     n_domains = len(domains)
     for d1 in range(len(domains)):
         domain1 = domains[d1]
@@ -1011,6 +1176,7 @@ def resolve_networks(networks, n_networks):
 
 def run_knockout(
         output_dir=OUTPUT_DIR,
+        variant='default',
         model_name='gpt2',
         networks=None,
         ablation='mean',
@@ -1040,9 +1206,9 @@ def run_knockout(
                      'knockout_filepath', 'knockout_network', 'knockout_thresh',
                      'ablation', 'ablation_stats_dir')
     }
-    subnetwork_dir = os.path.join(output_dir, SUBNETWORK_NAME)
-    baseline_connectivity_dir = os.path.join(output_dir, CONNECTIVITY_NAME)
-    knockout_root = os.path.join(output_dir, KNOCKOUT_NAME)
+    subnetwork_dir = os.path.join(output_dir, variant, SUBNETWORK_NAME)
+    baseline_connectivity_dir = os.path.join(output_dir, CONNECTIVITY_NAME)  # shared across variants
+    knockout_root = os.path.join(output_dir, variant, KNOCKOUT_NAME)
 
     if verbose:
         stderr('Running knockout\n')

@@ -105,17 +105,17 @@ def get_profile_dict(profile):
 def test_overwrite_flag_passthrough():
     """-O must reach main.py, or a re-run silently skips every already-cached step."""
     settings = resolve({}, get_profile_dict(PROFILE))
-    job = get_job('configs/smoke.yml', settings, steps=['connectivity'], overwrite=True)
+    job = get_job('configs/reliability.yml', settings, steps=['connectivity'], overwrite=True)
     assert job.rstrip().endswith('-s connectivity -O')
 
 
 def test_overwrite_absent_by_default():
     settings = resolve({}, get_profile_dict(PROFILE))
-    job = get_job('configs/smoke.yml', settings, steps=['connectivity'])
+    job = get_job('configs/reliability.yml', settings, steps=['connectivity'])
     assert ' -O' not in job
 
 
 def test_seed_flag_passthrough():
     settings = resolve({}, get_profile_dict(PROFILE))
-    job = get_job('configs/smoke.yml', settings, steps=['connectivity'], seed=7)
+    job = get_job('configs/reliability.yml', settings, steps=['connectivity'], seed=7)
     assert job.rstrip().endswith('--seed 7')
