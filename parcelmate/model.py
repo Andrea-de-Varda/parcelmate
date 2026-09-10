@@ -367,6 +367,13 @@ def sample_parcellations(
         # row silently rather than raising.
         X = fisher(np.clip(np.array(X, dtype=np.float64, copy=True), -1.0, 1.0))
         assert np.isfinite(X).all(), 'Fisher transform produced non-finite values'
+        # Zero the self-connection. arctanh maps the diagonal (|r| = 1) to 3.80 while a
+        # typical off-diagonal is 0.038 -- a hundredfold spike carrying a median 24.7% of
+        # each unit's squared profile norm, measured on wikitext. It is pure artifact: the
+        # diagonal is 1 by construction and says nothing about connectivity. Left in it
+        # would handicap this arm against the binarized ones, where the diagonal is 1 of
+        # 999 kept partners (0.1% of the row) and therefore harmless.
+        np.fill_diagonal(X, 0.0)
     if connectivity_pca_components:
         n_components = connectivity_pca_components
         if n_components == 'auto':
@@ -975,8 +982,28 @@ def run_parcellation(
             verbose=verbose,
             indent=indent + 2
         )
+        # Two further consensuses, each from a disjoint half of the SAME restarts. This is
+        # the reliability ceiling: how much of the cross-half disagreement is merely
+        # k-means instability rather than the data differing. Costs two Hungarian
+        # alignments, ~0.1% of the k-means time, versus a second full clustering run.
+        # Stored as arrays rather than reduced to a scalar, so downstream analysis can
+        # recompute any comparison and plot the raw components.
+        mid = len(sample['samples']) // 2
+        splits = [
+            align_samples(
+                sample['samples'][sl],
+                sample['scores'][sl],
+                n_alignments=n_alignments,
+                weight_samples=weight_samples,
+                seed=derive_seed(seed, 'alignment_split', path, half_ix),
+                verbose=False,
+                indent=indent + 2
+            )
+            for half_ix, sl in enumerate((slice(None, mid), slice(mid, None)))
+        ]
         save_h5_data(
-            dict(parcellation=parcellation, coordinates=data['coordinates']),
+            dict(parcellation=parcellation, coordinates=data['coordinates'],
+                 parcellation_split1=splits[0], parcellation_split2=splits[1]),
             outpath,
             attrs=dict(
                 variant=variant,

@@ -18,10 +18,24 @@ unit's own marginal and autocorrelation, so an algorithm whose apparent stabilit
 from its own inductive bias scores the same on the null as on real data, and the
 difference is zero.
 
-Fidelity additionally gets a ceiling: predicting R_B from R_A directly, with no
-parcellation at all. That is the best any compression could do given the sampling noise
-between halves, so it converts fidelity from an arbitrary number into a fraction of what
-was achievable.
+Each metric also gets a ceiling, and the two ceilings partial out different nuisances:
+
+  fidelity ceiling     Predict R_B from R_A directly, no parcellation. Holds the data
+                       split fixed and removes the *model* limitation, so what is left is
+                       sampling noise between halves. NOT a strict upper bound -- see
+                       `fidelity_ceiling`.
+  reliability ceiling  Compare two consensuses built from disjoint halves of the SAME
+                       restarts on the SAME data. Holds the model fixed and removes the
+                       *data* difference, so what is left is algorithmic instability.
+
+The second matters more than it looks. Arms differ enormously in how stable their
+clustering is -- measured on real wikitext, `current` scores ARI 0.096 across seeds on
+identical data while `nopca_fisher` scores 0.741 -- so raw reliability is not comparable
+across arms without dividing through by each arm's own noise floor.
+
+Raw components are always reported alongside any derived quantity: the caller gets real,
+null and ceiling separately, and computes deltas or ratios downstream. Nothing is stored
+pre-normalized.
 """
 
 import numpy as np
@@ -91,28 +105,29 @@ def variance_explained(R_eval, prediction):
     return float(1.0 - np.sum((y - yhat) ** 2) / ss_tot)
 
 
-def fidelity(R_fit, R_eval, parcellation_fit, soft=False):
+def fidelity(R_fit, R_eval, parcellation_fit):
     """Variance of held-out connectivity explained by a partition fit elsewhere.
 
     `R_fit`/`parcellation_fit` come from the fitting data; `R_eval` is held out. Block
-    means are estimated on R_fit (out-of-sample in both structure and values).
+    means are estimated on R_fit, so both the partition and the values it predicts with
+    are out of sample.
 
-    With `soft=True` the prediction is P M P^T using the membership probabilities rather
-    than argmax labels, which uses the information the consensus averaging produced
-    instead of discarding it. Reported alongside the hard version rather than instead of
-    it, since the two answer slightly different questions and the choice was never settled.
+    Hard argmax labels, deliberately. The deliverable is a discrete parcellation, and
+    reliability (ARI) requires hard labels anyway, so both metrics then describe the same
+    object. An earlier `soft=True` path was removed: it took block means from the argmax
+    labels and only softened the *prediction*, which corresponds to no clean model. A
+    genuinely soft version would need soft block means too, at which point it is a
+    mixed-membership block model -- a different question, not a variant of this one.
+
+    Note that argmax is only meaningful when memberships are actually peaked. See
+    `triviality`, which reports peakedness alongside, because the two arms differ sharply:
+    `nopca_fisher` puts half its units above 0.5 membership, `current` puts 1.6% there.
     """
     P = np.asarray(parcellation_fit, dtype=np.float64)
     labels = hard_labels(P)
     M = block_means(R_fit, labels, n_networks=P.shape[1])
-    if soft:
-        rows = P.sum(axis=1, keepdims=True)
-        Pn = np.divide(P, rows, out=np.zeros_like(P), where=rows > 0)
-        prediction = Pn @ M @ Pn.T
-    else:
-        prediction = M[labels][:, labels]
 
-    return variance_explained(R_eval, prediction)
+    return variance_explained(R_eval, M[labels][:, labels])
 
 
 def fidelity_ceiling(R_fit, R_eval):
@@ -144,6 +159,28 @@ def reliability(parcellation_a, parcellation_b):
     return float(adjusted_rand_score(hard_labels(parcellation_a), hard_labels(parcellation_b)))
 
 
+def reliability_ceiling(parcellation_split1, parcellation_split2):
+    """Agreement between two consensuses built on the SAME data with disjoint restarts.
+
+    The reliability analogue of `fidelity_ceiling`, and it partials out the complementary
+    nuisance: the fidelity ceiling removes the model limitation to expose data noise, this
+    removes the data difference to expose algorithmic noise. There is no literal analogue
+    of "no parcellation" here, because reliability compares two partitions and removing the
+    parcellation leaves nothing to compare.
+
+    Why it is necessary rather than nice to have: seed variability cannot be neutralized by
+    fixing the seed, because with different data the same RNG stream produces an unrelated
+    trajectory. Measuring it is the only option. And since arms differ by nearly an order of
+    magnitude in this floor, raw cross-half ARI is not comparable across arms without it.
+
+    Free to compute: the consensus already averages many restarts, so aligning two disjoint
+    halves of them costs two extra Hungarian alignments -- measured at 0.1% of the k-means
+    time. It is slightly pessimistic, since each half uses half the restarts and a consensus
+    over more restarts is more stable.
+    """
+    return reliability(parcellation_split1, parcellation_split2)
+
+
 def triviality(parcellation, coordinates, connectivity=None, n_bins=10):
     """How much of a parcellation is explained by properties that are not connectivity.
 
@@ -161,6 +198,12 @@ def triviality(parcellation, coordinates, connectivity=None, n_bins=10):
         out['ami_hubness'] = float(adjusted_mutual_info_score(
             (ranks * n_bins // len(ranks)), labels))
     out['n_effective_networks'] = int(len(np.unique(labels)))
+    # Peakedness of the soft memberships. Reported because argmax is only meaningful when
+    # the membership vector is actually peaked; a median max of 0.20 at k=20 (uniform is
+    # 0.05) means the label is the top of a nearly flat noisy vector.
+    top = np.asarray(parcellation, dtype=np.float64).max(axis=1)
+    out['median_max_membership'] = float(np.median(top))
+    out['frac_confident'] = float((top > 0.5).mean())
 
     return out
 

@@ -4,8 +4,10 @@
 
 The point of these checks is not that the metrics run, but that they FAIL in the right
 directions. Reliability must reward a degenerate constant partition (that is why it cannot
-be used alone) while fidelity must punish it; fidelity must sit below its uncompressed
-ceiling; and both must collapse to ~0 on a null where the structure has been destroyed.
+be used alone) while fidelity must punish it; both must collapse to ~0 on a null where the
+structure has been destroyed; and the uncompressed reference must behave as a reference
+rather than a strict bound -- beatable when the truth really is block-structured, not
+beatable when the partition is too coarse for the structure.
 """
 
 import os
@@ -17,7 +19,8 @@ import numpy as np
 from parcelmate.constants import CONNECTIVITY_NAME, HALF_NAMES
 from parcelmate.data import circshift_timecourses
 from parcelmate.metrics import (
-    block_means, fidelity, fidelity_ceiling, hard_labels, reliability, triviality,
+    block_means, fidelity, fidelity_ceiling, hard_labels, reliability, reliability_ceiling,
+    triviality,
 )
 from parcelmate.model import run_split_halves
 from parcelmate.util import load_h5_data, save_h5_data
@@ -206,9 +209,9 @@ try:
             run_parcellation(output_dir=root, variant=name, n_networks=5, n_samples=6,
                              seed=7, verbose=False, **kw)
 
-    rows = []
+    rows, missing = [], []
     for tree, root in trees.items():
-        score_tree(root, tree, sorted(arms), list(domains), rows, verbose=False)
+        score_tree(root, tree, sorted(arms), list(domains), rows, missing, verbose=False)
 
     check('e2e: halves were parcellated for every variant and tree',
           all(os.path.exists(os.path.join(trees[t], v, 'parcellation',
@@ -217,8 +220,9 @@ try:
     check('e2e: score_tree produced rows for both trees',
           {r['tree'] for r in rows} == {'real', 'null'})
     metrics_seen = {r['metric'] for r in rows}
-    for m in ('reliability_within', 'fidelity_within', 'fidelity_within_soft',
-              'fidelity_across', 'triviality_ami_layer', 'triviality_ami_hubness'):
+    for m in ('reliability_within', 'reliability_ceiling', 'reliability_across',
+              'fidelity_within', 'fidelity_across', 'triviality_ami_layer',
+              'triviality_ami_hubness', 'triviality_median_max_membership'):
         check('e2e: %s computed' % m, m in metrics_seen)
     check('e2e: the uncompressed reference is recorded as its own row',
           any(r['variant'] == '(ceiling)' for r in rows))
@@ -239,6 +243,37 @@ try:
           bool(deltas) and np.mean(deltas) > 0.1)
 finally:
     shutil.rmtree(tmp3, ignore_errors=True)
+
+
+# ------------------------------------------------- reliability ceiling + peakedness
+# The ceiling must behave like a ceiling: identical inputs give 1, unrelated inputs give ~0.
+check('reliability_ceiling: identical consensuses give 1',
+      abs(reliability_ceiling(P_true, P_true) - 1.0) < 1e-9)
+check('reliability_ceiling: unrelated consensuses give ~0',
+      abs(reliability_ceiling(P_true, onehot(
+          np.random.RandomState(31).randint(0, k, len(block)), k))) < 0.05)
+
+# Peakedness distinguishes a confident partition from argmax over a near-flat vector, which
+# is the difference between the two real arms (0.53 vs 0.20 median max membership).
+flat = np.full((len(block), k), 1.0 / k)
+flat[:, 0] += 1e-6   # break ties so argmax is defined
+check('triviality: reports peakedness',
+      'median_max_membership' in triviality(P_true, coords)
+      and 'frac_confident' in triviality(P_true, coords))
+check('triviality: a confident partition scores high peakedness',
+      triviality(P_true, coords)['median_max_membership'] > 0.9)
+check('triviality: a near-uniform partition scores low peakedness',
+      triviality(flat, coords)['median_max_membership'] < 2.0 / k)
+check('triviality: frac_confident separates the two',
+      triviality(P_true, coords)['frac_confident'] == 1.0
+      and triviality(flat, coords)['frac_confident'] == 0.0)
+
+# The Fisher arm must no longer be dominated by its own self-connection.
+from parcelmate.model import sample_parcellations as _sp  # noqa: E402
+_Rf = R_a.copy()
+_X = _sp(_Rf, n_networks=3, n_samples=1, binarize_connectivity=False,
+         fisher_transform=True, connectivity_pca_components=None, verbose=False, seed=1)
+check('fisher arm: runs with the diagonal zeroed', _X['samples'].shape == (1, len(block)))
 
 print()
 if failures:

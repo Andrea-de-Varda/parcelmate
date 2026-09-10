@@ -53,7 +53,12 @@ connectivity:
 # `parcellation_variants` below.
 parcellation:
   n_networks: 50
-  n_samples: 100              # clustering restarts, aligned and averaged
+  # Clustering restarts, aligned and averaged. 20 rather than 100: at 100 the three arms
+  # together cost ~68 h serial, dominated by the no-PCA arm clustering 9,984-dimensional
+  # profiles (44.5 s per restart, measured at full scale). 20 brings that to ~14 h.
+  # The restart-split reliability ceiling then compares two 10-restart consensuses, which
+  # makes it a more pessimistic proxy for the true seed ceiling than it was at 100.
+  n_samples: 20
   clustering_kwargs: null
   n_alignments: null
   weight_samples: false       # LOG.md S5 - fixed, but leave off

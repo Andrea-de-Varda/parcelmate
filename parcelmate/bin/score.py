@@ -3,9 +3,15 @@
     python -m parcelmate.bin.score configs/reliability.yml
 
 Reads the real and null trees produced by the connectivity + split_halves + parcellation
-steps, and writes a tidy CSV plus a printed summary. Every number is reported for both
-trees so the null-calibrated difference is available; fidelity additionally gets an
-uncompressed ceiling (predicting held-out connectivity from the fitting matrix directly).
+steps, and writes a tidy CSV plus a printed summary. Every measurement is written out
+individually -- one row per tree, variant, metric and domain pair, unnormalized -- so that
+plotting and any derived quantity happen downstream rather than being baked in here.
+
+Both metrics get a ceiling, and they partial out different nuisances. The fidelity ceiling
+predicts held-out connectivity from the fitting matrix directly, removing the model
+limitation to expose sampling noise between halves. The reliability ceiling compares two
+consensuses built from disjoint halves of the same restarts on the same data, removing the
+data difference to expose algorithmic instability.
 
 Within-domain uses the two split halves. Across-domain fits on one domain's sample-average
 and evaluates on another's, which is the continuous measure of domain-generality -- how
@@ -23,7 +29,8 @@ from parcelmate.constants import (
     CONNECTIVITY_NAME, EXTENSION, HALF_NAMES, OUTPUT_DIR, PARCELLATION_NAME,
 )
 from parcelmate.metrics import (
-    domain_average, fidelity, fidelity_ceiling, reliability, summarize, triviality,
+    domain_average, fidelity, fidelity_ceiling, reliability, reliability_ceiling,
+    summarize, triviality,
 )
 from parcelmate.util import load_h5_data, stderr
 
@@ -43,60 +50,70 @@ def load_connectivity(path):
     return np.abs(np.nan_to_num(load_h5_data(path, verbose=False)['connectivity']))
 
 
-def score_tree(root, tree, variants, domains, rows, cross_domain=True, verbose=True):
-    coordinates = None
+def score_tree(root, tree, variants, domains, rows, missing, cross_domain=True, verbose=True):
+    """Score one tree. Appends result rows to `rows` and any absent inputs to `missing`.
+
+    Nothing is skipped silently: every input that should exist and does not is recorded, so
+    `main` can refuse to write a results file that only looks complete. A parcellation job
+    that times out part way is the realistic failure here, and it would otherwise produce a
+    scores.csv indistinguishable from a finished one.
+    """
     for domain in domains:
         pa, pb = conn_path(root, domain, HALF_NAMES[0]), conn_path(root, domain, HALF_NAMES[1])
         if not (os.path.exists(pa) and os.path.exists(pb)):
-            stderr('  %s/%s: split halves missing, skipping\n' % (tree, domain))
+            missing.append('%s/%s: split-half connectivity' % (tree, domain))
             continue
         R_a, R_b = load_connectivity(pa), load_connectivity(pb)
 
-        # Ceiling is a property of the data, not of any variant: how much of half B is
-        # predictable from half A at all, with no compression.
-        ceiling = fidelity_ceiling(R_a, R_b)
+        # A property of the data, not of any variant: how much of half B is predictable
+        # from half A with no compression at all.
         rows.append(dict(tree=tree, variant='(ceiling)', metric='fidelity_within',
-                         fit=domain, eval=domain, value=ceiling))
-        if verbose:
-            stderr('  %-5s %-12s ceiling R2 = %6.3f\n' % (tree, domain, ceiling))
+                         fit=domain, eval=domain, value=fidelity_ceiling(R_a, R_b)))
 
         for variant in variants:
             fa, fb = parc_path(root, variant, domain, HALF_NAMES[0]), \
                 parc_path(root, variant, domain, HALF_NAMES[1])
             if not (os.path.exists(fa) and os.path.exists(fb)):
-                stderr('  %s/%s/%s: parcellated halves missing, skipping\n'
-                       % (tree, variant, domain))
+                missing.append('%s/%s/%s: parcellated halves' % (tree, variant, domain))
                 continue
             da, db = load_h5_data(fa, verbose=False), load_h5_data(fb, verbose=False)
             P_a, P_b = da['parcellation'], db['parcellation']
-            if coordinates is None:
-                coordinates = da['coordinates']
 
-            ari = reliability(P_a, P_b)
-            r2_hard = fidelity(R_a, R_b, P_a, soft=False)
-            r2_soft = fidelity(R_a, R_b, P_a, soft=True)
             rows.append(dict(tree=tree, variant=variant, metric='reliability_within',
-                             fit=domain, eval=domain, value=ari))
+                             fit=domain, eval=domain, value=reliability(P_a, P_b)))
             rows.append(dict(tree=tree, variant=variant, metric='fidelity_within',
-                             fit=domain, eval=domain, value=r2_hard))
-            rows.append(dict(tree=tree, variant=variant, metric='fidelity_within_soft',
-                             fit=domain, eval=domain, value=r2_soft))
+                             fit=domain, eval=domain, value=fidelity(R_a, R_b, P_a)))
+
+            # Reliability ceiling: two consensuses from disjoint halves of the SAME
+            # restarts on the SAME data, so the residual is algorithmic instability alone.
+            # Arms differ by nearly an order of magnitude here, so cross-half ARI is not
+            # comparable between them without it.
+            if 'parcellation_split1' in da and 'parcellation_split2' in da:
+                rows.append(dict(
+                    tree=tree, variant=variant, metric='reliability_ceiling',
+                    fit=domain, eval=domain,
+                    value=reliability_ceiling(da['parcellation_split1'],
+                                              da['parcellation_split2'])))
+            else:
+                missing.append('%s/%s/%s: restart-split consensuses (re-run parcellation)'
+                               % (tree, variant, domain))
+
             for name, value in triviality(P_a, da['coordinates'], connectivity=R_a).items():
                 rows.append(dict(tree=tree, variant=variant, metric='triviality_%s' % name,
                                  fit=domain, eval=domain, value=float(value)))
             if verbose:
-                stderr('  %-5s %-12s %-14s ARI = %6.3f   R2 = %6.3f\n'
-                       % (tree, domain, variant, ari, r2_hard))
+                stderr('  %-5s %-12s %-14s done\n' % (tree, domain, variant))
         del R_a, R_b
 
     if not cross_domain:
         return
 
-    # Across-domain: fit on one domain's average, evaluate on another's. Averages are
-    # loaded one pair at a time -- holding seven 400 MB matrices at once is unnecessary.
+    # Across-domain: fit on one domain's average, evaluate on another's. Matrices are
+    # loaded a pair at a time; holding seven 400 MB matrices at once is unnecessary.
     for fit_domain in domains:
         p_fit = conn_path(root, fit_domain, 'avg')
         if not os.path.exists(p_fit):
+            missing.append('%s/%s: avg connectivity' % (tree, fit_domain))
             continue
         R_fit = load_connectivity(p_fit)
         parcs = {}
@@ -104,6 +121,8 @@ def score_tree(root, tree, variants, domains, rows, cross_domain=True, verbose=T
             f = parc_path(root, variant, fit_domain, 'avg')
             if os.path.exists(f):
                 parcs[variant] = load_h5_data(f, verbose=False)['parcellation']
+            else:
+                missing.append('%s/%s/%s: avg parcellation' % (tree, variant, fit_domain))
         for eval_domain in domains:
             if eval_domain == fit_domain:
                 continue
@@ -117,7 +136,17 @@ def score_tree(root, tree, variants, domains, rows, cross_domain=True, verbose=T
             for variant, P in parcs.items():
                 rows.append(dict(tree=tree, variant=variant, metric='fidelity_across',
                                  fit=fit_domain, eval=eval_domain,
-                                 value=fidelity(R_fit, R_eval, P, soft=False)))
+                                 value=fidelity(R_fit, R_eval, P)))
+                # Reliability across domains: does the same partition reappear when the
+                # model reads different text? The continuous counterpart of the
+                # reciprocal-best-match clique, which only ever answered yes or no.
+                f_eval = parc_path(root, variant, eval_domain, 'avg')
+                if os.path.exists(f_eval):
+                    rows.append(dict(
+                        tree=tree, variant=variant, metric='reliability_across',
+                        fit=fit_domain, eval=eval_domain,
+                        value=reliability(
+                            P, load_h5_data(f_eval, verbose=False)['parcellation'])))
             del R_eval
         del R_fit
 
@@ -125,9 +154,13 @@ def score_tree(root, tree, variants, domains, rows, cross_domain=True, verbose=T
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('config_path', nargs='?', default=None)
-    ap.add_argument('-o', '--out', default=None, help='CSV path (default <output_dir>/metrics/scores.csv)')
+    ap.add_argument('-o', '--out', default=None,
+                    help='CSV path (default <output_dir>/metrics/scores.csv)')
     ap.add_argument('--no-cross-domain', action='store_true',
                     help='Skip the across-domain comparisons, which dominate the runtime.')
+    ap.add_argument('--allow-partial', action='store_true',
+                    help='Write results even though inputs are missing. Off by default: a '
+                         'partial scores.csv is indistinguishable from a complete one.')
     args = ap.parse_args()
 
     cfg = get_cfg(args.config_path) if args.config_path else {}
@@ -138,13 +171,28 @@ def main():
     assert domains, 'No domains in the config; nothing to score'
 
     stderr('Scoring %d variant(s) over %d domain(s)\n' % (len(variants), len(domains)))
-    rows = []
+    rows, missing = [], []
     for tree, tree_root in (('real', root), ('null', null_root)):
         if not os.path.isdir(tree_root):
-            stderr('  %s tree missing at %s, skipping\n' % (tree, tree_root))
+            missing.append('%s tree absent at %s' % (tree, tree_root))
             continue
-        score_tree(tree_root, tree, variants, domains, rows,
+        score_tree(tree_root, tree, variants, domains, rows, missing,
                    cross_domain=not args.no_cross_domain)
+
+    # Refuse to publish a results file that merely looks complete. The realistic failure is
+    # a parcellation job hitting its wall-time part way through; without this the scoring
+    # would exit 0 over whatever happened to be on disk.
+    if missing:
+        stderr('\n%d missing input(s):\n' % len(missing))
+        for m in missing[:40]:
+            stderr('  - %s\n' % m)
+        if len(missing) > 40:
+            stderr('  ... and %d more\n' % (len(missing) - 40))
+        if not args.allow_partial:
+            raise SystemExit(
+                '\nRefusing to write partial results. Re-run the missing steps, or pass '
+                '--allow-partial if an incomplete table is genuinely what you want.')
+        stderr('\n--allow-partial given; writing an incomplete table.\n')
 
     out_path = args.out or os.path.join(root, 'metrics', 'scores.csv')
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
@@ -154,24 +202,40 @@ def main():
         w.writerows(rows)
     stderr('\nWrote %d rows to %s\n' % (len(rows), out_path))
 
+    # The CSV holds every individual measurement -- one row per tree, variant, metric and
+    # domain pair, unnormalized. Deltas and ratios below are a reading aid; anything
+    # plotted later should come from the CSV, not from these summaries.
     summary = summarize(rows, verbose=False)
-    print('\n%-14s %-22s %8s %8s %8s' % ('variant', 'metric', 'real', 'null', 'real-null'))
-    print('-' * 66)
-    for metric in ('reliability_within', 'fidelity_within', 'fidelity_within_soft',
-                   'fidelity_across', 'triviality_ami_layer', 'triviality_ami_hubness'):
+    print('\n%-14s %-24s %8s %8s %10s' % ('variant', 'metric', 'real', 'null', 'real-null'))
+    print('-' * 68)
+    for metric in ('reliability_within', 'reliability_ceiling', 'reliability_across',
+                   'fidelity_within', 'fidelity_across',
+                   'triviality_ami_layer', 'triviality_ami_hubness',
+                   'triviality_median_max_membership', 'triviality_n_effective_networks'):
         for variant in variants + ['(ceiling)']:
             vals = [r for r in summary if r['metric'] == metric and r['variant'] == variant]
             if not vals:
                 continue
+
             def avg(field):
                 xs = [v[field] for v in vals if v[field] is not None and np.isfinite(v[field])]
                 return float(np.mean(xs)) if xs else float('nan')
-            print('%-14s %-22s %8.3f %8.3f %8.3f' % (
-                variant, metric, avg('real'), avg('null'),
-                domain_average(summary, metric, variant)))
+
+            # No delta for the uncompressed reference. Subtracting its null from its real
+            # value is not a quantity: the null reference is negative, because predicting
+            # one noise matrix from another is worse than predicting the mean, so the
+            # difference reads as a large positive number that means nothing.
+            delta = ('%10s' % '-' if variant == '(ceiling)'
+                     else '%10.3f' % domain_average(summary, metric, variant))
+            print('%-14s %-24s %8.3f %8.3f %s' % (
+                variant, metric, avg('real'), avg('null'), delta))
+
     print('\nDomains weighted equally. Fidelity: block means estimated on the fitting half,')
-    print('applied to the held-out half. Ceiling predicts held-out connectivity directly,')
-    print('with no parcellation, so it bounds what any compression could achieve.')
+    print('applied to the held-out half, hard argmax labels. Two ceilings, partialling out')
+    print('different nuisances: the fidelity ceiling removes the model limitation to expose')
+    print('data noise; the reliability ceiling removes the data difference to expose')
+    print('algorithmic instability. Compare each arm against its OWN reliability ceiling --')
+    print('the arms differ by nearly an order of magnitude in that floor.')
 
 
 if __name__ == '__main__':
