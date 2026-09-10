@@ -82,14 +82,30 @@ parcellation_variants:
     legacy_binarize: false
     connectivity_pca_components: 200
 
-  # First ablation: keep the magnitudes (Fisher-transformed) instead of binarizing, and
-  # drop the PCA truncation and whitening entirely. See PARCELLATION_DESIGN.md 2.2 and 2.3.
+  # The arms below form a ladder in which each rung changes exactly ONE thing:
+  #
+  #   current -> fisher_pca -> nopca_fisher -> vmf_profile
+  #           (drop binarize) (drop PCA)     (standardize)
+  #
+  # Without fisher_pca, nopca_fisher differs from current in two ways at once -- it keeps
+  # magnitudes AND drops PCA -- so a win could not be attributed to either. fisher_pca
+  # isolates the binarization question with PCA held fixed.
+
+  # Rung 1: keep the magnitudes (Fisher-transformed) instead of binarizing, PCA unchanged.
+  # Isolates what binarization costs. See PARCELLATION_DESIGN.md 2.2.
+  fisher_pca:
+    binarize_connectivity: false
+    fisher_transform: true
+    connectivity_pca_components: 200
+
+  # Rung 2: also drop the PCA truncation and whitening. Together with fisher_pca this
+  # isolates what the PCA step costs. See PARCELLATION_DESIGN.md 2.3.
   nopca_fisher:
     binarize_connectivity: false
     fisher_transform: true
     connectivity_pca_components: null
 
-  # Second ablation: nopca_fisher plus standardizing each unit's profile, which is exactly
+  # Rung 3: nopca_fisher plus standardizing each unit's profile, which is exactly
   # the Yeo et al. (2011) fMRI construction and exactly spherical k-means -- z-scoring puts
   # every row on a sphere of radius sqrt(n), so Euclidean distance becomes a monotone
   # function of the correlation *between profiles*. Motivated directly by the first run:
