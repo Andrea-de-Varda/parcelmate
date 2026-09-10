@@ -998,6 +998,7 @@ def run_parcellation(
             clustering_kwargs=clustering_kwargs,
             legacy_binarize=legacy_binarize,
             fisher_transform=fisher_transform,
+            standardize_profiles=standardize_profiles,
             seed=derive_seed(seed, 'parcellation', path),
             verbose=verbose,
             indent=indent + 2
@@ -1043,6 +1044,7 @@ def run_parcellation(
                 binarize_connectivity=bool(binarize_connectivity),
                 legacy_binarize=bool(legacy_binarize),
                 fisher_transform=bool(fisher_transform),
+                standardize_profiles=bool(standardize_profiles),
                 connectivity_pca_components=str(connectivity_pca_components),
                 connectivity_ica_components=str(connectivity_ica_components),
                 weight_samples=bool(weight_samples),

@@ -152,6 +152,28 @@ The connectome is almost perfectly reproducible and the 50-cluster block model c
 
 Working hypothesis: circshift preserves each unit's autocorrelation, so units differ in effective sample size, hence in the magnitude of their noise correlations -- a stable per-unit property that k-means can cluster on. The triviality check corroborates from the real side: `nopca_fisher` scores **AMI 0.354 with hubness decile**, so the arm that won on stability is substantially grouping units by how strongly connected they are rather than by what they connect to. This is exactly the degenerate case the null and the triviality checks were built to expose, and they exposed it.
 
+## Iteration 7 -- a silent no-op, and two decisive results (2026-09-10)
+
+Job 17364074 completed in 2 h 20 m, exit 0, peak RSS 4.4 GB. 1,344 scored measurements.
+
+**S10: `standardize_profiles` was accepted and silently ignored.** `run_parcellation` took the argument, never forwarded it to `sample_parcellations`, and so `vmf_profile` computed exactly `nopca_fisher` -- identical to three decimal places on all six metrics, which is how it was caught. Two failures compounded. The edit that added the forwarding used a search string with 16-space indentation where the code has 12 (a leftover from removing an `if True:` wrapper earlier), and that particular replacement had no assert, so it was a no-op. And the verification checked only `'standardize_profiles' in inspect.signature(run_parcellation).parameters`, which confirms the parameter exists and tests nothing about whether it reaches the clusterer. **FIXED**, `standardize_profiles` added to the provenance attrs (its absence there is why the output files gave no hint the setting had been dropped), and a structural test added that spies on the real `sample_parcellations` call and asserts every one of the nine parameters the two functions share actually arrives. That test is the general form of the fix; it would have caught this and will catch the next arm added the same way.
+
+**The shortfall is the model class, not overfitting.** This is precisely what `fidelity_insample` was added to determine, and the answer is unambiguous. On prose domains (excluding the degenerate whitespace and codeparrot):
+
+| arm | held-out | in-sample | ratio | uncompressed ceiling |
+|---|---|---|---|---|
+| current | 0.077 | 0.077 | 1.00 | 0.984 |
+| legacy | 0.064 | 0.064 | 1.00 | 0.984 |
+| nopca_fisher | 0.155 | 0.155 | 1.00 | 0.984 |
+
+Held-out equals in-sample to two decimals: the partitions do not overfit their half **at all**. So the entire gap between 0.155 and 0.984 is the model form. A 50-cluster block model cannot describe this connectome however good the partition is, and improving the clustering cannot close it -- only changing the model class could. Whatever else this experiment concludes, that result stands on its own.
+
+**The circshift null is not structureless, and the mechanism is identifiable.** The null fits a block model *better than real data does* -- in-sample 0.540 against 0.323 for `nopca_fisher`, and 0.310 against 0.111 for `legacy`. Working hypothesis: circshift preserves each unit's autocorrelation, so units differ in effective sample size and therefore in the magnitude of their noise correlations, making `R_null[i,j] ~ f(unit_i) * f(unit_j)` -- a rank-one hubness structure, which a block model captures well by grouping units on magnitude. This single mechanism accounts for the whole cluster of anomalies: the null being clusterable at all, its high in-sample fit, its high held-out fit, and `nopca_fisher` scoring AMI 0.354 with hubness decile on real data.
+
+If that is right, the null is not "no structure" but "no structure beyond per-unit magnitude". That is arguably the *correct* null, but it is a far stronger baseline than intended and must be described that way rather than as a noise floor. `vmf_profile` removes per-unit magnitude by construction and is therefore the direct test -- and it is exactly the arm that did not run. Proposed cheap confirmation: leading-eigenvalue share of a null connectivity matrix, which under the hypothesis should be much larger than in the real matrix.
+
+**`fidelity_across` is sane again** with Pearson r: ceiling 0.268 on real data rather than the previous -118. The null still exceeds real there (0.489 against 0.118 for `nopca_fisher`), consistent with the same rank-one story.
+
 ## Decisions made
 
 - 2026-09-08 (S1): knockout is **opt-in and per-network**. `run_knockout(networks=None)` is a no-op, so `-s all` never lesions a model by accident; `networks: all` or a list of indices builds one perturbed model per shared subnetwork, each writing to `<output_dir>/knockout/subnetwork<k>/`. The union-lesion the old OR-loop performed is no longer reachable — it could not answer what any single subnetwork contributes, which is the question the step exists to ask. Re-addable if a "remove all domain-general structure" experiment is ever wanted. Cost: one full connectivity run per selected network, so `networks: all` over 20 shared networks is 20x the baseline connectivity cost. Rejected alternative: per-network as the default (my initial recommendation) — Andrea preferred an explicit opt-in so no accidental lesioning is possible.
@@ -239,6 +261,8 @@ Every code change to the repo, newest last. Format: date — files — what and 
 - 2026-09-10 -- [tests/verify_iter4_metrics.py](../tests/verify_iter4_metrics.py) -- 13 new checks: R2 collapsing to -597 under a pure rescale where r stays at 1.000, r still separating good from bad predictions, the unknown-measure guard, and for the vMF arm the hub/weak equivalence, the sphere property, and the exact `2n(1 - r)` distance identity. 184 checks across five suites, plus 13 pytest cases.
 
 - 2026-09-10 -- [parcelmate/metrics.py](../parcelmate/metrics.py), [parcelmate/bin/score.py](../parcelmate/bin/score.py) -- **`fidelity_insample` added as a second, tighter reference.** The uncompressed ceiling is a very loose bound: it says what a predictor with ~50 million free parameters achieves, while a 50-cluster block model has about 1,275, a compression of roughly 40,000 to 1. Scoring the fitted partition on the half it was fit to gives the best that model class can do here. The ratio of held-out to in-sample then separates two explanations the uncompressed ceiling conflates -- a low held-out score with a high in-sample score means the partition overfits its half, while both low means block models simply do not describe this connectome whatever the partition. This matters directly for reading the first run, where prose-domain fidelity of 6-14% against a ceiling of 0.98 is currently ambiguous between those. Estimated cost ~85 s on a 34 min scoring job with no extra I/O, since both matrices are already resident; block means are recomputed rather than shared so the two paths cannot contaminate each other.
+
+- 2026-09-10 -- [parcelmate/model.py](../parcelmate/model.py), [tests/verify_iter4_metrics.py](../tests/verify_iter4_metrics.py) -- **S10 fix**: forward `standardize_profiles` from `run_parcellation` to `sample_parcellations` (it was accepted and silently dropped, so `vmf_profile` was a byte-identical copy of `nopca_fisher`), record it in the provenance attrs, and add a structural test that monkeypatches `sample_parcellations` to capture what it actually receives, asserting all nine shared parameters arrive. Both replacements in the fix carry asserts this time. 191 checks across five suites, plus 13 pytest cases.
 
 ## Cluster
 

@@ -348,6 +348,52 @@ check('insample: a well-matched partition scores high in-sample (%.3f)' % _ins,
 check('insample: accepts the measure argument',
       abs(fidelity_insample(R_a, P_true, measure='r')) <= 1.0)
 
+
+# ------------------------------- every shared parameter must actually reach the clusterer
+# This is the check that would have caught the standardize_profiles no-op: run_parcellation
+# accepted the argument and silently dropped it, so `vmf_profile` produced results byte
+# identical to `nopca_fisher` on all six metrics. Asserting the parameter exists in the
+# signature -- which is what was checked at the time -- does not test the plumbing. This
+# spies on the real call instead, and covers every parameter the two functions share, so a
+# future arm cannot be added and silently ignored.
+import inspect  # noqa: E402
+
+import parcelmate.model as _M  # noqa: E402
+
+_shared = (set(inspect.signature(_M.run_parcellation).parameters)
+           & set(inspect.signature(_M.sample_parcellations).parameters)) - {'verbose', 'indent', 'seed'}
+_received = {}
+_orig_sp = _M.sample_parcellations
+
+
+def _spy(connectivity, **kw):
+    _received.update(kw)
+    return _orig_sp(connectivity, **kw)
+
+
+tmp4 = tempfile.mkdtemp(prefix='parcelmate_plumbing_')
+_M.sample_parcellations = _spy
+try:
+    os.makedirs(os.path.join(tmp4, CONNECTIVITY_NAME))
+    save_h5_data(dict(connectivity=R_a,
+                      coordinates=np.stack([np.zeros(len(block)),
+                                            np.arange(len(block))], 1).astype(np.int32)),
+                 os.path.join(tmp4, CONNECTIVITY_NAME, 'connectivity_a_avg.h5'), verbose=False)
+    _M.run_parcellation(output_dir=tmp4, variant='v', n_networks=3, n_samples=2,
+                        binarize_connectivity=False, fisher_transform=True,
+                        standardize_profiles=True, connectivity_pca_components=None,
+                        verbose=False, seed=1)
+finally:
+    _M.sample_parcellations = _orig_sp
+    shutil.rmtree(tmp4, ignore_errors=True)
+
+_not_forwarded = sorted(prm for prm in _shared if prm not in _received)
+check('plumbing: every parameter shared with sample_parcellations is forwarded (%s)'
+      % (', '.join(_not_forwarded) if _not_forwarded else 'all %d' % len(_shared)),
+      not _not_forwarded)
+check('plumbing: standardize_profiles arrives with the value it was given',
+      _received.get('standardize_profiles') is True)
+
 print()
 if failures:
     raise SystemExit('%d check(s) failed: %s' % (len(failures), failures))
