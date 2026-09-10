@@ -115,6 +115,13 @@ if __name__ == '__main__':
             output_dir=cfg.get('output_dir', OUTPUT_DIR)
         )
 
+    if 'all' in steps or 'score' in steps:
+        # Last: needs the parcellations of both trees to exist. Refuses to write a partial
+        # table, so a truncated parcellation job fails here loudly instead of producing a
+        # scores.csv that looks complete.
+        from parcelmate.bin.score import score_config
+        score_config(cfg)
+
     if 'all' in steps or 'subnetwork_knockout' in steps:
         # Reads its own `subnetwork_knockout` section (S3). It previously received
         # `subnetwork_extraction`, whose signature is disjoint from run_knockout's, so any

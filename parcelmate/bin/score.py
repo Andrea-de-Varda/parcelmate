@@ -151,19 +151,13 @@ def score_tree(root, tree, variants, domains, rows, missing, cross_domain=True, 
         del R_fit
 
 
-def main():
-    ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument('config_path', nargs='?', default=None)
-    ap.add_argument('-o', '--out', default=None,
-                    help='CSV path (default <output_dir>/metrics/scores.csv)')
-    ap.add_argument('--no-cross-domain', action='store_true',
-                    help='Skip the across-domain comparisons, which dominate the runtime.')
-    ap.add_argument('--allow-partial', action='store_true',
-                    help='Write results even though inputs are missing. Off by default: a '
-                         'partial scores.csv is indistinguishable from a complete one.')
-    args = ap.parse_args()
+def score_config(cfg, out=None, cross_domain=True, allow_partial=False, verbose=True):
+    """Score every variant in `cfg` across both trees. Returns (rows, out_path).
 
-    cfg = get_cfg(args.config_path) if args.config_path else {}
+    Split out from `main` so the pipeline driver can call it as a step, which keeps job
+    generation uniform: `make_jobs ... -s score` produces a script like any other stage
+    rather than needing a hand-written sbatch for this one module.
+    """
     root = cfg.get('output_dir', OUTPUT_DIR)
     null_root = root.rstrip('/') + '_null'
     variants = sorted((cfg.get('parcellation_variants') or {'default': {}}).keys())
@@ -177,10 +171,10 @@ def main():
             missing.append('%s tree absent at %s' % (tree, tree_root))
             continue
         score_tree(tree_root, tree, variants, domains, rows, missing,
-                   cross_domain=not args.no_cross_domain)
+                   cross_domain=cross_domain, verbose=verbose)
 
     # Refuse to publish a results file that merely looks complete. The realistic failure is
-    # a parcellation job hitting its wall-time part way through; without this the scoring
+    # a parcellation job hitting its wall clock part way through; without this the scoring
     # would exit 0 over whatever happened to be on disk.
     if missing:
         stderr('\n%d missing input(s):\n' % len(missing))
@@ -188,13 +182,13 @@ def main():
             stderr('  - %s\n' % m)
         if len(missing) > 40:
             stderr('  ... and %d more\n' % (len(missing) - 40))
-        if not args.allow_partial:
+        if not allow_partial:
             raise SystemExit(
                 '\nRefusing to write partial results. Re-run the missing steps, or pass '
                 '--allow-partial if an incomplete table is genuinely what you want.')
         stderr('\n--allow-partial given; writing an incomplete table.\n')
 
-    out_path = args.out or os.path.join(root, 'metrics', 'scores.csv')
+    out_path = out or os.path.join(root, 'metrics', 'scores.csv')
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     with open(out_path, 'w', newline='') as f:
         w = csv.DictWriter(f, fieldnames=['tree', 'variant', 'metric', 'fit', 'eval', 'value'])
@@ -236,6 +230,24 @@ def main():
     print('data noise; the reliability ceiling removes the data difference to expose')
     print('algorithmic instability. Compare each arm against its OWN reliability ceiling --')
     print('the arms differ by nearly an order of magnitude in that floor.')
+
+    return rows, out_path
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument('config_path', nargs='?', default=None)
+    ap.add_argument('-o', '--out', default=None,
+                    help='CSV path (default <output_dir>/metrics/scores.csv)')
+    ap.add_argument('--no-cross-domain', action='store_true',
+                    help='Skip the across-domain comparisons, which dominate the runtime.')
+    ap.add_argument('--allow-partial', action='store_true',
+                    help='Write results even though inputs are missing. Off by default: a '
+                         'partial scores.csv is indistinguishable from a complete one.')
+    args = ap.parse_args()
+    cfg = get_cfg(args.config_path) if args.config_path else {}
+    score_config(cfg, out=args.out, cross_domain=not args.no_cross_domain,
+                 allow_partial=args.allow_partial)
 
 
 if __name__ == '__main__':
