@@ -327,6 +327,27 @@ _plain = _sp2(R_a, n_networks=4, n_samples=4, binarize_connectivity=False,
 check('vmf: it gives a different partition from unstandardized nopca_fisher',
       not np.array_equal(_out['samples'], _plain['samples']))
 
+
+# ------------------------------------------------- in-sample block-model reference
+from parcelmate.metrics import fidelity_insample  # noqa: E402
+
+_ins = fidelity_insample(R_a, P_true)
+_held = fidelity(R_a, R_b, P_true)
+check('insample: a partition fits its own half at least as well as a held-out one '
+      '(%.3f vs %.3f)' % (_ins, _held), _ins >= _held - 1e-9)
+check('insample: it sits at or below the uncompressed ceiling on its own data',
+      _ins <= 1.0 + 1e-9)
+# A partition too coarse for the structure is limited by the MODEL, not by generalization:
+# its in-sample score is low too, which is exactly what this reference is for.
+_ins_coarse = fidelity_insample(R_rich_a, _coarse)
+check('insample: a too-coarse partition scores low in-sample as well (%.3f), so the '
+      'shortfall is the model class rather than overfitting' % _ins_coarse,
+      _ins_coarse < 0.5)
+check('insample: a well-matched partition scores high in-sample (%.3f)' % _ins,
+      _ins > 0.8)
+check('insample: accepts the measure argument',
+      abs(fidelity_insample(R_a, P_true, measure='r')) <= 1.0)
+
 print()
 if failures:
     raise SystemExit('%d check(s) failed: %s' % (len(failures), failures))

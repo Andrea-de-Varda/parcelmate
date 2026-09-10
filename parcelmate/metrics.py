@@ -149,6 +149,27 @@ def fidelity(R_fit, R_eval, parcellation_fit, measure='r2'):
     return agreement(R_eval, M[labels][:, labels], measure=measure)
 
 
+def fidelity_insample(R_fit, parcellation_fit, measure='r2'):
+    """How well the partition describes the data it was fit to -- the block-model ceiling.
+
+    `fidelity_ceiling` is a very loose bound: it removes compression entirely, so it says
+    what a predictor with 50 million free parameters achieves. A 50-cluster block model has
+    about 1,275, a compression of roughly 40,000 to 1, and cannot approach that however
+    good the partition is. Scoring the fitted partition on its own data gives the tighter
+    reference -- the best this model class can do here.
+
+    The ratio of held-out to in-sample fidelity then separates two explanations that the
+    uncompressed ceiling alone conflates: a low held-out score with a high in-sample score
+    means the partition overfits its half, while both being low means block models are
+    simply a poor description of this connectome regardless of the partition.
+
+    Recomputes the block means rather than sharing them with the held-out call. That is
+    about 0.2 s per call against a ~34 min scoring job, and keeping the two paths
+    independent means neither can silently contaminate the other.
+    """
+    return fidelity(R_fit, R_fit, parcellation_fit, measure=measure)
+
+
 def fidelity_ceiling(R_fit, R_eval, measure='r2'):
     """Predict held-out connectivity from the fitting matrix directly, uncompressed.
 

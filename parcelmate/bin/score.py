@@ -29,8 +29,8 @@ from parcelmate.constants import (
     CONNECTIVITY_NAME, EXTENSION, HALF_NAMES, OUTPUT_DIR, PARCELLATION_NAME,
 )
 from parcelmate.metrics import (
-    domain_average, fidelity, fidelity_ceiling, reliability, reliability_ceiling,
-    summarize, triviality,
+    domain_average, fidelity, fidelity_ceiling, fidelity_insample, reliability,
+    reliability_ceiling, summarize, triviality,
 )
 
 # Within-domain, both halves share a scale, so variance explained is meaningful and is the
@@ -94,6 +94,13 @@ def score_tree(root, tree, variants, domains, rows, missing, cross_domain=True, 
                 rows.append(dict(tree=tree, variant=variant, metric=metric_name,
                                  fit=domain, eval=domain,
                                  value=fidelity(R_a, R_b, P_a, measure=measure)))
+            # The tighter reference: what this partition achieves on the half it was fit
+            # to. The uncompressed ceiling says what 50M free parameters can do; this says
+            # what ~1,275 can. Held-out over in-sample separates a partition that overfits
+            # its half from a model class that simply does not describe this connectome.
+            rows.append(dict(tree=tree, variant=variant, metric='fidelity_within_insample',
+                             fit=domain, eval=domain,
+                             value=fidelity_insample(R_a, P_a)))
 
             # Reliability ceiling: two consensuses from disjoint halves of the SAME
             # restarts on the SAME data, so the residual is algorithmic instability alone.
@@ -215,7 +222,8 @@ def score_config(cfg, out=None, cross_domain=True, allow_partial=False, verbose=
     print('\n%-14s %-24s %8s %8s %10s' % ('variant', 'metric', 'real', 'null', 'real-null'))
     print('-' * 68)
     for metric in ('reliability_within', 'reliability_ceiling', 'reliability_across',
-                   'fidelity_within', 'fidelity_within_r', 'fidelity_across',
+                   'fidelity_within', 'fidelity_within_insample', 'fidelity_within_r',
+                   'fidelity_across',
                    'triviality_ami_layer', 'triviality_ami_hubness',
                    'triviality_median_max_membership', 'triviality_n_effective_networks'):
         for variant in variants + ['(ceiling)']:
