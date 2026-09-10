@@ -317,6 +317,7 @@ def sample_parcellations(
         clustering_kwargs=None,
         legacy_binarize=False,
         fisher_transform=False,
+        standardize_profiles=False,
         seed=None,
         verbose=True,
         indent=0
@@ -334,6 +335,11 @@ def sample_parcellations(
       ablation  binarize_connectivity=False, fisher_transform=True, pca=None
                 Keeps the magnitudes (Fisher-transformed to stabilize variance) and drops
                 the PCA truncation and whitening entirely.
+      vmf       ...plus standardize_profiles=True
+                The Yeo et al. (2011) construction: each unit is described by its
+                connectivity profile, standardized, and units are grouped by the similarity
+                of those profiles. See `standardize_profiles` below for why this is exactly
+                spherical k-means and what it removes.
     """
     if verbose:
         stderr('%sSampling (n_networks=%d)\n' % (' ' * indent, n_networks))
@@ -374,6 +380,28 @@ def sample_parcellations(
         # would handicap this arm against the binarized ones, where the diagonal is 1 of
         # 999 kept partners (0.1% of the row) and therefore harmless.
         np.fill_diagonal(X, 0.0)
+    if standardize_profiles:
+        # z-score each unit's profile across its columns. Two things follow, and both are
+        # the point of this arm.
+        #
+        # 1. It is exactly spherical k-means. z-scoring puts every row on a sphere of
+        #    radius sqrt(n), so ||z_i - z_j||^2 = 2n(1 - r_ij) -- Euclidean distance
+        #    becomes an exact monotone function of the correlation *between profiles*.
+        #    L2-normalizing afterwards would divide everything by the same constant and
+        #    change nothing, which is why no separate normalization step appears here.
+        #    This is the Yeo et al. (2011) fMRI parcellation construction.
+        #
+        # 2. It removes hubness. Without it, a unit's overall connection strength enters
+        #    the distance, so two units with the same connectivity *pattern* but different
+        #    overall strength are far apart. Measured on the first full run, the
+        #    unstandardized Fisher arm had AMI 0.354 with hubness decile -- it was
+        #    substantially grouping units by how strongly connected they are rather than by
+        #    what they connect to. Standardizing asks only about the pattern.
+        #
+        # The tradeoff is real: if hubness carries genuine functional signal, this discards
+        # it. `triviality_ami_hubness` and `fidelity_within` together adjudicate -- hubness
+        # was nuisance if AMI falls and fidelity holds, signal if fidelity falls with it.
+        X = standardize_array(np.asarray(X, dtype=np.float64), axis=-1)
     if connectivity_pca_components:
         n_components = connectivity_pca_components
         if n_components == 'auto':
@@ -900,6 +928,7 @@ def run_parcellation(
         clustering_kwargs=None,
         legacy_binarize=False,
         fisher_transform=False,
+        standardize_profiles=False,
         n_alignments=None,
         weight_samples=False,
         parcellate_samples=False,

@@ -32,6 +32,13 @@ from parcelmate.metrics import (
     domain_average, fidelity, fidelity_ceiling, reliability, reliability_ceiling,
     summarize, triviality,
 )
+
+# Within-domain, both halves share a scale, so variance explained is meaningful and is the
+# stricter measure. Across domains they do not -- whitespace sits at mean |r| 0.37 against
+# wikitext at 0.047 -- so an R^2 there scores the scale mismatch rather than whether the
+# structure transfers. Correlation is reported for both, so the across/within ratio (the
+# continuous domain-generality measure) compares like with like.
+WITHIN_MEASURES = (('fidelity_within', 'r2'), ('fidelity_within_r', 'r'))
 from parcelmate.util import load_h5_data, stderr
 
 
@@ -67,8 +74,10 @@ def score_tree(root, tree, variants, domains, rows, missing, cross_domain=True, 
 
         # A property of the data, not of any variant: how much of half B is predictable
         # from half A with no compression at all.
-        rows.append(dict(tree=tree, variant='(ceiling)', metric='fidelity_within',
-                         fit=domain, eval=domain, value=fidelity_ceiling(R_a, R_b)))
+        for metric_name, measure in WITHIN_MEASURES:
+            rows.append(dict(tree=tree, variant='(ceiling)', metric=metric_name,
+                             fit=domain, eval=domain,
+                             value=fidelity_ceiling(R_a, R_b, measure=measure)))
 
         for variant in variants:
             fa, fb = parc_path(root, variant, domain, HALF_NAMES[0]), \
@@ -81,8 +90,10 @@ def score_tree(root, tree, variants, domains, rows, missing, cross_domain=True, 
 
             rows.append(dict(tree=tree, variant=variant, metric='reliability_within',
                              fit=domain, eval=domain, value=reliability(P_a, P_b)))
-            rows.append(dict(tree=tree, variant=variant, metric='fidelity_within',
-                             fit=domain, eval=domain, value=fidelity(R_a, R_b, P_a)))
+            for metric_name, measure in WITHIN_MEASURES:
+                rows.append(dict(tree=tree, variant=variant, metric=metric_name,
+                                 fit=domain, eval=domain,
+                                 value=fidelity(R_a, R_b, P_a, measure=measure)))
 
             # Reliability ceiling: two consensuses from disjoint halves of the SAME
             # restarts on the SAME data, so the residual is algorithmic instability alone.
@@ -130,13 +141,14 @@ def score_tree(root, tree, variants, domains, rows, missing, cross_domain=True, 
             if not os.path.exists(p_eval):
                 continue
             R_eval = load_connectivity(p_eval)
+            # Correlation, not R^2: see WITHIN_MEASURES above.
             rows.append(dict(tree=tree, variant='(ceiling)', metric='fidelity_across',
                              fit=fit_domain, eval=eval_domain,
-                             value=fidelity_ceiling(R_fit, R_eval)))
+                             value=fidelity_ceiling(R_fit, R_eval, measure='r')))
             for variant, P in parcs.items():
                 rows.append(dict(tree=tree, variant=variant, metric='fidelity_across',
                                  fit=fit_domain, eval=eval_domain,
-                                 value=fidelity(R_fit, R_eval, P)))
+                                 value=fidelity(R_fit, R_eval, P, measure='r')))
                 # Reliability across domains: does the same partition reappear when the
                 # model reads different text? The continuous counterpart of the
                 # reciprocal-best-match clique, which only ever answered yes or no.
@@ -203,7 +215,7 @@ def score_config(cfg, out=None, cross_domain=True, allow_partial=False, verbose=
     print('\n%-14s %-24s %8s %8s %10s' % ('variant', 'metric', 'real', 'null', 'real-null'))
     print('-' * 68)
     for metric in ('reliability_within', 'reliability_ceiling', 'reliability_across',
-                   'fidelity_within', 'fidelity_across',
+                   'fidelity_within', 'fidelity_within_r', 'fidelity_across',
                    'triviality_ami_layer', 'triviality_ami_hubness',
                    'triviality_median_max_membership', 'triviality_n_effective_networks'):
         for variant in variants + ['(ceiling)']:
@@ -224,7 +236,12 @@ def score_config(cfg, out=None, cross_domain=True, allow_partial=False, verbose=
             print('%-14s %-24s %8.3f %8.3f %s' % (
                 variant, metric, avg('real'), avg('null'), delta))
 
-    print('\nDomains weighted equally. Fidelity: block means estimated on the fitting half,')
+    print('\nfidelity_within is R^2; fidelity_within_r and fidelity_across are Pearson r,')
+    print('which is scale-invariant and therefore the only valid across-domain measure.')
+    print('Domains weighted equally here; per-domain values are in the CSV and should be')
+    print('reported separately, since whitespace and codeparrot are degenerate cases that')
+    print('a block model fits far too easily.')
+    print('Fidelity: block means estimated on the fitting half,')
     print('applied to the held-out half, hard argmax labels. Two ceilings, partialling out')
     print('different nuisances: the fidelity ceiling removes the model limitation to expose')
     print('data noise; the reliability ceiling removes the data difference to expose')

@@ -120,6 +120,38 @@ Three consequences. First, raw cross-half reliability is **not comparable betwee
 
 **Costs, measured rather than guessed.** At full scale (9,984 units, k=50): one k-means restart takes 44.5 s for the no-PCA arm and 6.2 s for the PCA arms. At the configured 100 restarts that is ~68 h serial for 42 matrices, which nobody had estimated and which would have been submitted under a 12 h wall clock. The nulls are exactly half of any such budget, and the across-domain (`avg`) matrices are a third of it. Both ceilings are free: the fidelity ceiling is one R2 between two matrices, and the reliability ceiling costs two Hungarian alignments, measured at 0.1% of the k-means time (0.04 s against 45 s).
 
+## Iteration 6 -- first scored results, and what they show (2026-09-10)
+
+Jobs 17356343 (split_halves + parcellation) and 17356344 (score) both completed clean: 1 h 39 m and 34 m, peak RSS 4.2 and 4.4 GB against 64/96 GB requested, 224 HDF5 files, 938 scored measurements. My wall-time estimate of ~14 h was out by 8.5x, because the earlier 44.5 s-per-restart timing was effectively single-threaded and the job ran on 16 cores.
+
+**The connectome result replicates, and slightly exceeds, the poster.** Per-domain fidelity ceiling (R2 of half A predicting half B): agnews 0.985, bookcorpus 0.993, random 0.994, tldr17 0.978, wikitext 0.980, whitespace 1.000, codeparrot 0.749. For two symmetric noisy estimates of one truth, R2 = 2r - 1, so a ceiling of 0.98 implies a connectome correlation of about **0.99**, against the 0.974 Cory's poster reports. Higher as expected, since our halves are ~197k tokens against their 50k. Our between-domain figure, computed separately on `results/alldomains`, was 0.313 excluding whitespace against their 0.369. Both halves of their Result 1 reproduce.
+
+**A bug in `fidelity_across`, now fixed.** Across-domain R2 came out at -11 to -13 for every arm and -118 for whitespace against agnews. The cause is scale, not structure: domains differ enormously in overall correlation magnitude (whitespace mean |r| 0.37, wikitext 0.047), so block means fitted on one domain are on the wrong scale for another and the residuals dwarf the variance. The ceiling itself was negative, which is the tell -- it is the raw matrix predicting the other raw matrix, with no parcellation involved. R2 asks whether the *values* transfer; the agreed question was whether the *structure* does. Now reported as Pearson r, which is scale-invariant. Demonstrated in the test suite: identical structure rescaled 8x and offset scores R2 = -597 and r = 1.000.
+
+**The parcellations discard most of the reproducible structure.** Against a ceiling of ~0.98, held-out fidelity on genuine prose domains is 6-14%:
+
+| domain | ceiling | current | legacy | nopca_fisher |
+|---|---|---|---|---|
+| wikitext | 0.980 | 0.078 | 0.057 | 0.140 |
+| agnews | 0.985 | 0.071 | 0.063 | 0.109 |
+| bookcorpus | 0.993 | 0.076 | 0.067 | 0.225 |
+| tldr17 | 0.978 | 0.083 | 0.069 | 0.144 |
+| random | 0.994 | 0.061 | 0.062 | 0.136 |
+| codeparrot | 0.749 | 0.368 | 0.204 | 0.605 |
+| whitespace | 1.000 | 0.647 | 0.217 | 0.747 |
+
+The connectome is almost perfectly reproducible and the 50-cluster block model captures a tenth of it. Note also that the domain-averaged headline is inflated by whitespace and codeparrot, the two degenerate cases -- whitespace because everything correlates with everything, so a block model fits it trivially. Decision 2026-09-10: keep equal domain weighting for the average, and report per-domain values separately rather than reweighting.
+
+**The null is clusterable, and that is the most consequential finding.** Reliability on circshift noise reaches 0.505 for `legacy` (0.73 on the random domain), often matching or beating the real data:
+
+| arm | reliability_within real | null | delta |
+|---|---|---|---|
+| current | 0.127 | 0.045 | +0.082 |
+| legacy | 0.451 | 0.505 | -0.054 |
+| nopca_fisher | 0.621 | 0.487 | +0.134 |
+
+Working hypothesis: circshift preserves each unit's autocorrelation, so units differ in effective sample size, hence in the magnitude of their noise correlations -- a stable per-unit property that k-means can cluster on. The triviality check corroborates from the real side: `nopca_fisher` scores **AMI 0.354 with hubness decile**, so the arm that won on stability is substantially grouping units by how strongly connected they are rather than by what they connect to. This is exactly the degenerate case the null and the triviality checks were built to expose, and they exposed it.
+
 ## Decisions made
 
 - 2026-09-08 (S1): knockout is **opt-in and per-network**. `run_knockout(networks=None)` is a no-op, so `-s all` never lesions a model by accident; `networks: all` or a list of indices builds one perturbed model per shared subnetwork, each writing to `<output_dir>/knockout/subnetwork<k>/`. The union-lesion the old OR-loop performed is no longer reachable — it could not answer what any single subnetwork contributes, which is the question the step exists to ask. Re-addable if a "remove all domain-general structure" experiment is ever wanted. Cost: one full connectivity run per selected network, so `networks: all` over 20 shared networks is 20x the baseline connectivity cost. Rejected alternative: per-network as the default (my initial recommendation) — Andrea preferred an explicit opt-in so no accidental lesioning is possible.
@@ -200,6 +232,11 @@ Every code change to the repo, newest last. Format: date — files — what and 
 - 2026-09-09 -- [parcelmate/metrics.py](../parcelmate/metrics.py) -- **`fidelity(soft=...)` removed; hard argmax is settled.** The `soft` path took block means from the argmax labels and softened only the *prediction*, so it corresponded to no clean model while being reported as though it did. Hard argmax is the right target: it matches the deliverable, and reliability (ARI) needs hard labels anyway, so both metrics describe the same object. A genuinely soft version would need soft block means, at which point it is a mixed-membership block model and a different question. `triviality` now also reports `median_max_membership` and `frac_confident`, because argmax is only meaningful when the memberships are peaked and the two arms differ sharply on exactly that.
 - 2026-09-09 -- [configs/reliability.yml](../configs/reliability.yml) -- **restarts cut from 100 to 20 for every arm**, bringing the parcellation stage from ~68 h to ~14 h serial. Matched across arms deliberately: comparing arms at different restart budgets would confound method with budget, which matters here because restart count materially affects stability. The caveat is recorded above -- at 20 restarts the `current` arm's reliability is not distinguishable from zero, and the restart-scaling measurement should be reported alongside so the arm ranking is not mistaken for an artifact of the budget.
 - 2026-09-09 -- **stale documentation corrected.** Three places still described the uncompressed reference as a strict upper bound after that was shown false: the `metrics.py` module header, the `score.py` summary footer, and the `verify_iter4` docstring. The design doc and this log were already right, so the authoritative documents disagreed with the code's own comments. `score.py` also no longer prints a null-calibrated delta for the ceiling rows: subtracting a null ceiling from a real one is not a quantity, and because the null ceiling is negative it read as a large positive number that meant nothing. The dead `coordinates` variable in `score_tree` was removed.
+
+- 2026-09-10 -- [parcelmate/metrics.py](../parcelmate/metrics.py), [parcelmate/bin/score.py](../parcelmate/bin/score.py) -- **`fidelity_across` switched from R2 to Pearson r.** `variance_explained` became `agreement(..., measure='r2'|'r')`, with the old name kept as an alias. Within-domain still reports R2, which is the stricter measure and valid there because both halves share a scale; `fidelity_within_r` is emitted alongside so the across/within ratio -- the continuous domain-generality measure -- compares like with like rather than dividing a correlation by a variance-explained.
+- 2026-09-10 -- [parcelmate/model.py](../parcelmate/model.py), [configs/reliability.yml](../configs/reliability.yml) -- **new `vmf_profile` arm**: `nopca_fisher` plus `standardize_profiles=True`. Motivated directly by the AMI-0.354 hubness result above. z-scoring each unit's profile puts every row on a sphere of radius sqrt(n), so `||z_i - z_j||^2 = 2n(1 - r_ij)` exactly -- Euclidean distance becomes a monotone function of the correlation *between profiles*, which means this already is spherical k-means and an explicit L2 normalization afterwards would divide everything by the same constant and change nothing. Verified in the test suite. It is the Yeo et al. (2011) fMRI construction, and it is the route that scales to large models (PARCELLATION_DESIGN.md 4.1). What it removes is each unit's overall connection strength, so two units with the same pattern but different strength become identical.
+  **Prediction recorded before running**: if the null's clusterability is hubness-driven as hypothesized, `vmf_profile` should show a *lower null reliability* than `nopca_fisher` and hence a larger real-minus-null delta. If the null stays clusterable after standardizing, the hypothesis is wrong. The tradeoff is genuine -- if hubness carries real signal, standardizing discards it, and `ami_hubness` falling while `fidelity_within` holds distinguishes the two cases.
+- 2026-09-10 -- [tests/verify_iter4_metrics.py](../tests/verify_iter4_metrics.py) -- 13 new checks: R2 collapsing to -597 under a pure rescale where r stays at 1.000, r still separating good from bad predictions, the unknown-measure guard, and for the vMF arm the hub/weak equivalence, the sphere property, and the exact `2n(1 - r)` distance identity. 184 checks across five suites, plus 13 pytest cases.
 
 ## Cluster
 

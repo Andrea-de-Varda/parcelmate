@@ -88,3 +88,16 @@ parcellation_variants:
     binarize_connectivity: false
     fisher_transform: true
     connectivity_pca_components: null
+
+  # Second ablation: nopca_fisher plus standardizing each unit's profile, which is exactly
+  # the Yeo et al. (2011) fMRI construction and exactly spherical k-means -- z-scoring puts
+  # every row on a sphere of radius sqrt(n), so Euclidean distance becomes a monotone
+  # function of the correlation *between profiles*. Motivated directly by the first run:
+  # nopca_fisher scored AMI 0.354 with hubness decile, i.e. it was substantially grouping
+  # units by how strongly connected they are rather than by what they connect to.
+  # Standardizing removes the magnitude and asks only about the pattern.
+  vmf_profile:
+    binarize_connectivity: false
+    fisher_transform: true
+    standardize_profiles: true
+    connectivity_pca_components: null

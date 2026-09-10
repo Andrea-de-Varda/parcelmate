@@ -89,15 +89,29 @@ def block_means(R, labels, n_networks=None):
     return M
 
 
-def variance_explained(R_eval, prediction):
-    """R^2 of a prediction against the off-diagonal of R_eval.
+def agreement(R_eval, prediction, measure='r2'):
+    """How well a prediction matches the off-diagonal of R_eval.
 
-    Not clipped at zero: a genuinely bad predictor should be allowed to score negative,
-    which is informative (it means the block means are worse than the grand mean).
+    `measure='r2'` gives variance explained, which is the stricter quantity: it punishes
+    getting the scale wrong as well as the pattern. Not clipped at zero, because a negative
+    value is informative -- it means the prediction is worse than the grand mean.
+
+    `measure='r'` gives the Pearson correlation between prediction and target, which is
+    invariant to scale and offset. Required whenever the two matrices live on different
+    scales. Domains differ enormously in overall correlation magnitude -- whitespace sits at
+    mean |r| 0.37 against wikitext at 0.047 -- so an R^2 computed across domains measures
+    the scale mismatch rather than whether the structure transfers, and comes out at -118
+    for whitespace against agnews. Within a domain the two halves share a scale, so R^2 is
+    meaningful there and is reported alongside r.
     """
     y = upper_triangle(np.asarray(R_eval, dtype=np.float64))
     yhat = upper_triangle(np.asarray(prediction, dtype=np.float64)) \
         if np.ndim(prediction) == 2 else np.asarray(prediction, dtype=np.float64)
+    if measure == 'r':
+        if y.std() == 0 or yhat.std() == 0:
+            return float('nan')
+        return float(np.corrcoef(y, yhat)[0, 1])
+    assert measure == 'r2', 'measure must be "r2" or "r", got %r' % measure
     ss_tot = np.sum((y - y.mean()) ** 2)
     if ss_tot == 0:
         return float('nan')
@@ -105,7 +119,12 @@ def variance_explained(R_eval, prediction):
     return float(1.0 - np.sum((y - yhat) ** 2) / ss_tot)
 
 
-def fidelity(R_fit, R_eval, parcellation_fit):
+def variance_explained(R_eval, prediction):
+    """Backwards-compatible alias for `agreement(..., measure='r2')`."""
+    return agreement(R_eval, prediction, measure='r2')
+
+
+def fidelity(R_fit, R_eval, parcellation_fit, measure='r2'):
     """Variance of held-out connectivity explained by a partition fit elsewhere.
 
     `R_fit`/`parcellation_fit` come from the fitting data; `R_eval` is held out. Block
@@ -127,10 +146,10 @@ def fidelity(R_fit, R_eval, parcellation_fit):
     labels = hard_labels(P)
     M = block_means(R_fit, labels, n_networks=P.shape[1])
 
-    return variance_explained(R_eval, M[labels][:, labels])
+    return agreement(R_eval, M[labels][:, labels], measure=measure)
 
 
-def fidelity_ceiling(R_fit, R_eval):
+def fidelity_ceiling(R_fit, R_eval, measure='r2'):
     """Predict held-out connectivity from the fitting matrix directly, uncompressed.
 
     No parcellation, no clustering: every unit keeps its own identity, so whatever is left
@@ -147,7 +166,7 @@ def fidelity_ceiling(R_fit, R_eval):
     richer than any 50-block summary, expect the reference to sit comfortably above every
     variant; a variant that exceeds it would be a substantive finding, not a bug.
     """
-    return variance_explained(R_eval, R_fit)
+    return agreement(R_eval, R_fit, measure=measure)
 
 
 def reliability(parcellation_a, parcellation_b):

@@ -275,6 +275,58 @@ _X = _sp(_Rf, n_networks=3, n_samples=1, binarize_connectivity=False,
          fisher_transform=True, connectivity_pca_components=None, verbose=False, seed=1)
 check('fisher arm: runs with the diagonal zeroed', _X['samples'].shape == (1, len(block)))
 
+
+# ------------------------------------------------- scale-invariant across-domain measure
+from parcelmate.metrics import agreement  # noqa: E402
+
+_scaled = R_b * 8.0 + 3.0     # identical structure, different scale and offset
+check('agreement: R2 collapses under a pure scale change (%.1f)' % agreement(R_b, _scaled, 'r2'),
+      agreement(R_b, _scaled, 'r2') < -1.0)
+check('agreement: r is invariant to it (%.3f)' % agreement(R_b, _scaled, 'r'),
+      abs(agreement(R_b, _scaled, 'r') - 1.0) < 1e-9)
+check('agreement: r still separates good from bad predictions',
+      agreement(R_b, R_a, 'r') > agreement(R_b, np.random.RandomState(9).rand(*R_b.shape), 'r'))
+check('agreement: fidelity accepts the measure argument',
+      abs(fidelity(R_a, R_b, P_true, measure='r')) <= 1.0)
+try:
+    agreement(R_b, R_a, 'nonsense')
+    check('agreement: rejects an unknown measure', False)
+except AssertionError:
+    check('agreement: rejects an unknown measure', True)
+
+# ------------------------------------------------- vMF arm: standardizing removes hubness
+from parcelmate.model import sample_parcellations as _sp2  # noqa: E402
+from parcelmate.data import standardize_array  # noqa: E402
+
+# Two units with the SAME connectivity pattern but different overall strength must become
+# identical once profiles are standardized -- that is precisely what the arm is for.
+_pat = np.random.RandomState(5).rand(300)
+_hub, _weak = _pat * 3.0, _pat * 0.3
+_zh, _zw = standardize_array(_hub[None, :]), standardize_array(_weak[None, :])
+check('vmf: standardizing makes a hub and a weak unit with the same pattern identical',
+      np.allclose(_zh, _zw))
+check('vmf: without it they are far apart',
+      np.linalg.norm(_hub - _weak) > 10 * np.linalg.norm(_zh - _zw) + 1.0)
+check('vmf: standardized rows all have norm sqrt(n) (a sphere)',
+      np.allclose(np.linalg.norm(standardize_array(R_a), axis=1), np.sqrt(R_a.shape[1])))
+
+# Euclidean distance on standardized profiles is an exact monotone function of the
+# correlation between profiles, which is what makes this spherical k-means.
+_Z = standardize_array(R_a)
+_i, _j, _n = 0, 7, R_a.shape[1]
+check('vmf: ||z_i - z_j||^2 == 2n(1 - r_ij), so distance IS profile correlation',
+      np.isclose(np.sum((_Z[_i] - _Z[_j]) ** 2),
+                 2 * _n * (1 - np.corrcoef(R_a[_i], R_a[_j])[0, 1])))
+
+_out = _sp2(R_a, n_networks=4, n_samples=4, binarize_connectivity=False,
+            fisher_transform=True, standardize_profiles=True,
+            connectivity_pca_components=None, verbose=False, seed=2)
+check('vmf: the arm runs end to end', _out['samples'].shape == (4, len(block)))
+_plain = _sp2(R_a, n_networks=4, n_samples=4, binarize_connectivity=False,
+              fisher_transform=True, connectivity_pca_components=None, verbose=False, seed=2)
+check('vmf: it gives a different partition from unstandardized nopca_fisher',
+      not np.array_equal(_out['samples'], _plain['samples']))
+
 print()
 if failures:
     raise SystemExit('%d check(s) failed: %s' % (len(failures), failures))
