@@ -14,11 +14,15 @@ Four trees appear in the output:
          design. Kept for the record, but not directly comparable to `real`: R^2 is a ratio
          and the two sit on different denominators, which is how a structureless matrix
          once out-scored real data (LOG.md Iteration 9).
-  pnull  the null PARTITION evaluated on REAL data. The partition is fit on shifted half A;
-         its block means are estimated on real half A; it predicts real half B. Same target,
-         same denominator. real - pnull is the credit the clustering earns beyond what a
-         partition carrying only per-unit properties (autocorrelation, hubness) earns. This
-         is the primary comparison (LOG.md Iteration 12).
+  pnull  the null PARTITION evaluated on REAL data. For fidelity the partition is fit on
+         shifted half A, its block means are estimated on REAL half A, and it predicts REAL
+         half B -- same target, same denominator, so real - pnull is the credit the
+         clustering earns beyond what a partition carrying only per-unit properties
+         (autocorrelation, hubness) earns. For reliability, which is symmetric in the two
+         halves, it is the mean of ARI(P_null_A, P_real_B) and ARI(P_real_A, P_null_B):
+         both are "one real parcellation against one null parcellation" and averaging them
+         removes an arbitrary choice of which half carries the shift. This is the primary
+         comparison (LOG.md Iteration 12).
   rand   a seeded random partition of the same k, evaluated on real data: what "any 50
          blocks" gets, so that pnull's contribution above it is attributable to per-unit
          structure rather than to block-model capacity. A collapsed pnull partition (few
@@ -293,27 +297,46 @@ def score_partition_nulls(root, null_root, variants, domains, rows, missing, see
         if not (os.path.exists(pa) and os.path.exists(pb)):
             continue   # already recorded as missing by score_tree('real')
         for variant in variants:
-            fb = parc_path(root, variant, domain, HALF_NAMES[1])
-            fn = parc_path(null_root, variant, domain, HALF_NAMES[0])
-            if not os.path.exists(fb):
+            fa, fb = (parc_path(root, variant, domain, HALF_NAMES[0]),
+                      parc_path(root, variant, domain, HALF_NAMES[1]))
+            fn_a = parc_path(null_root, variant, domain, HALF_NAMES[0])
+            fn_b = parc_path(null_root, variant, domain, HALF_NAMES[1])
+            if not (os.path.exists(fa) and os.path.exists(fb)):
                 continue   # recorded by score_tree('real')
-            if not os.path.exists(fn):
-                missing.append('pnull/%s/%s: null-tree parcellation of half A' % (variant, domain))
+            if not (os.path.exists(fn_a) and os.path.exists(fn_b)):
+                missing.append('pnull/%s/%s: null-tree parcellation of both halves'
+                               % (variant, domain))
                 continue
             normalize = variant_normalize(root, variant, domain, HALF_NAMES[0])
             R_a, R_b = cache.get(pa, normalize), cache.get(pb, normalize)
             db = load_h5_data(fb, verbose=False)
+            P_a = load_h5_data(fa, verbose=False)['parcellation']
             P_b = db['parcellation']
-            dn = load_h5_data(fn, verbose=False)
+            P_null_a = load_h5_data(fn_a, verbose=False)['parcellation']
+            P_null_b = load_h5_data(fn_b, verbose=False)['parcellation']
             k = int(read_attrs(fb).get('n_networks', P_b.shape[1]))
-            refs = {
-                'pnull': dn['parcellation'],
-                'rand': random_partition(P_b.shape[0], k,
-                                         derive_seed(seed, 'rand_partition', variant, domain)),
+            n_units = P_b.shape[0]
+
+            def rand_p(tag):
+                return random_partition(n_units, k,
+                                        derive_seed(seed, 'rand_partition', variant, domain, tag))
+
+            # FIDELITY is directional -- the real row fits on half A and predicts half B --
+            # so the reference must keep that exact direction and differ only in the
+            # partition. Only the A-side reference is admissible here.
+            refs = {'pnull': P_null_a, 'rand': rand_p('a')}
+            # RELIABILITY is symmetric in the two halves: the real row is ARI(P_A, P_B), so
+            # shifting A and shifting B are two equally valid versions of "one real
+            # parcellation against one null parcellation" and the difference between them
+            # is sampling noise. Averaging both halves the variance for free and removes an
+            # arbitrary choice of which half carries the shift.
+            rel_refs = {
+                'pnull': (reliability(P_null_a, P_b) + reliability(P_a, P_null_b)) / 2.0,
+                'rand': (reliability(rand_p('a'), P_b) + reliability(P_a, rand_p('b'))) / 2.0,
             }
             for tree, P_ref in refs.items():
                 rows.append(dict(tree=tree, variant=variant, metric='reliability_within',
-                                 fit=domain, eval=domain, value=reliability(P_ref, P_b)))
+                                 fit=domain, eval=domain, value=rel_refs[tree]))
                 for metric_name, measure in WITHIN_MEASURES:
                     rows.append(dict(tree=tree, variant=variant, metric=metric_name,
                                      fit=domain, eval=domain,
@@ -354,33 +377,48 @@ def score_partition_nulls(root, null_root, variants, domains, rows, missing, see
             normalize = variant_normalize(root, variant, fit_domain, fit_key)
             P_real = load_h5_data(fr, verbose=False)['parcellation']
             k = int(read_attrs(fr).get('n_networks', P_real.shape[1]))
-            refs[variant] = (normalize, {
+            refs[variant] = (normalize, P_real, {
                 'pnull': load_h5_data(fn, verbose=False)['parcellation'],
                 'rand': random_partition(P_real.shape[0], k,
                                          derive_seed(seed, 'rand_partition', variant,
-                                                     fit_domain)),
-            })
+                                                     fit_domain, 'a')),
+            }, k)
         for eval_domain in domains:
             if eval_domain == fit_domain:
                 continue
             p_eval = conn_path(root, eval_domain, eval_key)
             if not os.path.exists(p_eval):
                 continue
-            for variant, (normalize, by_tree) in refs.items():
+            for variant, (normalize, P_fit_real, by_tree, k) in refs.items():
                 R_fit, R_eval = cache.get(p_fit, normalize), cache.get(p_eval, normalize)
                 f_eval = parc_path(root, variant, eval_domain, eval_key)
+                fn_eval = parc_path(null_root, variant, eval_domain, eval_key)
                 P_eval = load_h5_data(f_eval, verbose=False)['parcellation'] \
                     if os.path.exists(f_eval) else None
+                # The eval-side references, for the symmetric reliability comparison.
+                eval_refs = {}
+                if P_eval is not None:
+                    eval_refs['rand'] = random_partition(
+                        P_eval.shape[0], k,
+                        derive_seed(seed, 'rand_partition', variant, eval_domain, 'b'))
+                    if os.path.exists(fn_eval):
+                        eval_refs['pnull'] = load_h5_data(
+                            fn_eval, verbose=False)['parcellation']
                 for tree, P_ref in by_tree.items():
+                    # Fidelity keeps the real row's direction: fit side null, eval side real.
                     rows.append(dict(tree=tree, variant=variant,
                                      metric='fidelity_across_halves',
                                      fit=fit_domain, eval=eval_domain,
                                      value=fidelity(R_fit, R_eval, P_ref, measure='r')))
-                    if P_eval is not None:
+                    # Reliability is symmetric, so average shifting the fit side with
+                    # shifting the eval side. See the within-domain block.
+                    if P_eval is not None and tree in eval_refs:
                         rows.append(dict(tree=tree, variant=variant,
                                          metric='reliability_across_halves',
                                          fit=fit_domain, eval=eval_domain,
-                                         value=reliability(P_ref, P_eval)))
+                                         value=(reliability(P_ref, P_eval)
+                                                + reliability(P_fit_real,
+                                                              eval_refs[tree])) / 2.0))
             for key in [k for k in cache._d if k[0] == p_eval]:
                 cache._d.pop(key, None)
         if verbose:

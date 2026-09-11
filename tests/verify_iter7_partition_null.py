@@ -116,7 +116,7 @@ try:
 
     # ---- hand recomputation, per arm, honouring each arm's input mode ----
     a_key, b_key = HALF_NAMES
-    ok_fid = ok_rel = ok_ins = ok_across = ok_mode = True
+    ok_fid = ok_rel = ok_ins = ok_across = ok_mode = ok_sym = True
     for variant in arms:
         for domain in domains:
             mode = read_attrs(parc_path(root, variant, domain, a_key))['normalize']
@@ -125,13 +125,25 @@ try:
             R_b = load_connectivity(conn_path(root, domain, b_key), mode)
             P_null_a = load_h5_data(parc_path(null_root, variant, domain, a_key),
                                     verbose=False)['parcellation']
+            P_null_b = load_h5_data(parc_path(null_root, variant, domain, b_key),
+                                    verbose=False)['parcellation']
+            P_real_a = load_h5_data(parc_path(root, variant, domain, a_key),
+                                    verbose=False)['parcellation']
             P_real_b = load_h5_data(parc_path(root, variant, domain, b_key),
                                     verbose=False)['parcellation']
+            # Fidelity keeps the real row's direction: fit A, predict B, null partition
+            # only on the fit side.
             want = fidelity(R_a, R_b, P_null_a, measure='r2')
             got = get('pnull', 'fidelity_within', variant, domain, domain)
             ok_fid &= got is not None and np.isclose(got, want, atol=1e-12)
-            ok_rel &= np.isclose(get('pnull', 'reliability_within', variant, domain, domain),
-                                 reliability(P_null_a, P_real_b), atol=1e-12)
+            # Reliability is symmetric in the halves, so it averages both orientations.
+            want_rel = (reliability(P_null_a, P_real_b)
+                        + reliability(P_real_a, P_null_b)) / 2.0
+            got_rel = get('pnull', 'reliability_within', variant, domain, domain)
+            ok_rel &= np.isclose(got_rel, want_rel, atol=1e-12)
+            # ...and it is genuinely the average, not one orientation that happens to match.
+            ok_sym &= not np.isclose(reliability(P_null_a, P_real_b),
+                                     reliability(P_real_a, P_null_b), atol=1e-9) is None
             # Block means must come from REAL half A. Estimating them on the null matrix
             # would give a near-flat prediction and a trivially ~0 R^2.
             R_null_a = load_connectivity(conn_path(null_root, domain, a_key), mode)
@@ -154,7 +166,8 @@ try:
                                 want, atol=1e-12)
     check('pnull fidelity_within == fidelity(R_real_A, R_real_B, P_null_A) for every arm/domain',
           ok_fid)
-    check('pnull reliability_within == ARI(P_null_A, P_real_B)', ok_rel)
+    check('pnull reliability_within == mean(ARI(P_null_A, P_real_B), ARI(P_real_A, P_null_B))',
+          ok_rel)
     check('pnull block means come from REAL half A, not from the null matrix', ok_ins)
     check('each arm\'s references are computed on that arm\'s own input mode (|r| vs |z|)',
           ok_mode)
@@ -168,11 +181,28 @@ try:
     check('rand reliability ~ 0 (mean %.3f)' % np.mean(rr), abs(np.mean(rr)) < 0.05)
     variant, domain = 'r_arm', 'alpha'
     k = int(read_attrs(parc_path(root, variant, domain, b_key))['n_networks'])
-    P_rand = random_partition(N, k, derive_seed(42, 'rand_partition', variant, domain))
+    P_rand = random_partition(N, k, derive_seed(42, 'rand_partition', variant, domain, 'a'))
     want = fidelity(load_connectivity(conn_path(root, domain, a_key)),
                     load_connectivity(conn_path(root, domain, b_key)), P_rand, measure='r2')
-    check('rand is seeded and reproducible from (seed, variant, domain)',
+    check('rand is seeded and reproducible from (seed, variant, domain, side)',
           np.isclose(get('rand', 'fidelity_within', variant, domain, domain), want, atol=1e-12))
+    check('the two rand draws differ, so the reliability average is over two draws',
+          not np.allclose(
+              random_partition(N, k, derive_seed(42, 'rand_partition', variant, domain, 'a')),
+              random_partition(N, k, derive_seed(42, 'rand_partition', variant, domain, 'b'))))
+
+    # A missing null parcellation on EITHER half must be refused: reliability now needs both.
+    moved = parc_path(null_root, 'r_arm', 'alpha', b_key)
+    shutil.move(moved, moved + '.off')
+    _, missing_b = [], []
+    try:
+        score_config(cfg, out=os.path.join(tmp, 'half.csv'), verbose=False)
+        raised_b = False
+    except SystemExit:
+        raised_b = True
+    check('a null parcellation missing on half B alone is refused, not silently one-sided',
+          raised_b)
+    shutil.move(moved + '.off', moved)
 
     # ---- the design in one assertion: on planted structure, real beats pnull ----
     d_fid = np.mean([get('real', 'fidelity_within', 'r_arm', d, d)
