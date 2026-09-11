@@ -7,9 +7,16 @@ Four panels, left to right, on 300 simulated units:
   a  Shifted data, SIGNED r. Units have no relationship of any kind. The matrix looks like
      what it is: symmetric noise around zero.
   b  The SAME matrix after |r|. A smooth gradient appears. Nothing was added -- every
-     negative value was reflected to positive, and because a unit's noise level is a fixed
-     property of that unit (set by its autocorrelation, which a circular shift preserves),
-     the reflection leaves rows uniformly elevated in proportion to it. This is the artifact.
+     negative value was reflected to positive, and the reflection has a systematic size,
+     because how far a measured correlation scatters from zero depends on how many
+     INDEPENDENT observations the two series really contain. Bartlett's formula gives
+     Var(r_ij) ~ (1/T) sum_h rho_i(h) rho_j(h); for AR(1) that is (1+phi_i phi_j) /
+     (1 - phi_i phi_j) / T. Note the PRODUCT: the inflation is multiplicative, not an
+     additive per-row effect. A slow unit paired with a fast one gets no inflation at all
+     (phi = 0.95 with phi = 0.00 has the full T_eff = 3000), which is why this panel shows a
+     bright corner where both units are slow rather than a bright cross. Autocorrelation is a
+     fixed property of the unit and a circular shift preserves it exactly, so the whole
+     pattern survives the null. This is the artifact.
   c  Real-like data, |r|. Strong structure, but continuous and high-dimensional -- there is
      no partition of 20 blocks that describes it.
   d  Why the scores invert. The block model explains 3.5x MORE absolute variance on the real
