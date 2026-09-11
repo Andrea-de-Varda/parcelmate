@@ -198,7 +198,21 @@ Uncompressed reference (predicting R_B from R_A with no parcellation at all): 0.
 
 **Caveat on the reliability ceiling.** The restart-split ceiling comes out *below* the split-half reliability for every arm (e.g. `nopca_fisher` 0.641 vs 0.698, `vmf_profile` 0.418 vs 0.514). This is not a contradiction, it is an artifact of how it is computed: the ceiling compares two 10-restart consensuses while reliability compares two 20-restart consensuses, and a consensus over fewer restarts is noisier. With restarts at 20 rather than 100 the ceiling is a pessimistic proxy, not a bound, and should not be plotted as one. Fixing it properly means either running the ceiling at 20 restarts per side (doubling the parcellation cost) or dropping it; deferred, not decided.
 
-**Between-domain agreement** (`reliability_across`, ARI between parcellations fit on different domains) is low for every arm: 0.094 legacy, 0.016 current, 0.052 fisher_pca, 0.060 nopca_fisher, 0.035 vmf_profile. `fidelity_across` (Pearson r) sits at 0.10-0.12 throughout. Whatever these parcellations capture, it is substantially domain-specific -- consistent with the Iteration 6 comparison to Cory's poster, where our between-domain connectome r was 0.313 against his 0.369.
+**Cross-domain generalization, null-calibrated: no arm survives it.** This is the 2x2's other half (`reliability_across`, `fidelity_across`) and it was not plotted in the Iteration 8 figures, which show only the within-domain split-half metrics. Restricted to the 12 ordered prose-domain pairs, and against the same circular-shift null:
+
+| arm | rel. across | its null | Δ | fid. across (r) | its null | Δ |
+|---|---|---|---|---|---|---|
+| legacy | 0.254 | 0.503 | -0.249 | 0.208 | 0.535 | -0.327 |
+| current | 0.035 | 0.064 | -0.029 | 0.207 | 0.323 | -0.116 |
+| fisher_pca | 0.111 | 0.291 | -0.180 | 0.198 | 0.355 | -0.157 |
+| nopca_fisher | 0.163 | 0.341 | -0.178 | 0.235 | 0.709 | -0.475 |
+| vmf_profile | 0.081 | 0.158 | -0.077 | 0.198 | 0.191 | **+0.007** |
+
+Uncompressed cross-domain reference: r = 0.531 (against 0.984 within-domain), so roughly half the connectivity structure is domain-specific before any parcellation is applied.
+
+Every arm is below its null on cross-domain reliability, `vmf_profile` least so. On cross-domain fidelity `vmf_profile` is at parity (+0.007, i.e. indistinguishable from the null) and every other arm is well below. So the honest summary is: the within-domain result for `vmf_profile` (Δ rel +0.225, Δ fid +0.087) does **not** extend to transfer. A parcellation fit on wikitext carries essentially nothing about bookcorpus that a magnitude-matched null would not also carry. Either the parcellations are genuinely domain-specific, or 50 blocks is too coarse a description for the shared part to show through -- the uncompressed r of 0.531 says a shared part does exist.
+
+**Correction (2026-09-10, same day).** The first version of this paragraph reported cross-domain reliability as 0.094/0.016/0.052/0.060/0.035. Those averages were taken over *all* fit-eval domain pairs, including whitespace, codeparrot and random, rather than over the prose pairs used everywhere else in this section, and they omitted the nulls. The table above supersedes them.
 
 ## Decisions made
 
@@ -293,6 +307,8 @@ Every code change to the repo, newest last. Format: date — files — what and 
 - 2026-09-10 -- **Job 17366628 completed** (no code change): the full five-arm ladder at commit `1e3df81`, 1,652 scored measurements. Results in the Iteration 8 section above. `results/reliability/metrics/scores.csv` pulled back by rsync and committed as [figures/scores.csv](../figures/scores.csv) so the figures are reproducible from the repo alone.
 
 - 2026-09-10 -- [figures/make_figures.py](../figures/make_figures.py), [figures/scores.csv](../figures/scores.csv), [plots/](../plots/) (new) -- **publication figures.** Three, each carrying one of the Iteration 8 findings, written to `plots/` as both SVG (editable text) and 300-dpi PNG. (1) `ladder_null_calibrated`: two-panel horizontal dumbbell, reliability and fidelity, one row per arm, open dot = null and filled dot = real, so the gap between them *is* the result; the connector is greyed when an arm fails to beat its own null, which greys out four of the five rows on fidelity. Faint per-domain dots sit behind each mean so the spread is visible. (2) `ladder_mechanism`: AMI-with-hubness and null in-sample fidelity across the four ladder rungs, side by side, showing the two trace the same rise-and-fall -- this is Finding 2 as a picture. (3) `fidelity_vs_ceiling`: held-out against in-sample per arm, with the 0.984 uncompressed reference as a crimson dashed line and an arrow spanning the emptiness between. One colour per arm (light-to-dark ramp along the ladder, grey for `legacy` since it is a baseline and not a rung) held fixed across all three figures. Two things needed fixing on the second pass: the light end of the ramp was too pale to read, and in figure 3 the held-out and in-sample dots coincide *exactly* -- which is the finding -- so a plain dumbbell collapsed to one dot and read as missing data; they are now offset vertically by 0.16 with the connector between them.
+
+- 2026-09-10 -- [info/LOG.md](LOG.md) -- **corrected the Iteration 8 cross-domain paragraph.** It reported `reliability_across` averaged over all seven fit-eval domain pairs including the degenerate whitespace/codeparrot/random, inconsistent with the prose-only restriction used for every other number in that section, and with no null column. Recomputed on the 12 ordered prose pairs and with nulls: no arm beats its null on cross-domain reliability, and only `vmf_profile` reaches parity on cross-domain fidelity (+0.007). The within-domain `vmf_profile` win does not transfer. Not yet plotted -- the three Iteration 8 figures are all within-domain.
 
 ## Cluster
 
