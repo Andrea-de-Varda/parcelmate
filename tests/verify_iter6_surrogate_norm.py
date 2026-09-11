@@ -35,6 +35,14 @@ def check(name, cond):
         failures.append(name)
 
 
+def _raises(fn):
+    try:
+        fn()
+    except AssertionError:
+        return True
+    return False
+
+
 # ---------------------------------------------------------------------------------------
 # The mechanism itself, on data where the truth is known: units with heterogeneous
 # autocorrelation and NO cross-unit structure.
@@ -152,6 +160,26 @@ try:
     check('a partial set of surrogate variances raises rather than averaging wrongly', raised)
 finally:
     shutil.rmtree(tmp, ignore_errors=True)
+
+# ---------------------------------------------------------------------------------------
+# The confound normalization INTRODUCES on the real tree, and the diagnostic for it.
+# ---------------------------------------------------------------------------------------
+from parcelmate.metrics import triviality
+
+n_units = absz.shape[0]
+coords_t = np.stack([np.repeat(np.arange(10), n_units // 10), np.arange(n_units)], 1)
+noise_scale = np.sqrt(var).mean(axis=1)
+rand_P = np.eye(10)[np.random.RandomState(1).randint(0, 10, n_units)]
+check('ami_noise_scale is absent unless a noise scale is supplied',
+      'ami_noise_scale' not in triviality(rand_P, coords_t))
+check('ami_noise_scale ~ 0 for a partition unrelated to detectability',
+      abs(triviality(rand_P, coords_t, noise_scale=noise_scale)['ami_noise_scale']) < 0.1)
+ns_lab = (np.argsort(np.argsort(noise_scale)) * 10) // n_units
+check('ami_noise_scale = 1 for a partition that IS the detectability decile',
+      triviality(np.eye(10)[ns_lab], coords_t,
+                 noise_scale=noise_scale)['ami_noise_scale'] > 0.99)
+check('a mismatched noise_scale length raises rather than scoring nonsense',
+      _raises(lambda: triviality(rand_P, coords_t, noise_scale=noise_scale[:5])))
 
 # ---------------------------------------------------------------------------------------
 # The Fisher arms. fisher() maps anything above 1 to arctanh(0.999) = 3.8 with no error, so

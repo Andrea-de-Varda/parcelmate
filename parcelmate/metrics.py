@@ -221,13 +221,29 @@ def reliability_ceiling(parcellation_split1, parcellation_split2):
     return reliability(parcellation_split1, parcellation_split2)
 
 
-def triviality(parcellation, coordinates, connectivity=None, n_bins=10):
+def triviality(parcellation, coordinates, connectivity=None, noise_scale=None, n_bins=10):
     """How much of a parcellation is explained by properties that are not connectivity.
 
     Directly targets the "a dumb algorithm could score well" objection. If a parcellation
     is largely recoverable from the layer index, it is telling us nothing a `for layer in
     layers` loop would not. Hubness is included because the pre-S2 transposed binarization
     made clustering partly a function of degree, so it is a known failure mode here.
+
+    `noise_scale` is the per-unit mean null standard deviation from a surrogate-normalized
+    tree, and `ami_noise_scale` is the diagnostic for the confound that normalization
+    INTRODUCES on the real tree. Dividing by sigma turns each entry into an effect size, so a
+    unit whose correlations are hard to measure -- high autocorrelation, near-constant,
+    massive-activation dimensions -- has uniformly small |z|. Measured on wikitext sample 1,
+    the correlation between a unit's noise scale and its total strength goes from -0.32 in
+    |r| to -0.80 in |z|, and the relative spread of unit strength from 0.21 to 0.36: the
+    magnitude field is not removed on real data, it is inverted and strengthened.
+
+    That is the correct behaviour for an effect size, and on the NULL tree the field does
+    vanish (relative spread 1.160 -> 0.018), which is what the normalization was for. But it
+    means a real parcellation can now score well by sorting units on detectability, which is
+    a fixed property of the unit and therefore reproducible, while the null -- having no
+    field left -- cannot match it. That would be a positive real-minus-null for a reason that
+    has nothing to do with connectivity. This metric is how we see it rather than report it.
     """
     labels = hard_labels(parcellation)
     out = {'ami_layer': float(adjusted_mutual_info_score(coordinates[:, 0], labels))}
@@ -236,6 +252,13 @@ def triviality(parcellation, coordinates, connectivity=None, n_bins=10):
         # Rank-based bins, so the measure does not depend on the scale of |r|.
         ranks = np.argsort(np.argsort(strength))
         out['ami_hubness'] = float(adjusted_mutual_info_score(
+            (ranks * n_bins // len(ranks)), labels))
+    if noise_scale is not None:
+        ns = np.nan_to_num(np.asarray(noise_scale, dtype=np.float64)).ravel()
+        assert len(ns) == len(labels), \
+            'noise_scale has %d entries for %d units' % (len(ns), len(labels))
+        ranks = np.argsort(np.argsort(ns))
+        out['ami_noise_scale'] = float(adjusted_mutual_info_score(
             (ranks * n_bins // len(ranks)), labels))
     out['n_effective_networks'] = int(len(np.unique(labels)))
     # Peakedness of the soft memberships. Reported because argmax is only meaningful when

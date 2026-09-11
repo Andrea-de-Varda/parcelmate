@@ -63,6 +63,19 @@ def load_connectivity(path):
     return surrogate_normalized(load_h5_data(path, verbose=False))
 
 
+def load_noise_scale(path):
+    """Per-unit mean null standard deviation, or None on an unnormalized tree.
+
+    Feeds the `ami_noise_scale` diagnostic: normalization removes the magnitude field from
+    the null but inverts and strengthens it on real data, so a real parcellation could score
+    well by sorting units on how measurable they are. See metrics.triviality.
+    """
+    d = load_h5_data(path, verbose=False)
+    if 'surrogate_var' not in d:
+        return None
+    return np.sqrt(np.maximum(np.nan_to_num(np.asarray(d['surrogate_var'])), 0.0)).mean(axis=1)
+
+
 def score_tree(root, tree, variants, domains, rows, missing, cross_domain=True, verbose=True):
     """Score one tree. Appends result rows to `rows` and any absent inputs to `missing`.
 
@@ -122,7 +135,8 @@ def score_tree(root, tree, variants, domains, rows, missing, cross_domain=True, 
                 missing.append('%s/%s/%s: restart-split consensuses (re-run parcellation)'
                                % (tree, variant, domain))
 
-            for name, value in triviality(P_a, da['coordinates'], connectivity=R_a).items():
+            for name, value in triviality(P_a, da['coordinates'], connectivity=R_a,
+                                          noise_scale=load_noise_scale(pa)).items():
                 rows.append(dict(tree=tree, variant=variant, metric='triviality_%s' % name,
                                  fit=domain, eval=domain, value=float(value)))
             if verbose:
@@ -266,6 +280,7 @@ def score_config(cfg, out=None, cross_domain=True, allow_partial=False, verbose=
                    'fidelity_across', 'reliability_across_halves',
                    'fidelity_across_halves',
                    'triviality_ami_layer', 'triviality_ami_hubness',
+                   'triviality_ami_noise_scale',
                    'triviality_median_max_membership', 'triviality_n_effective_networks'):
         for variant in variants + ['(ceiling)']:
             vals = [r for r in summary if r['metric'] == metric and r['variant'] == variant]
