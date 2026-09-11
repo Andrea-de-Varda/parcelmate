@@ -397,6 +397,8 @@ Every code change to the repo, newest last. Format: date — files — what and 
 
 - 2026-09-10 -- [parcelmate/metrics.py](../parcelmate/metrics.py), [parcelmate/bin/score.py](../parcelmate/bin/score.py), [tests/verify_iter6_surrogate_norm.py](../tests/verify_iter6_surrogate_norm.py) -- **`ami_noise_scale` diagnostic.** `triviality` takes an optional `noise_scale` (per-unit mean null sigma) and reports the AMI between the parcellation and its decile; `score.load_noise_scale` supplies it from `surrogate_var`, and it is absent on unnormalized trees so the old experiment is unaffected. Motivated by a measurement, not a worry: on the real tree normalization inverts and strengthens the per-unit magnitude field (corr with noise scale -0.32 -> -0.80), so a parcellation sorting units by detectability would beat a null that can no longer do the same. Four checks, including that a partition which *is* the decile scores 1.0 and a mismatched length raises. Committed before job 17368816 (parcellation) started, so the diagnostic is in the same run as the result.
 
+- 2026-09-10 -- [parcelmate/bin/score.py](../parcelmate/bin/score.py) -- `load_noise_scale` reads the variance dataset alone via `h5_keys` + `load_h5_array` rather than `load_h5_data`, which would pull the ~400 MB connectivity matrix into memory as well. It is called once per arm per domain per tree (350 times in this run), so the old form was ~140 GB of pointless reads. Same fix as M3/`load_h5_array` in Iteration 2, applied to a call site added since.
+
 ## Cluster
 
 Compute for this project runs on the Stanford SC cluster (NLP group, CLiMB lab). Connection, storage layout, SLURM conventions, cluster profiles and job-launching instructions are in [CLUSTER.md](CLUSTER.md).
