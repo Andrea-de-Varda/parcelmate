@@ -33,8 +33,20 @@ property of the unit, identical in both halves and across domains, so "sort unit
 strength" is a highly reproducible partition -- the null gets a high ARI for re-describing a
 constant. Real continuous structure gives k-means no stable basin, so it gets a low one.
 
-Standardizing each unit's profile divides the rank-one field out, which is why the
+Standardizing each unit's profile divides the magnitude field out, which is why the
 `vmf_profile` arm is the only one whose scores are not dominated by the artifact.
+
+Two refinements from the ablations (second table). Both ingredients are necessary: signed r
+instead of |r| kills the null's block R2 and ARI, and so does homogeneous autocorrelation.
+And "rank-one" is approximate: Bartlett gives Var(r_ij) ~ <rho_i, rho_j> / T, a Gram matrix
+of autocorrelation functions, which is rank-one only when the ACFs form a one-parameter
+family. Units sharing a distinctive spectral signature (a periodic component keeps its period
+under a circular shift, and |cos| of a random phase difference averages 2/pi) stay mutually
+correlated in |r| whatever their phases. That is a pattern over units, not a row scale, so
+z-scoring does not remove it and it reproduces across halves. It is the candidate for the
+0.289 null reliability that `vmf_profile` retains on real data with AMI-hubness 0.07 and
+AMI-layer 0.05 -- and it is exactly the per-unit temporal structure the circular shift is
+specified to preserve, so subtracting it is the null doing its job.
 """
 
 import numpy as np
@@ -107,7 +119,43 @@ def main():
                 ((Ra - Ra.mean()) ** 2).sum(), block_r2(Ra, a), ari(a, b),
                 ami(decile, a)))
 
-    print(__doc__.split('\n\n')[-1].strip())
+    ablations(rng)
+
+
+def ablations(rng):
+    """Which ingredient matters, and what survives standardizing."""
+    phi = rng.uniform(0.0, 0.95, N)
+    family = rng.integers(0, 3, N)     # 0: plain AR(1); 1: +period 64; 2: +period 200
+
+    def spectral():
+        x = ar1_bank(phi, T, rng)
+        t = np.arange(T)
+        for f, period in ((1, 64), (2, 200)):
+            idx = family == f
+            ph = rng.uniform(0, 2 * np.pi, idx.sum())[:, None]
+            x[idx] += 0.8 * np.sin(2 * np.pi * t / period + ph)
+        return x
+
+    conds = (
+        ('|r|, heterogeneous AR(1)  [pipeline]', lambda: ar1_bank(phi, T, rng), True),
+        ('signed r, heterogeneous AR(1)', lambda: ar1_bank(phi, T, rng), False),
+        ('|r|, homogeneous AR(1)', lambda: ar1_bank(np.full(N, 0.6), T, rng), True),
+        ('|r|, + spectral families', spectral, True),
+    )
+    print('\n%-38s %-5s %9s %9s %9s' % ('null-like data', 'std', 'block R2', 'ARI', 'AMI fam'))
+    print('-' * 74)
+    for name, draw, absolute in conds:
+        mats = []
+        for _ in range(2):
+            R = np.corrcoef(draw())
+            R = np.abs(R) if absolute else R
+            np.fill_diagonal(R, 0.0)
+            mats.append(R)
+        Ra, Rb = mats
+        for std in (False, True):
+            a, b = fit(Ra, std), fit(Rb, std)
+            print('%-38s %-5s %9.3f %9.3f %9.3f' % (
+                name, str(std), block_r2(Ra, a), ari(a, b), ami(family, a)))
 
 
 if __name__ == '__main__':
