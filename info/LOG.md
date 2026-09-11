@@ -282,6 +282,49 @@ Verified on data where the truth is known -- units with heterogeneous autocorrel
 
 **Run as a separate experiment.** [configs/reliability_norm.yml](../configs/reliability_norm.yml) is byte-identical to `reliability.yml` apart from `n_surrogates: 32` and `output_dir: results/reliability_norm`, so the comparison is controlled. The unnormalized tree stays on disk and the Iteration 8 numbers stay reproducible.
 
+## Iteration 11 -- the normalized run, and what it shows (2026-09-11)
+
+Jobs 17368677 (connectivity, 2 h 30, 19.2 GB), 17368816 (split_halves + parcellation, 5 h 24, 5.2 GB) and 17368817 (score, 1 h 51, 5.0 GB), all exit 0, chained by `afterok`. 2,646 scored measurements at commit `fa12f44` in `results/reliability_norm/metrics/scores.csv`, copied to [figures/scores_norm.csv](../figures/scores_norm.csv). All numbers below are prose-domain means.
+
+**Every pre-registered criterion is met, and not marginally.** These were written down before the run (Iteration 10):
+
+| null tree, prose | before | after |
+|---|---|---|
+| in-sample block fidelity | 0.054 - 0.566 | **0.009 - 0.013** |
+| AMI with hubness decile | 0.069 - 0.343 | **0.014 - 0.018** |
+
+Held-out null fidelity is now *slightly negative* for every arm (-0.008 to -0.013), which is the correct signature of a real noise floor: a partition fitted to one noise matrix predicts a second one worse than the grand mean does.
+
+**Fidelity: all five arms now beat their null, within and across domains.** Previously four of five were *below* their null.
+
+| arm | fid within | null | Δ | (was) | fid across-halves (r) | null | Δ |
+|---|---|---|---|---|---|---|---|
+| legacy | 0.070 | -0.009 | **+0.078** | -0.251 | 0.188 | 0.000 | +0.188 |
+| current | 0.067 | -0.009 | **+0.076** | -0.052 | 0.174 | 0.000 | +0.174 |
+| fisher_pca | 0.054 | -0.008 | **+0.062** | -0.085 | 0.211 | 0.000 | +0.210 |
+| nopca_fisher | 0.220 | -0.011 | **+0.232** | -0.405 | 0.301 | 0.000 | **+0.301** |
+| vmf_profile | 0.121 | -0.013 | **+0.134** | +0.087 | 0.199 | 0.000 | +0.199 |
+
+Cross-domain generalization, which no arm could demonstrate before, is now positive for all five on the data-matched halves comparison. `nopca_fisher` is the strongest arm on both.
+
+**Reliability: 3 of 5, and the two failures are diagnosed, not mysterious.** `nopca_fisher` (-0.060) and `vmf_profile` (-0.004) keep a high *null* reliability (0.521, 0.485) while the three PCA arms fall to 0.003. The cause is cluster collapse on the null, which `triviality` measures directly:
+
+| arm | null reliability | null networks filled | null median max membership |
+|---|---|---|---|
+| legacy / current / fisher_pca | 0.003 | 49.5 - 50.0 | 0.26 - 0.30 |
+| nopca_fisher | 0.521 | **16.8** | 0.55 |
+| vmf_profile | 0.485 | **24.5** | 0.53 |
+
+Without PCA, k-means on 9,984-dimensional noise profiles collapses to 17-25 confident blobs, and a degenerate, confident partition reproduces itself across halves. This is exactly the degeneracy that motivated pairing reliability with fidelity in the first place (Iteration 4: reliability degenerates *upward* on trivial partitions, fidelity *downward*), and fidelity is not fooled -- the same partitions score -0.011 and -0.013. **Conclusion: for the no-PCA arms, reliability is uninterpretable and fidelity is the metric.** It is not evidence against those arms.
+
+**The confound normalization introduced did not materialize.** `ami_noise_scale` on real data is 0.040 - 0.135 across arms, low everywhere, so no parcellation is sorting units by detectability. The diagnostic was added for a real measured risk (Iteration 10) and the answer is that the risk did not bite.
+
+**Cluster fill, the Iteration 9 finding 1.** `nopca_fisher` went from 27.8 to **43.8** of 50 networks on real data, as predicted -- normalization removed the norm disparity that let hub units capture centroids. But `fisher_pca` newly collapsed, 49.8 -> **19.5**, which is a new instance of the same failure and is not yet explained. Its apparently excellent reliability (0.669, Δ +0.666) should be read with that in mind: it is a 20-block solution, and its fidelity is the worst of the five (0.054).
+
+**Other numbers.** The uncompressed within-domain reference falls 0.984 -> 0.945: normalizing amplifies poorly-estimated pairs, so the connectome is slightly harder to predict half-to-half. Across-domain ceilings are 0.510 (halves) against 0.512 (avg), so the data mismatch that motivated `*_across_halves` mattered less for the ceiling than expected -- but the arms' own across-domain scores are what the matching was for, and those are reported on halves throughout.
+
+**Where this leaves the ladder.** Judged on fidelity against a null that is now a genuine floor, `nopca_fisher` is the best arm both within (+0.232) and across domains (+0.301), with `vmf_profile` second. That inverts the Iteration 8 reading, where `vmf_profile` was the only arm to beat its null -- because that comparison was against an inflated null rather than a floor. One caveat to carry: `nopca_fisher` still has the highest real-data AMI with hubness (0.364 against 0.041 - 0.133 elsewhere). On real data hubs may be genuine, but it is the obvious next thing to check.
+
 ## Decisions made
 
 - 2026-09-08 (S1): knockout is **opt-in and per-network**. `run_knockout(networks=None)` is a no-op, so `-s all` never lesions a model by accident; `networks: all` or a list of indices builds one perturbed model per shared subnetwork, each writing to `<output_dir>/knockout/subnetwork<k>/`. The union-lesion the old OR-loop performed is no longer reachable — it could not answer what any single subnetwork contributes, which is the question the step exists to ask. Re-addable if a "remove all domain-general structure" experiment is ever wanted. Cost: one full connectivity run per selected network, so `networks: all` over 20 shared networks is 20x the baseline connectivity cost. Rejected alternative: per-network as the default (my initial recommendation) — Andrea preferred an explicit opt-in so no accidental lesioning is possible.
@@ -400,6 +443,10 @@ Every code change to the repo, newest last. Format: date — files — what and 
 - 2026-09-10 -- [parcelmate/bin/score.py](../parcelmate/bin/score.py) -- `load_noise_scale` reads the variance dataset alone via `h5_keys` + `load_h5_array` rather than `load_h5_data`, which would pull the ~400 MB connectivity matrix into memory as well. It is called once per arm per domain per tree (350 times in this run), so the old form was ~140 GB of pointless reads. Same fix as M3/`load_h5_array` in Iteration 2, applied to a call site added since.
 
 - 2026-09-10 -- [analysis/why_the_null_wins.py](../analysis/why_the_null_wins.py) (new), [plots/why_the_null_wins.svg](../plots/why_the_null_wins.svg) -- **explanatory figure for the Iteration 9 mechanism**, written because the verbal account was not landing and the claim "noise helps clustering" is genuinely counterintuitive. Four panels on 300 simulated units: the same structureless matrix in signed r (nothing visible) and in `|r|` (a clear gradient), a real-like matrix for contrast, and the arithmetic of the ratio. Matrices are shown coarse-grained into 20 bins, which is not cosmetic: at 300x300 the per-entry sampling noise is an order of magnitude larger than the gradient, so the raw matrices look like static, and binning is exactly the averaging the fidelity metric performs -- the panels are literally what the block model works with. The number worth quoting: the block model explains **3.9x more absolute variance on the real data (16 vs 4) and still scores 5x lower** (R2 0.029 vs 0.149), because the real denominator is 19x bigger. That is the whole inversion in one comparison, and it makes the point that R2 penalises structure it cannot express rather than rewarding its absence.
+
+- 2026-09-11 -- **Jobs 17368677 / 17368816 / 17368817 completed** (no code change): the surrogate-normalized experiment end to end, 9 h 45 total, all exit 0. Results in Iteration 11. `scores.csv` pulled to [figures/scores_norm.csv](../figures/scores_norm.csv).
+
+- 2026-09-11 -- [figures/make_figures.py](../figures/make_figures.py), [plots/](../plots/) -- **figures rebuilt for the normalized run.** The script now takes the scores file as an argument and suffixes its outputs (`_unnormalized` for the old run), so the two experiments never overwrite each other and both remain reproducible. Figure 1's across-domain row switched to `*_across_halves`, the data-matched metrics, which is what they were added for; it falls back to the `avg` metrics on the older scores file, which predates them. `ladder_mechanism` is now generated only for the unnormalized run -- it diagnoses the `|r|` artifact, and on the normalized run the null fidelity it plots is ~0 for every arm and the panel says nothing. Replaced for the normalized run by **`null_degeneracy`**, which shows why `nopca_fisher` and `vmf_profile` keep a high null reliability (they fill 17 and 25 of 50 networks on noise) and that fidelity is not fooled by the same partitions.
 
 ## Cluster
 

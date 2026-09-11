@@ -55,8 +55,15 @@ LADDER = ['legacy', 'current', 'fisher_pca', 'nopca_fisher', 'vmf_profile']
 NS_FILL, NS_EDGE = '#cccccc', '#999999'
 
 
+# Which experiment to plot. `scores.csv` is the unnormalized run (job 17366628, LOG.md
+# Iteration 8); `scores_norm.csv` is the surrogate-normalized one (jobs 17368677/816/817,
+# Iteration 11), where the null is an actual noise floor. Pass a filename to switch.
+SCORES = sys.argv[1] if len(sys.argv) > 1 else 'scores_norm.csv'
+SUFFIX = '' if SCORES == 'scores_norm.csv' else '_unnormalized'
+
+
 def load():
-    rows = [r for r in csv.DictReader(open(os.path.join(HERE, 'scores.csv')))]
+    rows = [r for r in csv.DictReader(open(os.path.join(HERE, SCORES)))]
     for r in rows:
         r['value'] = float(r['value'])
     return rows
@@ -139,12 +146,17 @@ def fig_ladder():
         (axes[0, 0], 'reliability_within', 'Reliability (ARI)',
          'within domain\n(split halves)'),
         (axes[0, 1], 'fidelity_within_r', 'Fidelity (r)', None),
-        (axes[1, 0], 'reliability_across', 'Reliability (ARI)',
+        # The halves variant, not the `avg` one: it fits on half A of one domain and
+        # evaluates on half B of another, the same token budget and the same disjoint-set
+        # structure as the within-domain row above, so the two rows are comparable.
+        (axes[1, 0], 'reliability_across_halves', 'Reliability (ARI)',
          'across domains\n(12 prose pairs)'),
-        (axes[1, 1], 'fidelity_across', 'Fidelity (r)', None),
+        (axes[1, 1], 'fidelity_across_halves', 'Fidelity (r)', None),
     ]
 
     for ax, metric, coltitle, rowlabel in panels:
+        if not any(r['metric'] == metric for r in ROWS):
+            metric = metric.replace('_halves', '')   # pre-Iteration-11 scores.csv
         for i, arm in enumerate(LADDER[::-1]):
             y = ypos[i]
             real, null = mean(metric, 'real', arm), mean(metric, 'null', arm)
@@ -200,7 +212,7 @@ def fig_ladder():
     fig.legend(handles=handles, loc='lower center', bbox_to_anchor=(0.5, -0.055),
                ncol=3, frameon=False, fontsize=8.5)
     fig.tight_layout()
-    save_fig(fig, 'ladder_null_calibrated')
+    save_fig(fig, 'ladder_null_calibrated' + SUFFIX)
 
 
 # ---------------------------------------------------------------------------------------
@@ -238,7 +250,82 @@ def fig_mechanism():
         ax.tick_params(axis='both', which='major', labelsize=9)
 
     fig.tight_layout()
-    save_fig(fig, 'ladder_mechanism')
+    save_fig(fig, 'ladder_mechanism' + SUFFIX)
+
+
+# ---------------------------------------------------------------------------------------
+# Figure 2b (normalized run) -- why two arms keep a high null reliability even though their
+# null fidelity is zero. It is cluster collapse: reliability rewards a degenerate partition,
+# which is precisely why it was never specified to be read alone.
+# ---------------------------------------------------------------------------------------
+def fig_degeneracy():
+    fig, axes = plt.subplots(1, 2, figsize=(6.6 * 0.88, 2.7 * 0.88), dpi=300)
+
+    ax = axes[0]
+    pts = {a: (mean('triviality_n_effective_networks', 'null', a),
+               mean('reliability_within', 'null', a)) for a in LADDER}
+    for arm in LADDER:
+        x, y = pts[arm]
+        ax.scatter(x, y, s=70, color=ARM_COLORS[arm], edgecolors='black',
+                   linewidths=0.6, zorder=3)
+    # The three PCA arms land on the same point (50 networks filled, ARI 0.003), so one
+    # label per arm produces three overlapping strings. Group coincident points and label
+    # the group once.
+    groups = []
+    for arm in LADDER:
+        x, y = pts[arm]
+        for g in groups:
+            gx, gy = pts[g[0]]
+            if abs(x - gx) < 3 and abs(y - gy) < 0.05:
+                g.append(arm)
+                break
+        else:
+            groups.append([arm])
+    for g in groups:
+        x, y = pts[g[0]]
+        label = '\n'.join(ARM_LABELS[a] for a in g)
+        ax.annotate(label, (x, y), textcoords='offset points',
+                    xytext=(0, -12 - 9 * (len(g) - 1) if y > 0.25 else 9),
+                    fontsize=7.5, ha='center', va='top' if y > 0.25 else 'bottom',
+                    color='0.25', linespacing=1.25)
+    ax.set_xlabel('Networks actually filled, null', fontsize=10)
+    ax.set_ylabel('Reliability (ARI), null', fontsize=10)
+    ax.set_title('A degenerate partition\nreproduces itself', fontsize=8.5,
+                 fontweight='bold')
+    ax.set_xlim(0, 55)
+    ax.set_ylim(-0.12, 0.68)
+
+    # The companion panel: fidelity is not fooled by the same partitions.
+    ax = axes[1]
+    ypos = np.arange(len(LADDER))[::-1]
+    for i, arm in enumerate(LADDER[::-1]):
+        y, c = ypos[i], ARM_COLORS[arm]
+        rel = mean('reliability_within', 'null', arm)
+        fid = mean('fidelity_within', 'null', arm)
+        ax.hlines(y, min(rel, fid), max(rel, fid), color=c, alpha=0.35, linewidth=3,
+                  zorder=2)
+        ax.scatter(rel, y, s=42, color=c, edgecolors='black', linewidths=0.5, zorder=3)
+        ax.scatter(fid, y, s=42, facecolors='white', edgecolors=c, linewidths=1.2,
+                   zorder=3.5)
+    ax.axvline(0, color='0.5', lw=1.0, zorder=1)
+    ax.set_yticks(ypos)
+    ax.set_yticklabels([ARM_LABELS[a] for a in LADDER[::-1]], fontsize=9)
+    ax.set_xlabel('Null score', fontsize=10)
+    ax.set_title('Fidelity is not fooled\nby the same partitions', fontsize=8.5,
+                 fontweight='bold')
+    ax.legend(handles=[
+        Line2D([0], [0], marker='o', color='none', markerfacecolor='black',
+               markeredgecolor='black', markersize=6, label='reliability'),
+        Line2D([0], [0], marker='o', color='none', markerfacecolor='white',
+               markeredgecolor='black', markersize=6, label='fidelity'),
+    ], loc='center right', frameon=False, fontsize=8)
+
+    for ax in axes:
+        ax.grid(axis='y' if ax is axes[0] else 'x', linestyle='--', alpha=0.5, zorder=1)
+        style_spines(ax, drop_top_right=True)
+        ax.tick_params(axis='both', which='major', labelsize=9)
+    fig.tight_layout()
+    save_fig(fig, 'null_degeneracy')
 
 
 # ---------------------------------------------------------------------------------------
@@ -297,12 +384,18 @@ def fig_ceiling():
             fontsize=8, ha='left',
             bbox=dict(facecolor='white', edgecolor='gray', boxstyle='round,pad=0.3'))
     fig.tight_layout()
-    save_fig(fig, 'fidelity_vs_ceiling')
+    save_fig(fig, 'fidelity_vs_ceiling' + SUFFIX)
 
 
 if __name__ == '__main__':
     os.makedirs('plots', exist_ok=True)
     fig_ladder()
-    fig_mechanism()
     fig_ceiling()
-    print('wrote plots/{ladder_null_calibrated,ladder_mechanism,fidelity_vs_ceiling}.{svg,png}')
+    if SUFFIX:
+        # The mechanism figure diagnoses the |r| artifact, so it belongs to the
+        # unnormalized run. On the normalized one the null fidelity it plots is ~0 for
+        # every arm and the panel says nothing.
+        fig_mechanism()
+    else:
+        fig_degeneracy()
+    print('wrote plots/*%s.{svg,png} from figures/%s' % (SUFFIX, SCORES))
