@@ -153,6 +153,49 @@ try:
 finally:
     shutil.rmtree(tmp, ignore_errors=True)
 
+# ---------------------------------------------------------------------------------------
+# The Fisher arms. fisher() maps anything above 1 to arctanh(0.999) = 3.8 with no error, so
+# handing it |z| would silently binarize three of the five arms at |z| > 1. That must be
+# loud in sample_parcellations, and run_parcellation must route normalized input around it.
+# ---------------------------------------------------------------------------------------
+from parcelmate.model import run_parcellation, sample_parcellations
+
+try:
+    sample_parcellations(absz, n_networks=3, n_samples=2, binarize_connectivity=False,
+                         fisher_transform=True, verbose=False, seed=0)
+    raised = False
+except AssertionError as err:
+    raised = 'not a correlation matrix' in str(err)
+check('sample_parcellations(fisher_transform=True) refuses a |z| matrix loudly', raised)
+
+tmp = tempfile.mkdtemp(prefix='parcelmate_iter6b_')
+try:
+    conn_dir = os.path.join(tmp, CONNECTIVITY_NAME)
+    os.makedirs(conn_dir)
+    coords = np.stack([np.repeat(np.arange(10), N // 10), np.arange(N)], 1).astype(np.int32)
+    for key, extra in (('avg', dict(surrogate_var=var)), ('raw', {})):
+        d = dict(connectivity=R, coordinates=coords, unit_means=np.zeros(N),
+                 unit_stds=np.ones(N), n_obs=np.asarray(1000), **extra)
+        save_h5_data(d, os.path.join(conn_dir, 'connectivity_%s_avg.h5' % key), verbose=False)
+    # One config, two trees: the same "Fisher" arm must run on both.
+    run_parcellation(output_dir=tmp, variant='fisher', n_networks=3, n_samples=2, seed=1,
+                     binarize_connectivity=False, fisher_transform=True,
+                     connectivity_pca_components=None, verbose=False)
+    import h5py
+    attrs = {}
+    for key in ('avg', 'raw'):
+        with h5py.File(os.path.join(tmp, 'fisher', 'parcellation',
+                                    'parcellation_%s_avg.h5' % key), 'r') as f:
+            attrs[key] = dict(f.attrs)
+    check('a normalized tree records input_normalized=True and fisher_transform_applied=False',
+          attrs['avg']['input_normalized'] and not attrs['avg']['fisher_transform_applied'])
+    check('an unnormalized tree records input_normalized=False and the transform applied',
+          not attrs['raw']['input_normalized'] and attrs['raw']['fisher_transform_applied'])
+    check('the configured arm setting is still recorded as fisher_transform=True on both',
+          attrs['avg']['fisher_transform'] and attrs['raw']['fisher_transform'])
+finally:
+    shutil.rmtree(tmp, ignore_errors=True)
+
 print('\n%s' % ('All checks passed.' if not failures
                 else 'FAILURES:\n  ' + '\n  '.join(failures)))
 raise SystemExit(1 if failures else 0)

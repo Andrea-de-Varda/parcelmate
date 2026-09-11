@@ -371,6 +371,16 @@ def sample_parcellations(
         # arctanh is NaN outside [-1, 1], and while correlations are bounded in theory, a
         # value fractionally above 1 from accumulation error would otherwise poison a whole
         # row silently rather than raising.
+        # The clip below is for accumulation error a hair above 1, NOT a licence to feed
+        # this branch something that is not a correlation. A surrogate-normalized matrix
+        # (|z| = |r| / sigma, LOG.md Iteration 10) runs to tens, and fisher() would map every
+        # entry above 1 to the same 3.8 with no error raised -- silently binarizing the arm.
+        # run_parcellation turns this branch off for normalized trees; this assert is what
+        # makes any other route to it loud.
+        assert X.max() <= 1.0 + 1e-6, (
+            'fisher_transform on a matrix with entries up to %.3g: not a correlation matrix. '
+            'If the tree is surrogate-normalized, the Fisher transform is neither needed '
+            '(the normalization already stabilizes the variance) nor defined.' % X.max())
         X = fisher(np.clip(np.array(X, dtype=np.float64, copy=True), -1.0, 1.0))
         assert np.isfinite(X).all(), 'Fisher transform produced non-finite values'
         # Zero the self-connection. arctanh maps the diagonal (|r| = 1) to 3.80 while a
@@ -1051,6 +1061,12 @@ def run_parcellation(
         # |r|, or |z| where the tree carries null variances. One implementation, shared
         # with the scorer, so the two can never disagree about the matrix (LOG.md S10).
         R = surrogate_normalized(data)
+        # On a normalized tree the "Fisher" arms receive |z|, an effect size that is already
+        # variance-stabilized and can exceed 1, so arctanh is both redundant and undefined.
+        # The arm keeps its name and its config (so the ladder lines up across experiments)
+        # but the transform is not applied; both facts go in the provenance below.
+        input_normalized = 'surrogate_var' in data
+        fisher_applied = bool(fisher_transform) and not input_normalized
 
         sample = sample_parcellations(
             R,
@@ -1061,7 +1077,7 @@ def run_parcellation(
             connectivity_ica_components=connectivity_ica_components,
             clustering_kwargs=clustering_kwargs,
             legacy_binarize=legacy_binarize,
-            fisher_transform=fisher_transform,
+            fisher_transform=fisher_applied,
             standardize_profiles=standardize_profiles,
             seed=derive_seed(seed, 'parcellation', path),
             verbose=verbose,
@@ -1108,6 +1124,8 @@ def run_parcellation(
                 binarize_connectivity=bool(binarize_connectivity),
                 legacy_binarize=bool(legacy_binarize),
                 fisher_transform=bool(fisher_transform),
+                fisher_transform_applied=bool(fisher_applied),
+                input_normalized=bool(input_normalized),
                 standardize_profiles=bool(standardize_profiles),
                 connectivity_pca_components=str(connectivity_pca_components),
                 connectivity_ica_components=str(connectivity_ica_components),

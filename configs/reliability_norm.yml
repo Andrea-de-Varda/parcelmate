@@ -14,6 +14,12 @@
 # field to fit and no per-unit magnitude for k-means to sort by. See
 # parcelmate/util.py:surrogate_normalized and analysis/null_mechanism.py.
 #
+# NOTE on the Fisher arms: on this tree they receive |z|, which is already variance-
+# stabilized and runs to tens, so arctanh is neither needed nor defined and
+# run_parcellation does not apply it (recorded as fisher_transform_applied=False in the
+# provenance). The arms keep their names so the ladder lines up with reliability.yml:
+# fisher_pca = magnitudes + PCA, nopca_fisher = magnitudes, vmf_profile = + standardized.
+#
 # Connectivity (GPU) is computed once and shared; each parcellation arm is a named variant
 # writing to its own subtree, so arms never overwrite one another.
 #
