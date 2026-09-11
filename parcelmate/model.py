@@ -594,6 +594,7 @@ def run_connectivity(
         ablation_stats_dir=None,
         null_model=None,
         null_output_dir=None,
+        n_surrogates=0,
         seed=None,
         overwrite=False,
         verbose=True,
@@ -607,6 +608,19 @@ def run_connectivity(
     inside the same forward pass: the model queries dominate the cost, so this is far
     cheaper than a second full run, and it guarantees the null sees exactly the same
     tokens as the real data.
+
+    `n_surrogates=K` additionally computes K FURTHER circular shifts per sample and stores
+    the per-pair variance of the resulting correlations as `surrogate_var`. Downstream this
+    turns every entry into an effect size r_ij / sigma_ij, which removes the positive mean
+    field that `|r|` otherwise manufactures out of noise -- see `util.surrogate_normalized`
+    for why that field existed and LOG.md Iteration 9 for what it was doing to the metrics.
+    The surrogates are drawn under a different seed key from the scored null, so the null
+    tree is never whitened by its own noise; K=32 gives each variance a relative error of
+    about 1/sqrt(2K) = 12%, and that error is independent across pairs, so it costs a little
+    power but cannot manufacture a coherent field of its own.
+
+    Cost is K correlation matmuls per sample. The forward passes, which dominate the step,
+    are reused, so this is far cheaper than K extra runs.
     """
     if data_kwargs is None:
         data_kwargs = {}
@@ -739,6 +753,7 @@ def run_connectivity(
         null_connectivity = []
         coordinates = None
         sample_means, sample_stds, sample_counts = [], [], []
+        surrogate_vars = []
         indent += 2
         new = False
         for i in range(0, len(input_ids), n):
@@ -807,16 +822,48 @@ def run_connectivity(
                     )
                     _null_connectivity = get_connectivity(shifted)
                     del shifted
+                    # Further shifts, under a DIFFERENT seed key, purely to estimate how
+                    # large a correlation this pair of units produces by chance. Held out
+                    # from `_null_connectivity` above so the scored null is normalized by
+                    # variances it did not contribute to.
+                    if n_surrogates:
+                        if verbose:
+                            stderr('%sEstimating null variance from %d surrogates\n'
+                                   % (' ' * indent, n_surrogates))
+                        _surrogate_var = None
+                        for k in range(n_surrogates):
+                            s = circshift_timecourses(
+                                timecourses,
+                                rng=np.random.RandomState(
+                                    derive_seed(seed, 'surrogate', domain,
+                                                i // n + 1, k) % (2 ** 32)
+                                )
+                            )
+                            r_k = get_connectivity(s)
+                            del s
+                            # Second moment, not variance about the sample mean: under the
+                            # null the mean of signed r is zero by construction, and
+                            # subtracting an estimated mean would only add noise.
+                            r_k *= r_k
+                            _surrogate_var = r_k if _surrogate_var is None \
+                                else _surrogate_var + r_k
+                            del r_k
+                        _surrogate_var /= float(n_surrogates)
                 else:
                     _null_connectivity = None
                 _connectivity = get_connectivity(timecourses)
+                if not (null_model == 'circshift' and n_surrogates):
+                    _surrogate_var = None
                 save = True
                 new = True
             else:
                 _connectivity = out['connectivity']
                 _null_connectivity = None
+                _surrogate_var = out.get('surrogate_var')
                 coordinates = out['coordinates']
                 save = False
+            if _surrogate_var is not None:
+                surrogate_vars.append(_surrogate_var)
             connectivity.append(_connectivity)
             if null_model:
                 if _null_connectivity is None:  # cached; read it back for the average
@@ -825,14 +872,20 @@ def run_connectivity(
                 if n_samples > 1 and save:
                     # Same unit_means/unit_stds as the real data: a circular shift permutes
                     # each unit's timecourse, so its marginal statistics are unchanged.
+                    null_data = dict(
+                        connectivity=_null_connectivity,
+                        coordinates=coordinates,
+                        unit_means=out['unit_means'],
+                        unit_stds=out['unit_stds'],
+                        n_obs=np.asarray(out['n_obs'])
+                    )
+                    # The SAME variances go in both trees. Normalizing the two by different
+                    # denominators would make every real-minus-null difference partly a
+                    # difference of scalings.
+                    if _surrogate_var is not None:
+                        null_data['surrogate_var'] = _surrogate_var
                     save_h5_data(
-                        dict(
-                            connectivity=_null_connectivity,
-                            coordinates=coordinates,
-                            unit_means=out['unit_means'],
-                            unit_stds=out['unit_stds'],
-                            n_obs=np.asarray(out['n_obs'])
-                        ),
+                        null_data,
                         null_filepath,
                         verbose=verbose,
                         indent=indent
@@ -848,6 +901,8 @@ def run_connectivity(
                     unit_stds=out['unit_stds'],
                     n_obs=np.asarray(out['n_obs'])
                 )
+                if _surrogate_var is not None:
+                    out_data['surrogate_var'] = _surrogate_var
                 warn_dropped_keys(filepath, out_data, verbose=verbose, indent=indent)
                 save_h5_data(
                     out_data,
@@ -875,14 +930,20 @@ def run_connectivity(
         if null_model:
             null_avg = fisher_average(*null_connectivity, eps=eps) if n_samples > 1 \
                 else null_connectivity[0]
+            null_avg_data = dict(
+                connectivity=null_avg,
+                coordinates=coordinates,
+                unit_means=pooled_means,
+                unit_stds=pooled_stds,
+                n_obs=np.asarray(sum(sample_counts))
+            )
+            assert not surrogate_vars or len(surrogate_vars) == n_samples, \
+                '%s: %d of %d samples carry surrogate_var' % (
+                    domain, len(surrogate_vars), n_samples)
+            if surrogate_vars:
+                null_avg_data['surrogate_var'] = average_surrogate_var(surrogate_vars)
             save_h5_data(
-                dict(
-                    connectivity=null_avg,
-                    coordinates=coordinates,
-                    unit_means=pooled_means,
-                    unit_stds=pooled_stds,
-                    n_obs=np.asarray(sum(sample_counts))
-                ),
+                null_avg_data,
                 os.path.join(
                     null_connectivity_dir,
                     '%s_%s_avg%s' % (CONNECTIVITY_NAME, domain, EXTENSION)
@@ -906,6 +967,8 @@ def run_connectivity(
                 unit_stds=pooled_stds,
                 n_obs=np.asarray(sum(sample_counts))
             )
+            if surrogate_vars:
+                out_data['surrogate_var'] = average_surrogate_var(surrogate_vars)
             # This write truncates, dropping any parcellation previously stored here. That
             # is correct -- it was derived from the old connectivity -- but say so (M8).
             warn_dropped_keys(filepath, out_data, verbose=verbose, indent=indent)
@@ -985,8 +1048,9 @@ def run_parcellation(
             continue
         data = load_h5_data(inpath, verbose=verbose, indent=indent)
 
-        R = np.nan_to_num(data['connectivity'])
-        R = np.abs(R)
+        # |r|, or |z| where the tree carries null variances. One implementation, shared
+        # with the scorer, so the two can never disagree about the matrix (LOG.md S10).
+        R = surrogate_normalized(data)
 
         sample = sample_parcellations(
             R,
@@ -1116,23 +1180,36 @@ def run_split_halves(
                     stderr('%sSkipping %s (exists)\n' % (' ' * indent, os.path.basename(outpath)))
                 continue
             mats, means, stds, counts, coordinates = [], [], [], [], None
+            svars = []
             for path in group:
                 d = load_h5_data(os.path.join(connectivity_dir, path), verbose=False)
                 mats.append(d['connectivity'])
+                if 'surrogate_var' in d:
+                    svars.append(d['surrogate_var'])
                 means.append(d['unit_means'])
                 stds.append(d['unit_stds'])
                 counts.append(int(np.asarray(d['n_obs']).item()))
                 coordinates = d['coordinates']
             connectivity = fisher_average(*mats, eps=eps) if len(mats) > 1 else mats[0]
             pooled_means, pooled_stds = pool_unit_stats(means, stds, counts)
+            half_data = dict(
+                connectivity=connectivity,
+                coordinates=coordinates,
+                unit_means=pooled_means,
+                unit_stds=pooled_stds,
+                n_obs=np.asarray(sum(counts))
+            )
+            # A half is an average of fewer samples than the avg file, so it has a LARGER
+            # null variance. Propagating it (rather than reusing the avg's) is what keeps
+            # the effect sizes comparable between the halves and the averages.
+            assert not svars or len(svars) == len(mats), \
+                'Half %s/%s: %d of %d samples carry surrogate_var. A partial set would be ' \
+                'averaged with the wrong denominator; re-run connectivity for this domain ' \
+                'with a consistent n_surrogates.' % (domain, name, len(svars), len(mats))
+            if svars:
+                half_data['surrogate_var'] = average_surrogate_var(svars)
             save_h5_data(
-                dict(
-                    connectivity=connectivity,
-                    coordinates=coordinates,
-                    unit_means=pooled_means,
-                    unit_stds=pooled_stds,
-                    n_obs=np.asarray(sum(counts))
-                ),
+                half_data,
                 outpath,
                 attrs=dict(
                     domain=domain,

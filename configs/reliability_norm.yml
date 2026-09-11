@@ -1,0 +1,137 @@
+# Reliability / fidelity experiment, SURROGATE-NORMALIZED (LOG.md Iteration 10).
+#
+# Identical to configs/reliability.yml in every respect except `n_surrogates`, so the two
+# runs are a controlled comparison of the normalization and nothing else. Separate
+# output_dir because this is a different experiment, not a re-run of the old one; the
+# unnormalized tree stays on disk and its published numbers stay reproducible.
+#
+# Why: with plain |r|, a pair of units with no true correlation still has E|r_ij| =
+# sqrt(2/pi) * sigma_ij, and sigma_ij varies by pair with the two units' autocorrelations --
+# which a circular shift preserves exactly. The absolute value therefore manufactures a
+# positive, separable, highly block-fittable field out of pure noise, and the circshift null
+# out-scored real data on BOTH metrics for four of five arms. Dividing each entry by its own
+# null standard deviation makes E|z_ij| the same constant for every pair, so there is no
+# field to fit and no per-unit magnitude for k-means to sort by. See
+# parcelmate/util.py:surrogate_normalized and analysis/null_mechanism.py.
+#
+# Connectivity (GPU) is computed once and shared; each parcellation arm is a named variant
+# writing to its own subtree, so arms never overwrite one another.
+#
+# Outputs:
+#   results/reliability/connectivity/              real connectivity (shared)
+#   results/reliability/<variant>/parcellation/    one per arm
+#   results/reliability/<variant>/subnetwork/
+#   results/reliability_null/...                   same shape, circshift null
+
+output_dir: results/reliability_norm
+
+seed: 42
+
+connectivity:
+  model_name: gpt2
+  # 4 samples so the metrics script can form two independent halves as
+  # Fisher-avg(samples 1,2) vs Fisher-avg(samples 3,4), ~197k tokens each.
+  n_samples: 4
+  domains:
+    - wikitext
+    - bookcorpus
+    - agnews
+    - tldr17
+    - codeparrot
+    - random      # baseline; LOG.md S6 - not currently true random token ids
+    - whitespace  # baseline; degenerate connectivity, see Iteration 1 diagnostics
+  seq_len: 1024
+  n_tokens: null   # -> 98,304 per sample. Must exceed n_units (9,984) for the circshift null.
+  split: train
+  take: 100000
+  wrap: true
+  shuffle: true
+  batch_size: 8
+  highpass: null
+  lowpass: null
+  step: 0.2
+  timecourse_pca_components: null
+  timecourse_ica_components: null
+  eps: 1.0e-3
+  # Circular shift per unit: destroys cross-unit correlation, preserves each unit's
+  # marginal and autocorrelation. Written to `<output_dir>_null` with identical filenames.
+  # The key is `null_model`, not `null`: YAML parses a bare `null` key as None.
+  null_model: circshift
+  # 32 FURTHER circular shifts per sample, under a different seed key from the scored null,
+  # used only to estimate each pair's null variance. Relative error per entry is about
+  # 1/sqrt(2K) = 12%, and it is independent across pairs, so it costs a little power but
+  # cannot create a coherent field of its own. Cost is 32 correlation matmuls per sample;
+  # the forward passes, which dominate this step, are reused.
+  n_surrogates: 32
+
+# No `subnetwork_knockout` section: knockout is not part of this experiment and stays a
+# no-op (LOG.md S1).
+
+# Settings shared by every parcellation arm. Arm-specific overrides live in
+# `parcellation_variants` below.
+parcellation:
+  n_networks: 50
+  # Clustering restarts, aligned and averaged. 20 rather than 100: at 100 the three arms
+  # together cost ~68 h serial, dominated by the no-PCA arm clustering 9,984-dimensional
+  # profiles (44.5 s per restart, measured at full scale). 20 brings that to ~14 h.
+  # The restart-split reliability ceiling then compares two 10-restart consensuses, which
+  # makes it a more pessimistic proxy for the true seed ceiling than it was at 100.
+  n_samples: 20
+  clustering_kwargs: null
+  n_alignments: null
+  weight_samples: false       # LOG.md S5 - fixed, but leave off
+  parcellate_samples: false   # LOG.md M4 - only the sample-averaged connectivity
+
+# The three arms of the method comparison. Each writes to
+# results/reliability/<name>/parcellation/, with its settings recorded in the file.
+parcellation_variants:
+
+  # The inherited pipeline, bug and all: the quantile broadcast column-wise, so the
+  # binarized matrix came out transposed and clustering was partly driven by hubness
+  # (LOG.md S2). Included so the comparison can say how much the bug alone was costing.
+  legacy:
+    binarize_connectivity: true
+    legacy_binarize: true
+    connectivity_pca_components: 200
+
+  # The corrected pipeline as it stands today. This is the reference point.
+  current:
+    binarize_connectivity: true
+    legacy_binarize: false
+    connectivity_pca_components: 200
+
+  # The arms below form a ladder in which each rung changes exactly ONE thing:
+  #
+  #   current -> fisher_pca -> nopca_fisher -> vmf_profile
+  #           (drop binarize) (drop PCA)     (standardize)
+  #
+  # Without fisher_pca, nopca_fisher differs from current in two ways at once -- it keeps
+  # magnitudes AND drops PCA -- so a win could not be attributed to either. fisher_pca
+  # isolates the binarization question with PCA held fixed.
+
+  # Rung 1: keep the magnitudes (Fisher-transformed) instead of binarizing, PCA unchanged.
+  # Isolates what binarization costs. See PARCELLATION_DESIGN.md 2.2.
+  fisher_pca:
+    binarize_connectivity: false
+    fisher_transform: true
+    connectivity_pca_components: 200
+
+  # Rung 2: also drop the PCA truncation and whitening. Together with fisher_pca this
+  # isolates what the PCA step costs. See PARCELLATION_DESIGN.md 2.3.
+  nopca_fisher:
+    binarize_connectivity: false
+    fisher_transform: true
+    connectivity_pca_components: null
+
+  # Rung 3: nopca_fisher plus standardizing each unit's profile, which is exactly
+  # the Yeo et al. (2011) fMRI construction and exactly spherical k-means -- z-scoring puts
+  # every row on a sphere of radius sqrt(n), so Euclidean distance becomes a monotone
+  # function of the correlation *between profiles*. Motivated directly by the first run:
+  # nopca_fisher scored AMI 0.354 with hubness decile, i.e. it was substantially grouping
+  # units by how strongly connected they are rather than by what they connect to.
+  # Standardizing removes the magnitude and asks only about the pattern.
+  vmf_profile:
+    binarize_connectivity: false
+    fisher_transform: true
+    standardize_profiles: true
+    connectivity_pca_components: null

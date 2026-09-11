@@ -173,3 +173,51 @@ def read_attrs(path):
             return {k: (v.decode() if isinstance(v, bytes) else v) for k, v in f.attrs.items()}
     except (OSError, KeyError):
         return {}
+
+def surrogate_normalized(data):
+    """Form the non-negative connectivity matrix the clusterer and the scorer both consume.
+
+    THE ONLY PLACE `|r|` IS FORMED. Both `run_parcellation` and `score.load_connectivity`
+    call this, so the parcellation and the metric can never disagree about what matrix they
+    are talking about -- a class of bug this project has already paid for once (LOG.md S10).
+
+    If the file carries `surrogate_var` -- the per-pair variance of the correlation under
+    circular shifts, written by `run_connectivity(n_surrogates=K)` -- each entry is divided
+    by its own null standard deviation before the absolute value is taken, giving |z| rather
+    than |r|. Otherwise the matrix is returned as |r| and the behaviour is exactly what it
+    was, so old trees score unchanged.
+
+    Why this matters (LOG.md Iteration 9). For a pair of units with no true correlation, r is
+    zero-mean noise of size sigma_ij, so E|r_ij| = sqrt(2/pi) * sigma_ij: the absolute value
+    turns noise into a POSITIVE MEAN FIELD whose shape is sigma_ij, and sigma_ij varies by
+    pair because it depends on the two units' autocorrelations, which a circular shift
+    preserves exactly. That field is separable-ish, hence maximally block-fittable and
+    maximally reproducible, which is why a structureless null out-scored real data on both
+    metrics. Dividing by sigma_ij makes E|z_ij| the SAME CONSTANT for every pair, so the
+    field is gone: the null becomes exchangeable, a block model has nothing to fit, and
+    k-means has no per-unit magnitude to sort by.
+
+    Detection is by presence, not by a flag. A boolean that had to be set identically in the
+    parcellation config and the scoring config is exactly the kind of thing that gets set in
+    one and forgotten in the other; here a tree either carries the variances or it does not.
+    """
+    R = np.nan_to_num(np.asarray(data['connectivity']))
+    if 'surrogate_var' in data:
+        sd = np.sqrt(np.maximum(np.nan_to_num(np.asarray(data['surrogate_var'])), 0.0))
+        # Pairs whose null variance underflowed to zero carry no information about effect
+        # size; zeroing them is the conservative reading and keeps the matrix finite.
+        R = np.divide(R, sd, out=np.zeros_like(R, dtype=np.float64), where=sd > 0)
+    return np.abs(R)
+
+
+def average_surrogate_var(variances):
+    """Null variance of a Fisher average of independent connectivity estimates.
+
+    The halves and the `avg` file are Fisher averages of per-sample matrices. Under the null
+    the correlations are near zero, where arctanh(r) = r + O(r^3), so the Fisher average is a
+    plain mean to the accuracy that matters here and Var(mean of m independent) = sum/m^2.
+    The approximation is used ONLY on null variances, which are small by construction; it is
+    never applied to the real correlations, which are averaged exactly as before.
+    """
+    v = [np.nan_to_num(np.asarray(x, dtype=np.float64)) for x in variances]
+    return sum(v) / float(len(v) ** 2)

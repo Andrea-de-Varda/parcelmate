@@ -41,7 +41,7 @@ from parcelmate.metrics import (
 # structure transfers. Correlation is reported for both, so the across/within ratio (the
 # continuous domain-generality measure) compares like with like.
 WITHIN_MEASURES = (('fidelity_within', 'r2'), ('fidelity_within_r', 'r'))
-from parcelmate.util import load_h5_data, stderr
+from parcelmate.util import load_h5_data, stderr, surrogate_normalized
 
 
 def conn_path(root, domain, key):
@@ -55,8 +55,12 @@ def parc_path(root, variant, domain, key):
 
 
 def load_connectivity(path):
-    """Absolute-valued, NaN-free connectivity, matching what the parcellation saw."""
-    return np.abs(np.nan_to_num(load_h5_data(path, verbose=False)['connectivity']))
+    """The same matrix the parcellation saw -- |r|, or |z| where null variances exist.
+
+    Deliberately the identical call `run_parcellation` makes, so "what the parcellation
+    clustered" and "what the metric scores" cannot drift apart.
+    """
+    return surrogate_normalized(load_h5_data(path, verbose=False))
 
 
 def score_tree(root, tree, variants, domains, rows, missing, cross_domain=True, verbose=True):
