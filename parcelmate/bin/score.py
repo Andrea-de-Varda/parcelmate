@@ -41,7 +41,9 @@ from parcelmate.metrics import (
 # structure transfers. Correlation is reported for both, so the across/within ratio (the
 # continuous domain-generality measure) compares like with like.
 WITHIN_MEASURES = (('fidelity_within', 'r2'), ('fidelity_within_r', 'r'))
-from parcelmate.util import load_h5_data, stderr, surrogate_normalized
+from parcelmate.util import (
+    h5_keys, load_h5_array, load_h5_data, stderr, surrogate_normalized,
+)
 
 
 def conn_path(root, domain, key):
@@ -70,10 +72,12 @@ def load_noise_scale(path):
     the null but inverts and strengthens it on real data, so a real parcellation could score
     well by sorting units on how measurable they are. See metrics.triviality.
     """
-    d = load_h5_data(path, verbose=False)
-    if 'surrogate_var' not in d:
+    # Key check then a single-dataset read: `load_h5_data` would pull the ~400 MB
+    # connectivity matrix into memory too, and this is called once per arm per domain.
+    if 'surrogate_var' not in h5_keys(path):
         return None
-    return np.sqrt(np.maximum(np.nan_to_num(np.asarray(d['surrogate_var'])), 0.0)).mean(axis=1)
+    v = np.nan_to_num(np.asarray(load_h5_array(path, 'surrogate_var'), dtype=np.float64))
+    return np.sqrt(np.maximum(v, 0.0)).mean(axis=1)
 
 
 def score_tree(root, tree, variants, domains, rows, missing, cross_domain=True, verbose=True):
