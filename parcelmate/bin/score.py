@@ -13,9 +13,11 @@ limitation to expose sampling noise between halves. The reliability ceiling comp
 consensuses built from disjoint halves of the same restarts on the same data, removing the
 data difference to expose algorithmic instability.
 
-Within-domain uses the two split halves. Across-domain fits on one domain's sample-average
-and evaluates on another's, which is the continuous measure of domain-generality -- how
-much a parcellation transfers -- as opposed to the binary survive-or-die clique count.
+Within-domain uses the two split halves. Across-domain is reported twice: `*_across` fits on
+one domain's sample-average and evaluates on another's, and `*_across_halves` fits on half A
+of one domain and evaluates on half B of another. The second is the data-matched one -- same
+token budget and same disjoint-set structure as the within-domain metrics -- and is what
+licenses comparing a within-domain number to an across-domain one directly.
 """
 
 import argparse
@@ -126,47 +128,81 @@ def score_tree(root, tree, variants, domains, rows, missing, cross_domain=True, 
     if not cross_domain:
         return
 
-    # Across-domain: fit on one domain's average, evaluate on another's. Matrices are
-    # loaded a pair at a time; holding seven 400 MB matrices at once is unnecessary.
+    # Across-domain, twice, with different amounts of data on each side.
+    #
+    #   'avg'    fit on one domain's 4-sample average, evaluate on another's (~394k tokens
+    #            per side). More tokens per side, so less estimation noise.
+    #   'halves' fit on half A of one domain, evaluate on half B of another (~197k tokens
+    #            per side, disjoint token sets) -- EXACTLY the data budget and the
+    #            fit/evaluate structure of the within-domain metrics.
+    #
+    # Both are kept because they answer slightly different questions, but only the halves
+    # version licenses the comparison "within 0.51 vs across 0.08". With the avg version the
+    # across row has twice the tokens, and although that mismatch runs in the across row's
+    # favour -- less noise, not more -- reporting a within/across ratio across a 2x data
+    # difference is not something to do in a paper.
+    for fit_key, eval_key, suffix in (('avg', 'avg', ''),
+                                      (HALF_NAMES[0], HALF_NAMES[1], '_halves')):
+        score_across(root, tree, variants, domains, rows, missing,
+                     fit_key, eval_key, suffix, verbose=verbose)
+
+
+def score_across(root, tree, variants, domains, rows, missing,
+                 fit_key, eval_key, suffix, verbose=True):
+    """Fit a parcellation on one domain and evaluate it on another.
+
+    `fit_key` and `eval_key` select which connectivity file stands for each side, so the
+    same code produces both the sample-average comparison and the data-matched half-vs-half
+    comparison. `suffix` is appended to the metric names.
+    """
+    # Matrices are loaded a pair at a time; holding seven 400 MB matrices at once is
+    # unnecessary.
     for fit_domain in domains:
-        p_fit = conn_path(root, fit_domain, 'avg')
+        p_fit = conn_path(root, fit_domain, fit_key)
         if not os.path.exists(p_fit):
-            missing.append('%s/%s: avg connectivity' % (tree, fit_domain))
+            missing.append('%s/%s: %s connectivity' % (tree, fit_domain, fit_key))
             continue
         R_fit = load_connectivity(p_fit)
         parcs = {}
         for variant in variants:
-            f = parc_path(root, variant, fit_domain, 'avg')
+            f = parc_path(root, variant, fit_domain, fit_key)
             if os.path.exists(f):
                 parcs[variant] = load_h5_data(f, verbose=False)['parcellation']
             else:
-                missing.append('%s/%s/%s: avg parcellation' % (tree, variant, fit_domain))
+                missing.append('%s/%s/%s: %s parcellation'
+                               % (tree, variant, fit_domain, fit_key))
         for eval_domain in domains:
             if eval_domain == fit_domain:
                 continue
-            p_eval = conn_path(root, eval_domain, 'avg')
+            p_eval = conn_path(root, eval_domain, eval_key)
             if not os.path.exists(p_eval):
                 continue
             R_eval = load_connectivity(p_eval)
             # Correlation, not R^2: see WITHIN_MEASURES above.
-            rows.append(dict(tree=tree, variant='(ceiling)', metric='fidelity_across',
+            rows.append(dict(tree=tree, variant='(ceiling)',
+                             metric='fidelity_across' + suffix,
                              fit=fit_domain, eval=eval_domain,
                              value=fidelity_ceiling(R_fit, R_eval, measure='r')))
             for variant, P in parcs.items():
-                rows.append(dict(tree=tree, variant=variant, metric='fidelity_across',
+                rows.append(dict(tree=tree, variant=variant,
+                                 metric='fidelity_across' + suffix,
                                  fit=fit_domain, eval=eval_domain,
                                  value=fidelity(R_fit, R_eval, P, measure='r')))
                 # Reliability across domains: does the same partition reappear when the
                 # model reads different text? The continuous counterpart of the
                 # reciprocal-best-match clique, which only ever answered yes or no.
-                f_eval = parc_path(root, variant, eval_domain, 'avg')
+                f_eval = parc_path(root, variant, eval_domain, eval_key)
                 if os.path.exists(f_eval):
                     rows.append(dict(
-                        tree=tree, variant=variant, metric='reliability_across',
+                        tree=tree, variant=variant,
+                        metric='reliability_across' + suffix,
                         fit=fit_domain, eval=eval_domain,
                         value=reliability(
                             P, load_h5_data(f_eval, verbose=False)['parcellation'])))
             del R_eval
+        if verbose:
+            stderr('  %-5s %-12s across(%s->%s) done\n'
+                   % (tree, fit_domain, fit_key, eval_key))
         del R_fit
 
 
@@ -223,7 +259,8 @@ def score_config(cfg, out=None, cross_domain=True, allow_partial=False, verbose=
     print('-' * 68)
     for metric in ('reliability_within', 'reliability_ceiling', 'reliability_across',
                    'fidelity_within', 'fidelity_within_insample', 'fidelity_within_r',
-                   'fidelity_across',
+                   'fidelity_across', 'reliability_across_halves',
+                   'fidelity_across_halves',
                    'triviality_ami_layer', 'triviality_ami_hubness',
                    'triviality_median_max_membership', 'triviality_n_effective_networks'):
         for variant in variants + ['(ceiling)']:
