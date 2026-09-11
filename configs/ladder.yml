@@ -1,0 +1,123 @@
+# The method ladder (LOG.md Iteration 12). GPT-2, seven domains, one experiment tree.
+#
+# Each rung changes exactly ONE thing, so a win is attributable:
+#
+#   legacy -> current -> fisher_pca -> nopca_fisher -> vmf_profile -> vmf_z
+#          (fix S2)  (drop binarize) (drop PCA)     (standardize)   (|r| -> |z|)
+#
+# Scored against three references (parcelmate/bin/score.py): `pnull`, the null PARTITION
+# evaluated on real data, is the primary one -- same target matrix, same denominator, so
+# real - pnull is the credit the clustering earns beyond a partition that knows only
+# per-unit properties. `rand` is a random partition of the same k. `null` (the pipeline on
+# shifted data) is kept for the record only.
+#
+# Connectivity is shared with results/reliability_norm (hard-linked; r plus surrogate_var
+# from 32 held-out circular shifts per sample, needed by the |z| rung), so this run costs no
+# GPU time. Everything else -- halves, parcellations, scores -- is regenerated here so the
+# provenance of every file in the tree is this config at one commit.
+#
+# Outputs:
+#   results/ladder/connectivity/              real connectivity (shared)
+#   results/ladder/<variant>/parcellation/    one per arm
+#   results/ladder_null/...                   same shape, circshift null
+#   results/ladder/metrics/scores.csv
+
+output_dir: results/ladder
+
+seed: 42
+
+connectivity:
+  model_name: gpt2
+  # 4 samples so split_halves can form two independent halves as Fisher-avg(1,2) vs
+  # Fisher-avg(3,4), ~197k tokens each.
+  n_samples: 4
+  domains:
+    - wikitext
+    - bookcorpus
+    - agnews
+    - tldr17
+    - codeparrot
+    - random      # baseline; LOG.md S6 - not currently true random token ids
+    - whitespace  # baseline; degenerate connectivity, see Iteration 1 diagnostics
+  seq_len: 1024
+  n_tokens: null   # -> 98,304 per sample. Must exceed n_units (9,984) for the circshift null.
+  split: train
+  take: 100000
+  wrap: true
+  shuffle: true
+  batch_size: 8
+  highpass: null
+  lowpass: null
+  step: 0.2
+  timecourse_pca_components: null
+  timecourse_ica_components: null
+  eps: 1.0e-3
+  # Per-unit circular shift: destroys cross-unit correlation, preserves each unit's marginal
+  # and autocorrelation. Written to `<output_dir>_null` with identical filenames. The key is
+  # `null_model`, not `null`: YAML parses a bare `null` key as None.
+  null_model: circshift
+  # 32 FURTHER shifts per sample, under a different seed key from the scored null, giving
+  # each pair's null variance (`surrogate_var`). Used only by arms with normalize: surrogate.
+  n_surrogates: 32
+
+# Settings shared by every arm. Arm-specific overrides live in `parcellation_variants`.
+parcellation:
+  n_networks: 50
+  # 20 restarts, aligned and averaged. The restart-split reliability ceiling compares two
+  # 10-restart consensuses and reads 0.4-0.6 rather than ~1 (Iteration 9), i.e. the
+  # consensus is not converged at this budget; reliability is partly algorithm-limited.
+  # Known, recorded, not yet changed: doubling restarts doubles the parcellation stage.
+  n_samples: 20
+  clustering_kwargs: null
+  n_alignments: null
+  weight_samples: false       # LOG.md S5 - fixed, but leave off
+  parcellate_samples: false   # LOG.md M4 - only the sample-averaged connectivity
+
+parcellation_variants:
+
+  # The inherited pipeline, bug and all: the quantile broadcast column-wise (LOG.md S2).
+  # Included so the comparison can say how much the bug alone was costing.
+  legacy:
+    binarize_connectivity: true
+    legacy_binarize: true
+    connectivity_pca_components: 200
+
+  # The corrected pipeline as inherited. The reference point.
+  current:
+    binarize_connectivity: true
+    legacy_binarize: false
+    connectivity_pca_components: 200
+
+  # Rung 1: keep the magnitudes (Fisher-transformed) instead of binarizing, PCA unchanged.
+  fisher_pca:
+    binarize_connectivity: false
+    fisher_transform: true
+    connectivity_pca_components: 200
+
+  # Rung 2: also drop the PCA truncation and whitening.
+  nopca_fisher:
+    binarize_connectivity: false
+    fisher_transform: true
+    connectivity_pca_components: null
+
+  # Rung 3: standardize each unit's profile -- the Yeo et al. (2011) construction and
+  # exactly spherical k-means: z-scoring puts every row on a sphere of radius sqrt(n), so
+  # Euclidean distance becomes a monotone function of the correlation between profiles.
+  vmf_profile:
+    binarize_connectivity: false
+    fisher_transform: true
+    standardize_profiles: true
+    connectivity_pca_components: null
+
+  # Rung 4: the same, on |z| = |r| / sigma_ij instead of |r|. Standardizing removes each
+  # unit's ROW scale; sigma_ij ~ a_i a_j is a row AND column scaling, so this additionally
+  # reweights every profile by partner precision and divides out the non-separable
+  # spectral-family part of the null variance (Iteration 9). Whether that helps is the
+  # question this rung asks. The Fisher transform is not applied to |z| (S11); the arm
+  # keeps the flag so it differs from vmf_profile in exactly one setting.
+  vmf_z:
+    binarize_connectivity: false
+    fisher_transform: true
+    standardize_profiles: true
+    connectivity_pca_components: null
+    normalize: surrogate

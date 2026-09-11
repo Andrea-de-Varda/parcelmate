@@ -271,8 +271,20 @@ def triviality(parcellation, coordinates, connectivity=None, noise_scale=None, n
     return out
 
 
+SUMMARY_TREES = ('real', 'null', 'pnull', 'rand')
+
+
 def summarize(rows, verbose=True, indent=0):
-    """Collapse per-domain rows into null-calibrated, domain-equal summaries.
+    """Collapse per-domain rows into reference-calibrated, domain-equal summaries.
+
+    Four trees. `real` is the pipeline on real data. `null` is the pipeline on circularly
+    shifted data, scored on shifted data -- the original design, kept for the record, but
+    its R^2 sits on a different denominator from the real one and is not directly comparable
+    (LOG.md Iteration 9). `pnull` is the null PARTITION evaluated on REAL data: same target
+    matrix, same denominator, so real - pnull is the credit the clustering earns beyond
+    what a partition carrying only per-unit properties earns. `rand` is a seeded random
+    partition of the same k on real data: what "any 50 blocks" gets. `delta` is real - null
+    (historical); `delta_pnull` and `delta_rand` are the ones to read.
 
     Domains are weighted equally rather than by token count: the question is whether a
     method works across domains, and letting a large corpus dominate would answer a
@@ -285,13 +297,17 @@ def summarize(rows, verbose=True, indent=0):
     for r in rows:
         grouped[(r['variant'], r['metric'], r['fit'], r['eval'])][r['tree']] = r['value']
 
+    def diff(a, b):
+        return None if a is None or b is None else a - b
+
     out = []
     for (variant, metric, fit, ev), by_tree in sorted(grouped.items()):
-        real, null = by_tree.get('real'), by_tree.get('null')
+        vals = {t: by_tree.get(t) for t in SUMMARY_TREES}
         out.append(dict(
-            variant=variant, metric=metric, fit=fit, eval=ev,
-            real=real, null=null,
-            delta=(None if real is None or null is None else real - null),
+            variant=variant, metric=metric, fit=fit, eval=ev, **vals,
+            delta=diff(vals['real'], vals['null']),
+            delta_pnull=diff(vals['real'], vals['pnull']),
+            delta_rand=diff(vals['real'], vals['rand']),
         ))
     if verbose:
         stderr('%sSummarized %d comparisons\n' % (' ' * indent, len(out)))
@@ -299,10 +315,10 @@ def summarize(rows, verbose=True, indent=0):
     return out
 
 
-def domain_average(summary, metric, variant):
-    """Mean over domains of the null-calibrated value, weighting every domain equally."""
-    vals = [r['delta'] for r in summary
+def domain_average(summary, metric, variant, field='delta'):
+    """Mean over domains of a calibrated value, weighting every domain equally."""
+    vals = [r[field] for r in summary
             if r['metric'] == metric and r['variant'] == variant
-            and r['delta'] is not None and np.isfinite(r['delta'])]
+            and r[field] is not None and np.isfinite(r[field])]
 
     return float(np.mean(vals)) if vals else float('nan')

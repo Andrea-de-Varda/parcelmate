@@ -620,9 +620,9 @@ def run_connectivity(
     tokens as the real data.
 
     `n_surrogates=K` additionally computes K FURTHER circular shifts per sample and stores
-    the per-pair variance of the resulting correlations as `surrogate_var`. Downstream this
-    turns every entry into an effect size r_ij / sigma_ij, which removes the positive mean
-    field that `|r|` otherwise manufactures out of noise -- see `util.surrogate_normalized`
+    the per-pair variance of the resulting correlations as `surrogate_var`. An arm that sets
+    `normalize='surrogate'` then clusters effect sizes r_ij / sigma_ij, which removes the positive mean
+    field that `|r|` otherwise manufactures out of noise -- see `util.connectivity_matrix`
     for why that field existed and LOG.md Iteration 9 for what it was doing to the metrics.
     The surrogates are drawn under a different seed key from the scored null, so the null
     tree is never whitened by its own noise; K=32 gives each variance a relative error of
@@ -1002,6 +1002,7 @@ def run_parcellation(
         legacy_binarize=False,
         fisher_transform=False,
         standardize_profiles=False,
+        normalize=None,
         n_alignments=None,
         weight_samples=False,
         parcellate_samples=False,
@@ -1058,14 +1059,14 @@ def run_parcellation(
             continue
         data = load_h5_data(inpath, verbose=verbose, indent=indent)
 
-        # |r|, or |z| where the tree carries null variances. One implementation, shared
-        # with the scorer, so the two can never disagree about the matrix (LOG.md S10).
-        R = surrogate_normalized(data)
-        # On a normalized tree the "Fisher" arms receive |z|, an effect size that is already
-        # variance-stabilized and can exceed 1, so arctanh is both redundant and undefined.
-        # The arm keeps its name and its config (so the ladder lines up across experiments)
-        # but the transform is not applied; both facts go in the provenance below.
-        input_normalized = 'surrogate_var' in data
+        # |r|, or |z| for an arm that asks for it. One implementation, shared with the
+        # scorer -- which reads `normalize` back from this file's provenance rather than
+        # from any config -- so the two can never disagree about the matrix (LOG.md S10).
+        R = connectivity_matrix(data, normalize)
+        # A |z| arm receives an effect size that is already variance-stabilized and can
+        # exceed 1, so arctanh is both redundant and undefined (S11). The arm keeps its
+        # config but the transform is not applied; both facts go in the provenance below.
+        input_normalized = normalize is not None
         fisher_applied = bool(fisher_transform) and not input_normalized
 
         sample = sample_parcellations(
@@ -1125,6 +1126,7 @@ def run_parcellation(
                 legacy_binarize=bool(legacy_binarize),
                 fisher_transform=bool(fisher_transform),
                 fisher_transform_applied=bool(fisher_applied),
+                normalize=str(normalize),
                 input_normalized=bool(input_normalized),
                 standardize_profiles=bool(standardize_profiles),
                 connectivity_pca_components=str(connectivity_pca_components),

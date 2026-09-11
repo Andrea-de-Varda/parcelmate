@@ -174,40 +174,39 @@ def read_attrs(path):
     except (OSError, KeyError):
         return {}
 
-def surrogate_normalized(data):
+def connectivity_matrix(data, normalize=None):
     """Form the non-negative connectivity matrix the clusterer and the scorer both consume.
 
-    THE ONLY PLACE `|r|` IS FORMED. Both `run_parcellation` and `score.load_connectivity`
+    THE ONLY PLACE `|r|` IS FORMED. `run_parcellation` and `score.load_connectivity` both
     call this, so the parcellation and the metric can never disagree about what matrix they
     are talking about -- a class of bug this project has already paid for once (LOG.md S10).
 
-    If the file carries `surrogate_var` -- the per-pair variance of the correlation under
-    circular shifts, written by `run_connectivity(n_surrogates=K)` -- each entry is divided
-    by its own null standard deviation before the absolute value is taken, giving |z| rather
-    than |r|. Otherwise the matrix is returned as |r| and the behaviour is exactly what it
-    was, so old trees score unchanged.
+    `normalize` is an explicit per-arm choice, recorded in the parcellation's provenance and
+    read back from there by the scorer, so one experiment tree can hold |r| arms and |z| arms
+    side by side and the normalization becomes a rung of the ladder rather than a property
+    of the whole experiment:
 
-    Why this matters (LOG.md Iteration 9). For a pair of units with no true correlation, r is
-    zero-mean noise of size sigma_ij, so E|r_ij| = sqrt(2/pi) * sigma_ij: the absolute value
-    turns noise into a POSITIVE MEAN FIELD whose shape is sigma_ij, and sigma_ij varies by
-    pair because it depends on the two units' autocorrelations, which a circular shift
-    preserves exactly. That field is separable-ish, hence maximally block-fittable and
-    maximally reproducible, which is why a structureless null out-scored real data on both
-    metrics. Dividing by sigma_ij makes E|z_ij| the SAME CONSTANT for every pair, so the
-    field is gone: the null becomes exchangeable, a block model has nothing to fit, and
-    k-means has no per-unit magnitude to sort by.
+      None         |r|. The quantity of scientific interest: how strongly two units couple.
+      'surrogate'  |r / sigma|, sigma_ij being the per-pair null standard deviation written by
+                   `run_connectivity(n_surrogates=K)`. An effect size: how confidently the
+                   coupling is non-zero. Removes the positive mean field that |r| manufactures
+                   from noise (E|r| = sqrt(2/pi) sigma for an uncorrelated pair), at the price of
+                   reweighting every profile by partner precision. See LOG.md Iterations 9-12.
 
-    Detection is by presence, not by a flag. A boolean that had to be set identically in the
-    parcellation config and the scoring config is exactly the kind of thing that gets set in
-    one and forgotten in the other; here a tree either carries the variances or it does not.
+    Earlier this was triggered by the mere presence of `surrogate_var` in the file, which
+    forced a second experiment for one design choice. An explicit argument is the cleanup.
     """
     R = np.nan_to_num(np.asarray(data['connectivity']))
-    if 'surrogate_var' in data:
-        sd = np.sqrt(np.maximum(np.nan_to_num(np.asarray(data['surrogate_var'])), 0.0))
-        # Pairs whose null variance underflowed to zero carry no information about effect
-        # size; zeroing them is the conservative reading and keeps the matrix finite.
-        R = np.divide(R, sd, out=np.zeros_like(R, dtype=np.float64), where=sd > 0)
-    return np.abs(R)
+    if normalize is None:
+        return np.abs(R)
+    assert normalize == 'surrogate', 'Unknown normalize=%r (None or "surrogate")' % (normalize,)
+    assert 'surrogate_var' in data, (
+        'normalize="surrogate" needs `surrogate_var` in the connectivity file; this tree was '
+        'built without `n_surrogates`. Re-run connectivity with n_surrogates > 0.')
+    sd = np.sqrt(np.maximum(np.nan_to_num(np.asarray(data['surrogate_var'])), 0.0))
+    # Pairs whose null variance underflowed to zero carry no information about effect
+    # size; zeroing them is the conservative reading and keeps the matrix finite.
+    return np.abs(np.divide(R, sd, out=np.zeros_like(R, dtype=np.float64), where=sd > 0))
 
 
 def average_surrogate_var(variances):
