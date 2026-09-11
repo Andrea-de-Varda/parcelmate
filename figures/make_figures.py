@@ -66,9 +66,16 @@ ROWS = load()
 
 
 def vals(metric, tree, variant, domains=PROSE):
+    """Every per-domain measurement for one (metric, tree, arm).
+
+    Both `fit` and `eval` are restricted to `domains`. For the within-domain metrics the two
+    columns are equal so the eval filter is a no-op; for the across-domain metrics it is
+    what keeps the 12 ordered prose pairs and drops any pair touching whitespace,
+    codeparrot or random.
+    """
     return [r['value'] for r in ROWS
             if r['metric'] == metric and r['tree'] == tree
-            and r['variant'] == variant and r['fit'] in domains]
+            and r['variant'] == variant and r['fit'] in domains and r['eval'] in domains]
 
 
 def mean(metric, tree, variant, domains=PROSE):
@@ -76,27 +83,80 @@ def mean(metric, tree, variant, domains=PROSE):
     return float(np.mean(v)) if v else float('nan')
 
 
+def paired_deltas(metric, variant, domains=PROSE):
+    """Real minus null, matched domain by domain (or domain pair by domain pair).
+
+    The null is computed on the same tokens as the real run, so the comparison is paired and
+    the per-domain differences are the unit of evidence, not the difference of the means.
+    """
+    real = {(r['fit'], r['eval']): r['value'] for r in ROWS
+            if r['metric'] == metric and r['tree'] == 'real' and r['variant'] == variant
+            and r['fit'] in domains and r['eval'] in domains}
+    null = {(r['fit'], r['eval']): r['value'] for r in ROWS
+            if r['metric'] == metric and r['tree'] == 'null' and r['variant'] == variant
+            and r['fit'] in domains and r['eval'] in domains}
+    keys = sorted(set(real) & set(null))
+    return np.array([real[k] - null[k] for k in keys])
+
+
+def beats_null(metric, variant, domains=PROSE):
+    """Colour is earned only by a UNANIMOUS win: the arm must beat its null in every domain.
+
+    Comparing the two means is not enough. With four prose domains no rank test can reach
+    p < 0.05, so the defensible rule available at this n is the sign test: 4/4 is p = 0.0625
+    one-sided, 12/12 is p = 0.00024. It also happens to separate the data cleanly -- every
+    real win here is unanimous, while `vmf_profile`'s across-domain fidelity advantage of
+    +0.007 holds in only 5 of 12 pairs, which is a coin flip dressed as an effect and would
+    otherwise have been coloured as a win.
+    """
+    d = paired_deltas(metric, variant, domains)
+    return bool(len(d)) and bool((d > 0).all())
+
+
 # ---------------------------------------------------------------------------------------
 # Figure 1 -- the main result. Dumbbell: the delta between null and real IS the finding, and
 # only one arm has a positive delta on both metrics.
 # ---------------------------------------------------------------------------------------
 def fig_ladder():
-    fig, axes = plt.subplots(1, 2, figsize=(6.8 * 0.88, 2.9 * 0.88), dpi=300, sharey=True)
-    panels = [('reliability_within', 'Reliability (ARI)', axes[0]),
-              ('fidelity_within', 'Fidelity (R$^2$)', axes[1])]
+    """The main result, 2x2: {within, across} domain x {reliability, fidelity}.
+
+    Fidelity is Pearson r in BOTH rows rather than R^2 in the top one, so the two rows are in
+    the same units and the drop from within to across is readable directly. R^2 is the right
+    summary within a domain (the two halves share a scale) but is not defined across domains,
+    where the two connectomes differ in scale; figure 3 keeps R^2 for the ceiling comparison.
+
+    Caveat carried in the row label: the two rows do not use the same amount of data. A
+    within-domain row compares two half-domain connectomes (~197k tokens each); an
+    across-domain row compares two sample-averaged connectomes (~394k tokens each). The
+    mismatch favours the across row -- more tokens per side, less estimation noise -- so the
+    collapse seen there cannot be blamed on noisier inputs.
+    """
+    fig, axes = plt.subplots(2, 2, figsize=(6.8 * 0.88, 5.1 * 0.88), dpi=300,
+                             sharey=True, sharex='col')
     ypos = np.arange(len(LADDER))[::-1]
 
-    for metric, xlabel, ax in panels:
+    panels = [
+        (axes[0, 0], 'reliability_within', 'Reliability (ARI)',
+         'within domain\n(split halves)'),
+        (axes[0, 1], 'fidelity_within_r', 'Fidelity (r)', None),
+        (axes[1, 0], 'reliability_across', 'Reliability (ARI)',
+         'across domains\n(12 prose pairs)'),
+        (axes[1, 1], 'fidelity_across', 'Fidelity (r)', None),
+    ]
+
+    for ax, metric, coltitle, rowlabel in panels:
         for i, arm in enumerate(LADDER[::-1]):
             y = ypos[i]
             real, null = mean(metric, 'real', arm), mean(metric, 'null', arm)
-            beats = real > null
-            # Gray when the arm fails to beat its own null -- the house convention for
-            # "not significant". Colour is earned, not given.
+            beats = beats_null(metric, arm)
+            # Gray when the arm fails to beat its own null in every domain -- the house
+            # convention for "not significant". See beats_null: the mean difference alone
+            # would paint a 5-of-12 coin flip as a win.
             c = ARM_COLORS[arm] if beats else NS_EDGE
             ax.hlines(y, min(real, null), max(real, null),
                       color=c, alpha=0.35 if beats else 0.25, linewidth=3, zorder=2)
-            # Faint per-domain real values, so the reader sees the spread behind the mean.
+            # Faint per-measurement real values (per domain above, per domain pair below),
+            # so the reader sees the spread behind the mean.
             for v in vals(metric, 'real', arm):
                 ax.scatter(v, y, s=9, color=c, alpha=0.30, edgecolors='none', zorder=2.5)
             ax.scatter(null, y, s=42, facecolors='white', edgecolors=c,
@@ -104,25 +164,40 @@ def fig_ladder():
             ax.scatter(real, y, s=42, color=c if beats else NS_FILL,
                        edgecolors='black' if beats else NS_EDGE,
                        linewidths=0.5, zorder=3.5)
-        ax.set_xlabel(xlabel, fontsize=11)
+        # An all-grey panel is the actual finding in the bottom row, but an all-grey panel
+        # also looks like a rendering failure. The count says which it is.
+        n_win = sum(beats_null(metric, a) for a in LADDER)
+        ax.text(0.97, 0.04, '%d/%d arms beat their null' % (n_win, len(LADDER)),
+                transform=ax.transAxes, fontsize=7.5, color='0.35',
+                ha='right', va='bottom')
         ax.grid(axis='x', linestyle='--', alpha=0.5, zorder=1)
         style_spines(ax, drop_top_right=True)
         ax.tick_params(axis='both', which='major', labelsize=9.5)
+        if rowlabel is not None:
+            ax.set_ylabel(rowlabel, fontsize=9.5, fontweight='bold', labelpad=8)
 
-    axes[0].set_yticks(ypos)
-    axes[0].set_yticklabels([ARM_LABELS[a] for a in LADDER[::-1]], fontsize=9.5)
-    axes[0].set_ylim(-0.7, len(LADDER) - 0.3)
+    # Column identity goes on the top row only; repeating it as an xlabel underneath was
+    # pure duplication. Both columns start at zero so the bars are not visually inflated.
+    for ax, t in zip(axes[0], ('Reliability (ARI)', 'Fidelity (r)')):
+        ax.set_title(t, fontsize=11)
+    for ax in axes[1]:
+        ax.set_xlim(left=0)
+
+    for ax in axes[:, 0]:
+        ax.set_yticks(ypos)
+        ax.set_yticklabels([ARM_LABELS[a] for a in LADDER[::-1]], fontsize=9.5)
+        ax.set_ylim(-0.7, len(LADDER) - 0.3)
 
     handles = [
         Line2D([0], [0], marker='o', color='none', markerfacecolor='white',
-               markeredgecolor='black', markersize=6, label='null'),
+               markeredgecolor='black', markersize=6, label='null (circular shift)'),
         Line2D([0], [0], marker='o', color='none', markerfacecolor='black',
                markeredgecolor='black', markersize=6, label='real'),
-        Line2D([0], [0], color=NS_EDGE, lw=3, alpha=0.35, label='fails to beat its null'),
+        Line2D([0], [0], color=NS_EDGE, lw=3, alpha=0.35, label='does not beat its null in every domain'),
     ]
-    # Below the panels rather than inside: in the fidelity panel the nopca_fisher null
-    # reaches 0.56, so any in-axes corner collides with the data.
-    fig.legend(handles=handles, loc='lower center', bbox_to_anchor=(0.5, -0.10),
+    # Below the panels rather than inside: the nulls run high enough in both fidelity
+    # panels that any in-axes corner collides with the data.
+    fig.legend(handles=handles, loc='lower center', bbox_to_anchor=(0.5, -0.055),
                ncol=3, frameon=False, fontsize=8.5)
     fig.tight_layout()
     save_fig(fig, 'ladder_null_calibrated')
