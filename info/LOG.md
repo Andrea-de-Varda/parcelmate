@@ -343,6 +343,33 @@ Two consequences. **It needs no normalization**: |r| returns as the primary conn
 
 **Not yet done, deliberately.** The figures still plot Iteration 11 (`figures/scores_norm.csv`) and Iteration 8 (`figures/scores.csv`); `make_figures.py` will be rebuilt around the single ladder scores file once it exists, with `pnull` as the open dot, and the two old CSVs and the `_unnormalized` plots removed then. Doing it now would mean plotting a file that does not exist.
 
+## Iteration 13 -- the ladder scored against the partition null (2026-09-11)
+
+Jobs 17379136 (split_halves + parcellation, 5 h 32, 4.8 GB) and 17379137 (score, 3 h 30, 7.2 GB), both exit 0, at commit `1e59ff0`. 5,096 measurements in `results/ladder/metrics/scores.csv`, copied to [figures/scores_ladder.csv](../figures/scores_ladder.csv). Prose-domain means throughout.
+
+**All four pre-registered checks pass.** `rand` is 0.000 on every metric and every arm. `pnull` is small but non-zero (fidelity 0.003-0.036 in R2), so per-unit properties do buy something -- now measured rather than confounded. `null` still out-scores `real` on the |r| arms (0.315 against 0.064 for legacy), exactly as predicted, and is now correctly read as a denominator artifact rather than a result. And the |z| rung reproduces the |r| ranking.
+
+**Every arm clears the reference on both metrics, within domain.** This is the headline, and it is the first time the comparison has been on a single denominator.
+
+| arm | fid R2 real | pnull | Δ | rel real | pnull | Δ |
+|---|---|---|---|---|---|---|
+| legacy | 0.064 | 0.019 | +0.045 | 0.471 | 0.103 | +0.368 |
+| current | 0.077 | 0.008 | +0.069 | 0.111 | 0.005 | +0.106 |
+| fisher_pca | 0.062 | 0.010 | +0.051 | 0.128 | 0.019 | +0.109 |
+| nopca_fisher | 0.155 | 0.036 | **+0.118** | 0.698 | 0.034 | **+0.664** |
+| vmf_profile | 0.117 | 0.003 | +0.114 | 0.514 | 0.012 | +0.503 |
+| vmf_z | 0.121 | 0.013 | +0.108 | 0.481 | 0.008 | +0.473 |
+
+**The |z| rung answers its question: no.** `vmf_z` against `vmf_profile` is +0.108 vs +0.114 (fidelity) and +0.473 vs +0.503 (reliability) -- a hair worse, within noise, and the same ordering. So surrogate normalization neither helps nor changes conclusions, while costing 32 extra shifts per sample and replacing coupling strength with a test statistic. **|r| wins on parsimony and the question is retired.** Its real value was diagnostic: Iterations 10-11 proved the artifact was real by removing it, and this run proves the conclusions do not depend on having removed it.
+
+**Correction to the capacity caveat I raised after the run.** I warned that `nopca_fisher`'s large Δ might be inflated because its reference partition fills only 21 of 50 networks and a lower-capacity reference should score lower for reasons unrelated to structure. **That is backwards, and the data say so**: corr(reference networks filled, reference fidelity) = **-0.60** in r and -0.66 in R2. A collapsed reference explains *more*, not less -- concentrating units into few large blocks captures the coarse hubness gradient efficiently. So Δ_pnull is **conservative** exactly where the reference collapses, not inflated. The worry does not bite and the figure now says so ([plots/reference_check.svg](../plots/reference_check.svg), left panel) rather than repeating my error.
+
+**What the pnull-to-rand gap measures.** Since `rand` is 0, that gap is just the reference's own score: the share of an arm's performance a partition knowing only per-unit properties already recovers. It separates the two leading arms cleanly -- `nopca_fisher` 0.190 (the largest of any arm), `vmf_profile` 0.055 (the smallest). `nopca_fisher`'s advantage is substantially hubness-recoverable; `vmf_profile`'s is almost entirely not. Consistent with `triviality_ami_hubness` on real data: 0.300 for `nopca_fisher` against 0.085-0.100 for the standardized arms.
+
+**Cross-domain reverses the ordering, and that is the result that matters.** On data-matched halves, `vmf_profile` leads fidelity (Δ +0.148) while `nopca_fisher` is *worst of the six* (Δ +0.049), because its reference transfers well (pnull 0.184) -- per-unit properties are domain-general, so an arm leaning on them gains nothing over its own reference when generalizing. Every arm sits below the diagonal in [plots/within_vs_across.svg](../plots/within_vs_across.svg): no arm transfers as well as it fits. Given that the project's question is domain-general networks, **`vmf_profile` is the arm to carry forward**, and the within-domain leader is the wrong one to pick.
+
+**Unchanged from earlier iterations.** Held-out fidelity equals in-sample for every arm, so nothing overfits and the gap to the uncompressed reference (R2 0.984 within, r 0.530 across) is the block-model form. `nopca_fisher` fills 27.8 of 50 networks on |r| -- the collapse Iteration 11 attributed to hub units capturing centroids, back as expected now that normalization is off, and its scores are those of a ~28-block solution.
+
 ## Decisions made
 
 - 2026-09-11 (null design): **the primary reference is the null partition evaluated on the real data (`pnull`), not the pipeline evaluated on null data (`null`).** Andrea's correction. The latter compares R^2 on two different matrices and is what let a structureless matrix out-score real data; the former puts both partitions on the same target and measures the clustering's credit beyond per-unit properties. `null` is kept as a column for the record. |r| returns as the primary connectome; |z| becomes one rung (`vmf_z`). Iteration 12.
@@ -474,6 +501,10 @@ Every code change to the repo, newest last. Format: date — files — what and 
 - 2026-09-11 -- **Submitted jobs 17379136 -> 17379137** (`john`, 96 GB, 24 h / 12 h, chained `afterok`) running `configs/ladder.yml -s split_halves parcellation` then `-s score` at commit `66e2c03`. Connectivity for `results/ladder{,_null}` hard-linked from `results/reliability_norm{,_null}` (49 files each, same inodes), halves included, so `split_halves` skips and no GPU is used. Six arms x 2 trees x 7 domains x 3 keys = 252 parcellations; anchor 5 h 24 for 210 (job 17368816), so ~6.5 h expected, then ~2 h scoring with the two new reference trees.
 
 - 2026-09-11 -- [parcelmate/bin/score.py](../parcelmate/bin/score.py), [tests/verify_iter7_partition_null.py](../tests/verify_iter7_partition_null.py) -- **reliability references average both orientations** (Andrea's correction to the formulation, Iteration 12). `pnull` reliability is now the mean of ARI(P_null_A, P_real_B) and ARI(P_real_A, P_null_B), within domain and across; fidelity stays directional because the real row it calibrates is directional. `rand` draws are seeded per orientation. A null tree missing one half's parcellation is now refused rather than scored one-sided. Three checks added, including that the averaged value is not either orientation alone. Caught and fixed while job 17379136 was still queued, so the run uses it.
+
+- 2026-09-11 -- **Jobs 17379136 / 17379137 completed** (no code change): the six-arm ladder scored against the partition-level references, 9 h 02 total, exit 0. Results in Iteration 13. Scores copied to [figures/scores_ladder.csv](../figures/scores_ladder.csv).
+
+- 2026-09-11 -- [figures/make_figures.py](../figures/make_figures.py), [plots/](../plots/) -- **figures rebuilt around `pnull`.** Four now: `ladder_references` (2x2, real vs the null partition, within and across domains, unanimity colouring), `within_vs_across` (the ordering reversal, all six arms below the diagonal), `reference_check` (the collapsed-reference correction plus the pnull-to-rand gap), `fidelity_vs_ceiling` (unchanged in form). The script falls back to the tree-level `null` for older score files, so the superseded runs still plot. Removed the stale `ladder_null_calibrated`, `ladder_mechanism`, `null_degeneracy` and `*_unnormalized` plots: they diagnose artifacts that the partition null makes moot, and keeping figures whose reference is no longer the one we use invites citing them by accident. `figures/scores.csv` and `figures/scores_norm.csv` are kept as the data record of Iterations 8 and 11. Three fixes during review: the per-panel count collided with the `legacy` row, per-point labels in `within_vs_across` landed on neighbouring dots and read as if they belonged to them (replaced by a shared legend), and the `reference_check` title asserted my capacity claim before I checked it -- it now reports the measured r = -0.60 in the opposite direction.
 
 ## Cluster
 
