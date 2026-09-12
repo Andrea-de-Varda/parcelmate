@@ -218,6 +218,21 @@ r = subprocess.run([sys.executable, '-m', 'parcelmate.bin.main', cfg_path, '-s',
                    capture_output=True, text=True, env=dict(os.environ, PYTHONPATH='.'))
 check('main.py accepts a known -V variant', r.returncode == 0)
 
+# ------------------------------------------------------------ score -V
+from parcelmate.bin.score import score_config
+cfg = dict(output_dir=tmp, seed=1, connectivity=dict(domains=['dom']),
+           parcellation_variants=dict(ward={}, bm={}))
+rows, out_path = score_config(cfg, variants=['ward'], cross_domain=False, verbose=False,
+                              allow_partial=True)
+check('score -V: only the named arm is scored and the file is scores_<arm>.csv',
+      {r['variant'] for r in rows if not r['variant'].startswith('(')} == {'ward'}
+      and os.path.basename(out_path) == 'scores_ward.csv')
+try:
+    score_config(cfg, variants=['nope'], cross_domain=False, verbose=False, allow_partial=True)
+    check('score -V rejects an unknown arm', False)
+except AssertionError:
+    check('score -V rejects an unknown arm', True)
+
 print('\n%d check(s), %d failure(s)' % (n_checks[0], len(failures)))
 if failures:
     for f in failures:

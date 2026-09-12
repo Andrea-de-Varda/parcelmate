@@ -279,18 +279,44 @@ def triviality(parcellation, coordinates, connectivity=None, noise_scale=None, n
     return out
 
 
-def block_sse(R, labels, n_networks=None):
+def _block_stats(R0, labels, k):
+    """Block pair sums, pair counts and means for a matrix whose diagonal is already zero.
+
+    One n x n x k product; everything else is k x k. `R0` must have a zero diagonal so the
+    self-pairs drop out of the sums, matching `block_means`.
+    """
+    n = R0.shape[0]
+    onehot = np.zeros((n, k), dtype=R0.dtype)
+    onehot[np.arange(n), labels] = 1.0
+    S = R0 @ onehot                                  # n x k: each unit's sum into each block
+    sizes = onehot.sum(axis=0)
+    sums = onehot.T @ S                              # k x k
+    counts = np.outer(sizes, sizes) - np.diag(sizes)
+    with np.errstate(invalid='ignore', divide='ignore'):
+        M = np.where(counts > 0, sums / np.maximum(counts, 1.0), 0.0)
+    return S, onehot, sizes, sums, counts, M
+
+
+def block_sse(R, labels, n_networks=None, _sumsq=None, _R0=None):
     """Sum of squared errors of the block-mean model on the strict upper triangle of R.
 
-    `fidelity(..., measure='r2')` is 1 - SSE / SS_tot. Used as the objective
-    of `blockmodel_refine` and as its convergence check.
+    `fidelity(..., measure='r2')` is 1 - SSE / SS_tot. Computed from the block sums rather
+    than an n x n prediction: over all ordered off-diagonal pairs,
+    SSE = sum r^2 - 2 sum_ab M_ab sums_ab + sum_ab counts_ab M_ab^2, and the upper triangle
+    is half of that. `_sumsq`/`_R0` let a caller that already holds the zero-diagonal copy
+    and its sum of squares skip recomputing them each sweep.
     """
-    M = block_means(R, labels, n_networks=n_networks)
-    labels = np.asarray(labels)
-    pred = M[labels][:, labels]
-    y, yhat = upper_triangle(np.asarray(R, dtype=np.float64)), upper_triangle(pred)
+    labels = np.asarray(labels).astype(int)
+    k = int(n_networks or labels.max() + 1)
+    if _R0 is None:
+        _R0 = np.array(R, dtype=np.float64, copy=True)
+        np.fill_diagonal(_R0, 0.0)
+    if _sumsq is None:
+        _sumsq = float(np.einsum('ij,ij->', _R0, _R0))
+    _, _, _, sums, counts, M = _block_stats(_R0, labels, k)
+    full = _sumsq - 2.0 * float(np.sum(M * sums)) + float(np.sum(counts * M ** 2))
 
-    return float(np.sum((y - yhat) ** 2))
+    return 0.5 * full
 
 
 def blockmodel_refine(R, labels, n_networks, max_iter=50, verbose=False):
@@ -307,7 +333,9 @@ def blockmodel_refine(R, labels, n_networks, max_iter=50, verbose=False):
     expands over the blocks b of the partners as sum_b [Q_ib - 2 m_cb S_ib + n_b^(i) m_cb^2]
     with S_ib = sum_{j in b, j != i} r_ij, Q_ib the matching sum of squares (independent of c,
     dropped), and n_b^(i) the number of partners of i in block b (n_b, less one if i is in
-    b itself). So one sweep is a handful of n x k matrix products.
+    b itself). So one sweep is one n x n x k product plus k x k arithmetic; the first
+    version of this routine also copied the matrix twice and built an n x n prediction per
+    sweep, which cost 2.9 h per matrix on the cluster (jobs 17394669/74).
 
     All units move at once. Batch updates on a symmetric objective can overshoot, so the
     SSE is tracked every sweep and the best labeling seen is returned, whether or not the
@@ -316,17 +344,17 @@ def blockmodel_refine(R, labels, n_networks, max_iter=50, verbose=False):
     """
     R0 = np.array(R, dtype=np.float64, copy=True)
     np.fill_diagonal(R0, 0.0)
+    sumsq = float(np.einsum('ij,ij->', R0, R0))
     n = R0.shape[0]
     k = int(n_networks)
     labels = np.asarray(labels).astype(int).copy()
-    best_labels, best_sse = labels.copy(), block_sse(R0, labels, k)
-    ar = np.arange(n)
+
+    def sse_from(sums, counts, M):
+        return 0.5 * (sumsq - 2.0 * float(np.sum(M * sums)) + float(np.sum(counts * M ** 2)))
+
+    S, onehot, sizes, sums, counts, M = _block_stats(R0, labels, k)
+    best_labels, best_sse = labels.copy(), sse_from(sums, counts, M)
     for it in range(max_iter):
-        onehot = np.zeros((n, k), dtype=np.float64)
-        onehot[ar, labels] = 1.0
-        sizes = onehot.sum(axis=0)
-        S = R0 @ onehot                                   # n x k: partner sums per block
-        M = block_means(R0, labels, n_networks=k)         # k x k
         # cost_ic = -2 (S M^T)_ic + sum_b n_b^(i) m_cb^2 ;  n_b^(i) = n_b - onehot_ib
         M2 = M ** 2
         cost = -2.0 * (S @ M.T) + (sizes @ M2.T)[None, :] - onehot @ M2.T
@@ -335,7 +363,8 @@ def blockmodel_refine(R, labels, n_networks, max_iter=50, verbose=False):
             break
         n_moved = int((new_labels != labels).sum())
         labels = new_labels
-        sse = block_sse(R0, labels, k)
+        S, onehot, sizes, sums, counts, M = _block_stats(R0, labels, k)
+        sse = sse_from(sums, counts, M)
         if verbose:
             stderr('    blockmodel sweep %d: sse %.6g (%d moved)\n' % (it + 1, sse, n_moved))
         if sse < best_sse:

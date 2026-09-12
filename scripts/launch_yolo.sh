@@ -27,11 +27,14 @@ CONDA_ENV=${CONDA_ENV:-parcelmate}
 MODE=${1:-}
 
 case "$MODE" in
-    generate|submit) ;;
+    generate|submit|resume) ;;
     *)
-        echo "usage: $0 {generate|submit}" >&2
+        echo "usage: $0 {generate|submit|resume}" >&2
         echo "  generate  write jobs/*.pbs (run on scdt)" >&2
         echo "  submit    sbatch them with dependencies (run on sc)" >&2
+        echo "  resume    2026-09-12: cancel the stuck yolo.score, score the six finished" >&2
+        echo "            arms now, rerun the two block-model arms with the fast refinement" >&2
+        echo "            and the full score behind them (run on sc, after generate)" >&2
         exit 2
         ;;
 esac
@@ -59,6 +62,9 @@ generate() {
         $M configs/yolo.yml -c $CPU -s parcellation -V $a -t 10 -m 16 -n 8 -o jobs/
     done
     $M configs/yolo.yml -c $CPU -s score -t 4 -m 16 -n 4 -o jobs/
+    # The six arms that finished on the first night, scored on their own (-V writes
+    # scores_<arms>.csv, never scores.csv) so they can be read before the block-model arms.
+    $M configs/yolo.yml -c $CPU -s score -V vmf_lloyd nopca_lloyd fisher_pca_lloyd vmf_ward vmf_ward100 vmf_lloyd100 -t 3 -m 16 -n 4 -o jobs/
 
     # YOLO 3: GPU connectivity on MLP units, then two arms, then score.
     $M configs/yolo_mlp.yml -c $GPU -s connectivity split_halves -t 8 -m 32 -n 4 -o jobs/
@@ -126,7 +132,29 @@ submit() {
     squeue -u "$USER" -o "%.9i %.40j %.9T %.10M %R"
 }
 
+resume() {
+    mkdir -p logs
+    echo "code at $(git log --oneline | head -1)"
+    # The first-night score job is waiting on two arms that timed out (jobs 17394669 and
+    # 17394674, ~2.9 h per matrix before the refinement was rewritten); its dependency can
+    # never be satisfied. Cancel it, then score what is done and rerun what is not.
+    for j in $(squeue -u "$USER" -h -o "%i %j %r" | awk '$2=="yolo.score" && $3 ~ /DependencyNeverSatisfied/ {print $1}'); do
+        scancel "$j" && echo "cancelled stuck yolo.score $j"
+    done
+    partial=$(sbatch --parsable jobs/yolo.score.vmf_lloyd_nopca_lloyd_fisher_pca_lloyd_vmf_ward_vmf_ward100_vmf_lloyd100.pbs)
+    echo "yolo partial score (six finished arms) -> $partial"
+    # The rewritten refinement resumes where the timed-out jobs stopped: run_parcellation
+    # skips parcellation files that already exist.
+    b1=$(sbatch --parsable jobs/yolo.parcellation.blockmodel.pbs);    echo "yolo blockmodel -> $b1"
+    b2=$(sbatch --parsable jobs/yolo.parcellation.blockmodel100.pbs); echo "yolo blockmodel100 -> $b2"
+    score=$(sbatch --parsable --dependency=afterok:$b1:$b2 jobs/yolo.score.pbs)
+    echo "yolo full score -> $score"
+    echo
+    squeue -u "$USER" -o "%.9i %.60j %.9T %.10M %R"
+}
+
 case "$MODE" in
     generate) generate ;;
     submit)   submit ;;
+    resume)   resume ;;
 esac

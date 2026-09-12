@@ -16,9 +16,9 @@ if __name__ == '__main__':
     argparser.add_argument('--seed', type=int, default=None,
                            help='Master random seed, overriding any `seed` in the config.')
     argparser.add_argument('-V', '--variants', nargs='+', default=None,
-                           help='Restrict the parcellation-level steps to these variants, so '
-                                'arms of one config can run as parallel jobs. Scoring always '
-                                'covers every variant in the config.')
+                           help='Restrict the parcellation-level steps (and scoring) to these '
+                                'variants, so arms of one config can run as parallel jobs. A '
+                                'restricted score writes scores_<arms>.csv, never scores.csv.')
     args = argparser.parse_args()
     config_path = args.config_path
     steps = set(args.steps)
@@ -128,7 +128,9 @@ if __name__ == '__main__':
         # table, so a truncated parcellation job fails here loudly instead of producing a
         # scores.csv that looks complete.
         from parcelmate.bin.score import score_config
-        score_config(cfg)
+        # -V restricts scoring too, writing scores_<arms>.csv so the arms that finished can
+        # be read before the slow ones do, without ever overwriting the full table.
+        score_config(cfg, variants=args.variants)
 
     if 'all' in steps or 'subnetwork_knockout' in steps:
         # Reads its own `subnetwork_knockout` section (S3). It previously received

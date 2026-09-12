@@ -426,14 +426,21 @@ def score_partition_nulls(root, null_root, variants, domains, rows, missing, see
         cache.clear()
 
 
-def score_config(cfg, out=None, cross_domain=True, allow_partial=False, verbose=True):
+def score_config(cfg, out=None, cross_domain=True, allow_partial=False, verbose=True,
+                 variants=None):
     """Score every variant in `cfg` across all trees. Returns (rows, out_path).
 
     Split out from `main` so the pipeline driver can call it as a step.
     """
     root = cfg.get('output_dir', OUTPUT_DIR)
     null_root = root.rstrip('/') + '_null'
-    variants = sorted((cfg.get('parcellation_variants') or {'default': {}}).keys())
+    all_variants = sorted((cfg.get('parcellation_variants') or {'default': {}}).keys())
+    if variants:
+        unknown = [v for v in variants if v not in all_variants]
+        assert not unknown, 'unknown variant(s) %s; config has %s' % (unknown, all_variants)
+        variants = sorted(variants)
+    else:
+        variants = all_variants
     domains = list(cfg.get('connectivity', {}).get('domains') or [])
     seed = cfg.get('seed', 0) or 0
     assert domains, 'No domains in the config; nothing to score'
@@ -465,7 +472,11 @@ def score_config(cfg, out=None, cross_domain=True, allow_partial=False, verbose=
                 '--allow-partial if an incomplete table is genuinely what you want.')
         stderr('\n--allow-partial given; writing an incomplete table.\n')
 
-    out_path = out or os.path.join(root, 'metrics', 'scores.csv')
+    # A restricted variant set writes to its own file, so a partial table never overwrites
+    # the full one; the full score of the same tree can still be run later.
+    default_name = 'scores.csv' if variants == all_variants \
+        else 'scores_%s.csv' % '_'.join(variants)
+    out_path = out or os.path.join(root, 'metrics', default_name)
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     with open(out_path, 'w', newline='') as f:
         w = csv.DictWriter(f, fieldnames=['tree', 'variant', 'metric', 'fit', 'eval', 'value'])
