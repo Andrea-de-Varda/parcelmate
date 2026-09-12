@@ -247,6 +247,14 @@ def triviality(parcellation, coordinates, connectivity=None, noise_scale=None, n
     """
     labels = hard_labels(parcellation)
     out = {'ami_layer': float(adjusted_mutual_info_score(coordinates[:, 0], labels))}
+    # The second coordinate is the unit's index within its layer. For residual-stream units
+    # that is the residual dimension, and dimension d at layer l is dimension d at layer
+    # l+1 plus one block's update, so 768 chains of 13 units are an architectural given
+    # of this connectome. A parcellation that follows the chains has low layer AMI (each
+    # cluster spans all layers) and HIGH dimension AMI; this metric is what tells the two
+    # apart. For MLP units the index is the neuron index and no chain exists, so this
+    # should sit near zero there (LOG.md Iteration 14).
+    out['ami_dimension'] = float(adjusted_mutual_info_score(coordinates[:, 1], labels))
     if connectivity is not None:
         strength = np.abs(np.nan_to_num(connectivity)).sum(axis=1)
         # Rank-based bins, so the measure does not depend on the scale of |r|.
@@ -269,6 +277,75 @@ def triviality(parcellation, coordinates, connectivity=None, noise_scale=None, n
     out['frac_confident'] = float((top > 0.5).mean())
 
     return out
+
+
+def block_sse(R, labels, n_networks=None):
+    """Sum of squared errors of the block-mean model on the strict upper triangle of R.
+
+    `fidelity(..., measure='r2')` is 1 - SSE / SS_tot. Used as the objective
+    of `blockmodel_refine` and as its convergence check.
+    """
+    M = block_means(R, labels, n_networks=n_networks)
+    labels = np.asarray(labels)
+    pred = M[labels][:, labels]
+    y, yhat = upper_triangle(np.asarray(R, dtype=np.float64)), upper_triangle(pred)
+
+    return float(np.sum((y - yhat) ** 2))
+
+
+def blockmodel_refine(R, labels, n_networks, max_iter=50, verbose=False):
+    """Refine a partition to directly minimize the block-model error that fidelity scores.
+
+    k-means on connectivity profiles fits r_ij ~ mu_{c(i), j}: one free value per (cluster,
+    unit), n of them per cluster. Fidelity scores r_ij ~ m_{c(i) c(j)}: k^2 free values in
+    total. Those are different objectives, and the partition that minimizes the first need
+    not do well on the second. This is coordinate descent on the second: alternate the
+    block means given the labels with moving every unit to the block whose row of means
+    predicts its connections best (LOG.md Iteration 14, YOLO 2).
+
+    For unit i and candidate block c the error is sum_{j != i} (r_ij - m_{c, c(j)})^2, which
+    expands over the blocks b of the partners as sum_b [Q_ib - 2 m_cb S_ib + n_b^(i) m_cb^2]
+    with S_ib = sum_{j in b, j != i} r_ij, Q_ib the matching sum of squares (independent of c,
+    dropped), and n_b^(i) the number of partners of i in block b (n_b, less one if i is in
+    b itself). So one sweep is a handful of n x k matrix products.
+
+    All units move at once. Batch updates on a symmetric objective can overshoot, so the
+    SSE is tracked every sweep and the best labeling seen is returned, whether or not the
+    final sweep was it. Empty blocks are allowed (they predict nothing and cost nothing),
+    and are visible downstream as `n_effective_networks`.
+    """
+    R0 = np.array(R, dtype=np.float64, copy=True)
+    np.fill_diagonal(R0, 0.0)
+    n = R0.shape[0]
+    k = int(n_networks)
+    labels = np.asarray(labels).astype(int).copy()
+    best_labels, best_sse = labels.copy(), block_sse(R0, labels, k)
+    ar = np.arange(n)
+    for it in range(max_iter):
+        onehot = np.zeros((n, k), dtype=np.float64)
+        onehot[ar, labels] = 1.0
+        sizes = onehot.sum(axis=0)
+        S = R0 @ onehot                                   # n x k: partner sums per block
+        M = block_means(R0, labels, n_networks=k)         # k x k
+        # cost_ic = -2 (S M^T)_ic + sum_b n_b^(i) m_cb^2 ;  n_b^(i) = n_b - onehot_ib
+        M2 = M ** 2
+        cost = -2.0 * (S @ M.T) + (sizes @ M2.T)[None, :] - onehot @ M2.T
+        new_labels = cost.argmin(axis=1)
+        if np.array_equal(new_labels, labels):
+            break
+        n_moved = int((new_labels != labels).sum())
+        labels = new_labels
+        sse = block_sse(R0, labels, k)
+        if verbose:
+            stderr('    blockmodel sweep %d: sse %.6g (%d moved)\n' % (it + 1, sse, n_moved))
+        if sse < best_sse:
+            best_sse, best_labels = sse, labels.copy()
+        elif sse > best_sse:
+            # Overshoot; the previous best is the answer. One more sweep from here would
+            # typically oscillate rather than improve.
+            break
+
+    return best_labels, best_sse
 
 
 SUMMARY_TREES = ('real', 'null', 'pnull', 'rand')

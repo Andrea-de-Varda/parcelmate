@@ -1,0 +1,105 @@
+# YOLO runs 1 and 2 (LOG.md Iteration 14). GPT-2 residual stream, prose domains only, one
+# experiment tree. Unlike the ladder, these arms change several things at once; the point
+# is expected value per hour, not attribution.
+#
+# YOLO 1 -- make reliability measure data, not the optimizer. The ladder's restart-split
+#   ceiling (0.42-0.64) tracked its split-half reliability arm by arm, so reliability was
+#   measuring MiniBatchKMeans instability. Full Lloyd k-means with more restarts, PCA without
+#   whitening, and Ward (deterministic; ceiling 1 by construction) as the contrast.
+# YOLO 2 -- fit what you score. `blockmodel` refines each Lloyd restart by coordinate
+#   descent on the block-model error that fidelity measures, on the raw |r| the scorer
+#   targets. Gives the attainable block fidelity at each k (the top of the axis, as pnull is
+#   the bottom) and a partition whose objective is the metric. pnull/rand/ami_hubness say
+#   whether such partitions are hubness partitions.
+# k = 100 versions of the three families, each with its own matched null partition.
+#
+# Connectivity is hard-linked from results/ladder{,_null} (prose domains, halves included),
+# so no GPU and split_halves skips. Arms run as parallel jobs (`make_jobs -V <arm>`), then
+# one score job.
+#
+# Outputs:
+#   results/yolo/<variant>/parcellation/    one per arm
+#   results/yolo_null/...                   same shape, circshift null
+#   results/yolo/metrics/scores.csv
+
+output_dir: results/yolo
+
+seed: 42
+
+connectivity:
+  model_name: gpt2
+  n_samples: 4
+  domains:
+    - wikitext
+    - bookcorpus
+    - agnews
+    - tldr17
+  seq_len: 1024
+  n_tokens: null
+  split: train
+  take: 100000
+  wrap: true
+  shuffle: true
+  batch_size: 8
+  highpass: null
+  lowpass: null
+  step: 0.2
+  timecourse_pca_components: null
+  timecourse_ica_components: null
+  eps: 1.0e-3
+  null_model: circshift
+  n_surrogates: 0   # |z| retired (Iteration 13); the linked files still carry surrogate_var
+
+parcellation:
+  n_networks: 50
+  # 40 Lloyd restarts (ladder: 20 MiniBatch). The restart-split ceiling compares two
+  # 20-restart consensuses.
+  n_samples: 40
+  clustering: kmeans
+  binarize_connectivity: false
+  fisher_transform: true
+  standardize_profiles: true
+  connectivity_pca_components: null
+  clustering_kwargs: null
+  n_alignments: null
+  weight_samples: false
+  parcellate_samples: false
+
+parcellation_variants:
+
+  # ---- YOLO 1: the optimizer
+  # vmf_profile with a converged optimizer. The ladder's carry-forward arm; the direct
+  # test of how much of its 0.418 ceiling was MiniBatch.
+  vmf_lloyd: {}
+
+  # nopca_fisher with a converged optimizer, for the same comparison on the arm that
+  # collapsed to ~28/50 clusters and led within domain.
+  nopca_lloyd:
+    standardize_profiles: false
+
+  # fisher_pca without whitening: was PCA+whitening the reason `current` and `fisher_pca`
+  # had ceilings of 0.07? d = 200, so this is nearly free.
+  fisher_pca_lloyd:
+    standardize_profiles: false
+    connectivity_pca_components: 200
+    pca_whiten: false
+
+  # Ward on the same standardized profiles. Deterministic: one sample, ceiling 1, so its
+  # reliability is data alone. If it matches converged k-means, restarts can go.
+  vmf_ward:
+    clustering: ward
+
+  # ---- YOLO 2: fit what you score
+  # Lloyd on the vmf features, then block-model refinement on raw |r|.
+  blockmodel:
+    blockmodel_refine_labels: true
+
+  # ---- k = 100
+  vmf_lloyd100:
+    n_networks: 100
+  vmf_ward100:
+    clustering: ward
+    n_networks: 100
+  blockmodel100:
+    blockmodel_refine_labels: true
+    n_networks: 100

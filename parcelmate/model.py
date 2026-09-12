@@ -6,13 +6,14 @@ from scipy import optimize
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA, FastICA
-from sklearn.cluster import MiniBatchKMeans
+from sklearn.cluster import MiniBatchKMeans, KMeans, AgglomerativeClustering
 import torch
 from transformers import AutoModel, AutoTokenizer
 
 from parcelmate.constants import *
 from parcelmate.data import *
 from parcelmate.util import *
+from parcelmate.metrics import blockmodel_refine, block_sse
 from parcelmate.plot import *
 
 
@@ -180,15 +181,55 @@ def get_timecourses(
         step=0.2,
         timecourse_pca_components=None,
         timecourse_ica_components=None,
+        unit_type='hidden',
+        units_per_layer=None,
+        unit_seed=None,
         seed=None,
         verbose=True,
         indent=0,
         **kwargs
 ):
+    """Stream the model over the inputs and return one timecourse per unit.
+
+    `unit_type` decides what a "unit" is (LOG.md Iteration 14, YOLO 3):
+
+      hidden  the residual stream at every layer boundary (`output_hidden_states`), the
+              inherited choice: for GPT-2, 13 x 768. The residual stream has no privileged
+              basis (any rotation gives an equivalent model), and dimension d at layer l is
+              dimension d at layer l+1 minus one block's update, so the strongest structure
+              in this connectome is 768 chains of 13 units.
+      mlp     the post-nonlinearity MLP neurons of each block, captured as the input to the
+              MLP's output projection (`mlp.c_proj`), which is what every transformers
+              version feeds the activation into. GELU breaks rotational symmetry, so these
+              units have a privileged basis and no cross-layer chain. GPT-2: 12 x 3072.
+
+    `units_per_layer` keeps a fixed random subset per layer, drawn once from `unit_seed`
+    (so the same subset serves every sample, domain and tree). 832 per layer makes an MLP
+    run 12 x 832 = 9,984 units, the same count as the residual stream, so reliability and
+    fidelity at a given k are compared on equal footing. Coordinates keep the ORIGINAL
+    neuron index, so a unit remains traceable to the model.
+    """
+    assert unit_type in ('hidden', 'mlp'), 'unit_type must be hidden or mlp, got %r' % (unit_type,)
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
     model = model.to(device)
     if verbose:
-        stderr('%sGetting timecourses\n' % (' ' * indent))
+        stderr('%sGetting timecourses (unit_type=%s)\n' % (' ' * indent, unit_type))
+    hooks, captured = [], {}
+    if unit_type == 'mlp':
+        blocks = getattr(model, 'h', None)
+        assert blocks is not None and len(blocks) and hasattr(blocks[0], 'mlp') \
+            and hasattr(blocks[0].mlp, 'c_proj'), (
+            'unit_type=mlp expects a GPT-2 style model with `h[i].mlp.c_proj` (got %s); '
+            'a wrapped/perturbed model is not supported here' % type(model).__name__)
+
+        def make_hook(layer):
+            def hook(module, inputs):
+                captured[layer] = inputs[0]
+            return hook
+
+        for layer, block in enumerate(blocks):
+            hooks.append(block.mlp.c_proj.register_forward_pre_hook(make_hook(layer)))
+    unit_index = None  # per layer: which columns are kept
     timecourses = None
     coordinates = None
     t = 0
@@ -201,34 +242,53 @@ def get_timecourses(
         _input_ids = input_ids[i:i + batch_size].to(device)
         _attention_mask = attention_mask[i:i + batch_size].to(device)
         with torch.no_grad():  # Activations are only ever read; graphs here doubled GPU memory
-            states = model(
+            captured.clear()
+            output = model(
                 input_ids=_input_ids,
                 attention_mask=_attention_mask,
-                output_hidden_states=True,
+                output_hidden_states=(unit_type == 'hidden'),
                 **kwargs
-            ).hidden_states
+            )
+            if unit_type == 'hidden':
+                states = output.hidden_states
+            else:
+                assert len(captured) == len(hooks), \
+                    'captured %d MLP layers, expected %d' % (len(captured), len(hooks))
+                states = [captured[l] for l in range(len(hooks))]
         mask = _attention_mask.detach().cpu().numpy().astype(bool)
         _t = int(mask.sum())
+        if unit_index is None:
+            unit_index = []
+            for s, state in enumerate(states):
+                width = int(state.size(-1))
+                if units_per_layer and units_per_layer < width:
+                    rng = np.random.RandomState(derive_seed(unit_seed, 'units', s) % (2 ** 32))
+                    unit_index.append(np.sort(rng.choice(width, int(units_per_layer), replace=False)))
+                else:
+                    unit_index.append(np.arange(width))
         if timecourses is None:
-            out_shape = (sum(x.shape[-1] for x in states), T)
+            out_shape = (sum(len(ix) for ix in unit_index), T)
             timecourses = np.zeros(out_shape, dtype=np.float32)
         if coordinates is None:
-            coordinates = np.zeros((sum(x.shape[-1] for x in states), 2), dtype=np.int32)
+            coordinates = np.zeros((sum(len(ix) for ix in unit_index), 2), dtype=np.int32)
         h = 0
         for s, state in enumerate(states):
-            _h = state.size(-1)
+            ix = unit_index[s]
+            _h = len(ix)
             timecourses[h:h + _h, t:t + _t] = bandpass(
-                state.detach().cpu().numpy()[mask].T,
+                state.detach().cpu().numpy()[mask][:, ix].T,
                 step=step,
                 lower=highpass,
                 upper=lowpass
             )
             coordinates[h:h + _h, 0] = s
-            coordinates[h:h + _h, 1] = np.arange(_h)
+            coordinates[h:h + _h, 1] = ix
             h += _h
         t += _t
     if verbose:
         stderr('\n')
+    for hk in hooks:
+        hk.remove()
 
     model.to('cpu')
     torch.cuda.empty_cache()
@@ -318,6 +378,10 @@ def sample_parcellations(
         legacy_binarize=False,
         fisher_transform=False,
         standardize_profiles=False,
+        clustering='minibatch',
+        pca_whiten=True,
+        blockmodel_refine_labels=False,
+        blockmodel_max_iter=50,
         seed=None,
         verbose=True,
         indent=0
@@ -340,9 +404,33 @@ def sample_parcellations(
                 connectivity profile, standardized, and units are grouped by the similarity
                 of those profiles. See `standardize_profiles` below for why this is exactly
                 spherical k-means and what it removes.
+
+    `clustering` selects the algorithm run on the prepared profiles (LOG.md Iteration 14):
+
+      minibatch  sklearn MiniBatchKMeans, the inherited default. Stochastic and rarely at a
+                 local optimum: the restart-split ceiling of the ladder run read 0.42-0.64,
+                 i.e. two consensuses of the SAME matrix disagreed almost as much as two
+                 halves of the data did, so reliability was tracking the optimizer.
+      kmeans     full Lloyd k-means, k-means++ init, one init per restart. On 9,984 units
+                 an iteration is one n x k x d product; affordable, and converged.
+      ward       Ward agglomerative on the same features. Deterministic, so a single
+                 sample is the parcellation and the restart-split ceiling is 1 by
+                 construction; `n_samples` is forced to 1.
+
+    `pca_whiten=False` keeps the PCA truncation but not the whitening, which gives the last
+    retained noise direction the same weight as the first structured one. `blockmodel_refine_labels`
+    follows each restart with `metrics.blockmodel_refine` on the RAW |r| the scorer targets,
+    so the arm optimizes the block-model error that fidelity measures rather than the
+    row-profile error k-means minimizes (YOLO 2).
     """
+    assert clustering in ('minibatch', 'kmeans', 'ward'), \
+        'clustering must be minibatch, kmeans or ward, got %r' % (clustering,)
+    if clustering == 'ward' and n_samples != 1:
+        if verbose:
+            stderr('%sward is deterministic: n_samples %d -> 1\n' % (' ' * indent, n_samples))
+        n_samples = 1
     if verbose:
-        stderr('%sSampling (n_networks=%d)\n' % (' ' * indent, n_networks))
+        stderr('%sSampling (n_networks=%d, clustering=%s)\n' % (' ' * indent, n_networks, clustering))
     indent += 2
 
     if clustering_kwargs is None:
@@ -420,7 +508,7 @@ def sample_parcellations(
             stderr('%sPCA transforming (n components = %s)' % (' ' * indent, n_components))
         t1 = time.time()
         n_components = min(n_components, X.shape[-1])
-        m = PCA(n_components=n_components, svd_solver='auto', whiten=True, random_state=rng)
+        m = PCA(n_components=n_components, svd_solver='auto', whiten=bool(pca_whiten), random_state=rng)
         X = m.fit_transform(X)
         stderr(' (%0.2fs)\n' % (time.time() - t1))
     if connectivity_ica_components:
@@ -441,14 +529,31 @@ def sample_parcellations(
     n_units = X.shape[0]
     samples = np.zeros((n_samples, n_units))
     scores = np.zeros(n_samples)
+    R_target = None
+    if blockmodel_refine_labels:
+        # The scorer's target is |r| itself (util.connectivity_matrix), not the Fisher or
+        # standardized features k-means saw, so the refinement runs on `connectivity`.
+        R_target = np.asarray(connectivity, dtype=np.float64)
     for i in range(n_samples):
         if verbose and n_samples > 1:
             stderr('\r%sSample %d/%d' % (' ' * indent, i + 1, n_samples))
         _clustering_kwargs = dict(clustering_kwargs)
-        _clustering_kwargs.setdefault('random_state', rng)  # Explicit config still wins
-        m = MiniBatchKMeans(n_clusters=n_networks, **_clustering_kwargs)
-        _sample = m.fit_predict(X)
-        _score = m.inertia_
+        if clustering == 'ward':
+            m = AgglomerativeClustering(n_clusters=n_networks, linkage='ward', **_clustering_kwargs)
+            _sample = m.fit_predict(X)
+            _score = 0.0  # no inertia; every restart is identical anyway
+        else:
+            _clustering_kwargs.setdefault('random_state', rng)  # Explicit config still wins
+            if clustering == 'kmeans':
+                _clustering_kwargs.setdefault('n_init', 1)  # restarts are the outer loop
+                m = KMeans(n_clusters=n_networks, **_clustering_kwargs)
+            else:
+                m = MiniBatchKMeans(n_clusters=n_networks, **_clustering_kwargs)
+            _sample = m.fit_predict(X)
+            _score = m.inertia_
+        if blockmodel_refine_labels:
+            _sample, _score = blockmodel_refine(R_target, _sample, n_networks,
+                                                max_iter=blockmodel_max_iter)
         samples[i, :] = _sample
         scores[i] = _score
 
@@ -594,6 +699,8 @@ def run_connectivity(
         step=0.2,
         timecourse_pca_components=None,
         timecourse_ica_components=None,
+        unit_type='hidden',
+        units_per_layer=None,
         eps=1e-3,
         data_kwargs=None,
         model_kwargs=None,
@@ -648,6 +755,8 @@ def run_connectivity(
             'null_output_dir must differ from output_dir; filenames are identical in both trees'
     null_connectivity_dir = os.path.join(null_output_dir, CONNECTIVITY_NAME) if null_model else None
 
+    assert knockout_filepath is None or unit_type == 'hidden', \
+        'knockout lesions residual-stream units; unit_type=%r is not supported there' % (unit_type,)
     knockout_probs = knockout_coordinates = None
     if knockout_filepath is not None:
         data = load_h5_data(knockout_filepath, verbose=verbose, indent=indent)
@@ -812,6 +921,9 @@ def run_connectivity(
                     step=step,
                     timecourse_pca_components=timecourse_pca_components,
                     timecourse_ica_components=timecourse_ica_components,
+                    unit_type=unit_type,
+                    units_per_layer=units_per_layer,
+                    unit_seed=seed,  # master seed: one subset for every sample, domain, tree
                     seed=derive_seed(seed, 'timecourses', domain, i // n + 1),
                     verbose=verbose,
                     indent=indent,
@@ -1003,6 +1115,10 @@ def run_parcellation(
         fisher_transform=False,
         standardize_profiles=False,
         normalize=None,
+        clustering='minibatch',
+        pca_whiten=True,
+        blockmodel_refine_labels=False,
+        blockmodel_max_iter=50,
         n_alignments=None,
         weight_samples=False,
         parcellate_samples=False,
@@ -1080,6 +1196,10 @@ def run_parcellation(
             legacy_binarize=legacy_binarize,
             fisher_transform=fisher_applied,
             standardize_profiles=standardize_profiles,
+            clustering=clustering,
+            pca_whiten=pca_whiten,
+            blockmodel_refine_labels=blockmodel_refine_labels,
+            blockmodel_max_iter=blockmodel_max_iter,
             seed=derive_seed(seed, 'parcellation', path),
             verbose=verbose,
             indent=indent + 2
@@ -1100,18 +1220,24 @@ def run_parcellation(
         # Stored as arrays rather than reduced to a scalar, so downstream analysis can
         # recompute any comparison and plot the raw components.
         mid = len(sample['samples']) // 2
-        splits = [
-            align_samples(
-                sample['samples'][sl],
-                sample['scores'][sl],
-                n_alignments=n_alignments,
-                weight_samples=weight_samples,
-                seed=derive_seed(seed, 'alignment_split', path, half_ix),
-                verbose=False,
-                indent=indent + 2
-            )
-            for half_ix, sl in enumerate((slice(None, mid), slice(mid, None)))
-        ]
+        if mid == 0:
+            # A single (deterministic) sample: both "halves" are the parcellation itself
+            # and the ceiling is 1 by construction, which is the honest statement for an
+            # algorithm with no restart variance.
+            splits = [parcellation, parcellation]
+        else:
+            splits = [
+                align_samples(
+                    sample['samples'][sl],
+                    sample['scores'][sl],
+                    n_alignments=n_alignments,
+                    weight_samples=weight_samples,
+                    seed=derive_seed(seed, 'alignment_split', path, half_ix),
+                    verbose=False,
+                    indent=indent + 2
+                )
+                for half_ix, sl in enumerate((slice(None, mid), slice(mid, None)))
+            ]
         save_h5_data(
             dict(parcellation=parcellation, coordinates=data['coordinates'],
                  parcellation_split1=splits[0], parcellation_split2=splits[1]),
@@ -1121,7 +1247,11 @@ def run_parcellation(
                 domain=match.group(2),
                 key=match.group(3),
                 n_networks=int(n_networks),
-                n_samples=int(n_samples),
+                n_samples=int(len(sample['samples'])),
+                clustering=str(clustering),
+                pca_whiten=bool(pca_whiten),
+                blockmodel_refine_labels=bool(blockmodel_refine_labels),
+                blockmodel_max_iter=int(blockmodel_max_iter),
                 binarize_connectivity=bool(binarize_connectivity),
                 legacy_binarize=bool(legacy_binarize),
                 fisher_transform=bool(fisher_transform),

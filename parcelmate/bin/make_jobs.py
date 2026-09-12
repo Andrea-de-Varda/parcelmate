@@ -48,11 +48,13 @@ def resolve(cli, profile):
     return settings
 
 
-def get_job(config_path, settings, steps=None, overwrite=False, seed=None):
+def get_job(config_path, settings, steps=None, overwrite=False, seed=None, variants=None):
     """Render a single SLURM batch script as a string."""
     job_name = os.path.splitext(os.path.basename(config_path))[0]
     if steps:
         job_name = '%s.%s' % (job_name, '_'.join(steps))
+    if variants:
+        job_name = '%s.%s' % (job_name, '_'.join(variants))
     log_dir = settings['log_dir']
     if settings['workdir'] and not os.path.isabs(log_dir):
         log_dir = os.path.join(settings['workdir'], log_dir)
@@ -106,6 +108,8 @@ def get_job(config_path, settings, steps=None, overwrite=False, seed=None):
         cmd += ' -O'
     if seed is not None:
         cmd += ' --seed %d' % int(seed)
+    if variants:
+        cmd += ' -V %s' % ' '.join(variants)
     out.append(cmd)
     out.append('')
 
@@ -144,6 +148,9 @@ if __name__ == '__main__':
                                 'Without this a re-run silently skips every step whose HDF5 output exists.')
     argparser.add_argument('--seed', type=int, default=None,
                            help='Pass --seed to main.py, overriding the config seed.')
+    argparser.add_argument('-V', '--variants', nargs='+', default=None,
+                           help='Pass -V to main.py: run only these parcellation variants. '
+                                'One job per arm lets the arms of a config run in parallel.')
     args = argparser.parse_args()
 
     cli = {key: getattr(args, key) for key in (
@@ -159,7 +166,10 @@ if __name__ == '__main__':
         job_name = os.path.splitext(os.path.basename(path))[0]
         if args.steps:
             job_name = '%s.%s' % (job_name, '_'.join(args.steps))
+        if args.variants:
+            job_name = '%s.%s' % (job_name, '_'.join(args.variants))
         filename = os.path.join(outdir, job_name + '.pbs')
         with open(filename, 'w') as f:
-            f.write(get_job(path, settings, steps=args.steps, overwrite=args.overwrite, seed=args.seed))
+            f.write(get_job(path, settings, steps=args.steps, overwrite=args.overwrite, seed=args.seed,
+                            variants=args.variants))
         print(filename)

@@ -483,7 +483,7 @@ def score_config(cfg, out=None, cross_domain=True, allow_partial=False, verbose=
                    'reliability_across', 'reliability_across_halves',
                    'fidelity_within', 'fidelity_within_insample', 'fidelity_within_r',
                    'fidelity_across', 'fidelity_across_halves',
-                   'triviality_ami_layer', 'triviality_ami_hubness',
+                   'triviality_ami_layer', 'triviality_ami_dimension', 'triviality_ami_hubness',
                    'triviality_ami_noise_scale',
                    'triviality_median_max_membership', 'triviality_n_effective_networks'):
         labels = variants + sorted({r['variant'] for r in summary

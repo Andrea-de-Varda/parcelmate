@@ -15,6 +15,10 @@ if __name__ == '__main__':
                            help='Recompute all outputs, even if they already exist.')
     argparser.add_argument('--seed', type=int, default=None,
                            help='Master random seed, overriding any `seed` in the config.')
+    argparser.add_argument('-V', '--variants', nargs='+', default=None,
+                           help='Restrict the parcellation-level steps to these variants, so '
+                                'arms of one config can run as parallel jobs. Scoring always '
+                                'covers every variant in the config.')
     args = argparser.parse_args()
     config_path = args.config_path
     steps = set(args.steps)
@@ -66,6 +70,10 @@ if __name__ == '__main__':
     # another and one config documents the whole experiment.
     variants = cfg.get('parcellation_variants') or {'default': {}}
     assert isinstance(variants, dict), '`parcellation_variants` must be a mapping of name -> settings'
+    if args.variants:
+        unknown = [v for v in args.variants if v not in variants]
+        assert not unknown, 'unknown variant(s) %s; config has %s' % (unknown, sorted(variants))
+        variants = {k: variants[k] for k in args.variants}
 
     def variant_cfg(name):
         out = stepcfg('parcellation')

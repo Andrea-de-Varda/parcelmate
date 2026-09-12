@@ -1,0 +1,65 @@
+# YOLO run 3 (LOG.md Iteration 14): change the unit. MLP post-GELU neurons instead of the
+# residual stream. The residual stream has no privileged basis and dimension d at layer l
+# is dimension d at layer l+1 minus one block's update, so 768 chains of 13 units are an
+# architectural given of the connectome the ladder was run on; MLP neurons have a
+# privileged basis (GELU) and no such chain. 832 of 3072 neurons per layer, one seeded
+# subset for every sample/domain/tree, so n_units = 12 x 832 = 9,984 -- the residual-stream
+# count -- and reliability/fidelity at a given k are compared on equal footing.
+#
+# Two arms: `vmf_profile` exactly as in the ladder (MiniBatch, 20 restarts) for a like-for-
+# like comparison with results/ladder, and `vmf_lloyd` as in configs/yolo.yml.
+#
+# Outputs:
+#   results/yolo_mlp/connectivity/            real connectivity (GPU step)
+#   results/yolo_mlp/<variant>/parcellation/
+#   results/yolo_mlp_null/...                 circshift null
+#   results/yolo_mlp/metrics/scores.csv
+
+output_dir: results/yolo_mlp
+
+seed: 42
+
+connectivity:
+  model_name: gpt2
+  unit_type: mlp
+  units_per_layer: 832
+  n_samples: 4
+  domains:
+    - wikitext
+    - bookcorpus
+    - agnews
+    - tldr17
+  seq_len: 1024
+  n_tokens: null
+  split: train
+  take: 100000
+  wrap: true
+  shuffle: true
+  batch_size: 8
+  highpass: null
+  lowpass: null
+  step: 0.2
+  timecourse_pca_components: null
+  timecourse_ica_components: null
+  eps: 1.0e-3
+  null_model: circshift
+  n_surrogates: 0
+
+parcellation:
+  n_networks: 50
+  binarize_connectivity: false
+  fisher_transform: true
+  standardize_profiles: true
+  connectivity_pca_components: null
+  clustering_kwargs: null
+  n_alignments: null
+  weight_samples: false
+  parcellate_samples: false
+
+parcellation_variants:
+  vmf_profile:
+    clustering: minibatch
+    n_samples: 20
+  vmf_lloyd:
+    clustering: kmeans
+    n_samples: 40
