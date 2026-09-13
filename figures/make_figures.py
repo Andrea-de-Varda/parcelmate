@@ -1,28 +1,35 @@
-"""Publication figures for the parcelmate method ladder.
+"""Publication figures across every arm of every run (LOG.md Iterations 13-16).
 
-    python figures/make_figures.py                  -> plots/*.svg + *.png
-    python figures/make_figures.py scores_norm.csv  -> the same figures for an older run
+    python figures/make_figures.py      ->  plots/*.svg + *.png
 
-Reads figures/scores_ladder.csv by default (results/ladder/metrics/scores.csv on the
-cluster, jobs 17379136 + 17379137, LOG.md Iteration 12). Every number plotted is a
-per-domain measurement averaged over the four prose domains; whitespace, codeparrot and
-random are excluded, because a block model fits their degenerate connectivity trivially
-well and they dominate an equal-weighted mean.
+Combines four score files into one comparison of 24 arms:
 
-THE REFERENCE IS `pnull`, NOT `null`. `null` is the whole pipeline run on circularly
-shifted data and scored on shifted data: it sits on a different denominator from the real
-measurement, which is how a structureless matrix once out-scored real data (Iteration 9).
-`pnull` is the null PARTITION evaluated on the REAL data -- same target, same denominator --
-so real - pnull is the credit the clustering earns beyond a partition carrying only
-per-unit properties. `rand` is a random partition of the same k and comes out at 0.000
-everywhere, so it is annotated rather than plotted.
+    scores_ladder.csv    the six-arm ladder, MiniBatch k-means, residual stream (Iter. 13)
+    scores_yolo.csv      converged optimizer, Ward, block-model objective, k = 100 (Iter. 16)
+    scores_yolo4.csv     spatial ICA and the sparsification rungs (Iter. 16)
+    scores_yolo_mlp.csv  the same pipeline on MLP neurons instead of the residual stream
 
-Four figures:
-  1. ladder_references  -- the main result: real vs pnull, within and across domains
-  2. within_vs_across   -- the ordering flips; which arm actually generalizes
-  3. reference_check    -- the reference itself: collapse makes it stronger, and how much
-                           of each arm's score per-unit properties already recover
-  4. fidelity_vs_ceiling -- held-out == in-sample, so the model class is the binding limit
+Every number is a per-domain measurement averaged over the four prose domains; whitespace,
+codeparrot and random are excluded because a block model fits their degenerate connectivity
+trivially well and they would dominate an equal-weighted mean.
+
+THE REFERENCE IS `pnull`: the null PARTITION (fit on circularly shifted data) evaluated on
+the REAL data, so it sits on the same target and the same denominator as the real
+measurement and `real - pnull` is the credit the clustering earns beyond a partition that
+knows only per-unit properties. A random partition of the same k scores ~0 everywhere.
+
+Arms are grouped by what the clustering actually sees, because that is what the results
+turn on: binarized adjacency, Fisher magnitudes, standardized profiles, the block-model
+objective, independent components, and the same standardized pipeline on a different unit.
+Within a group the order is inherited pipeline -> converged optimizer -> k = 100.
+
+Figures:
+  1. arms_references   -- the main result: real vs the null partition, within and across
+                          domains, all 24 arms on x with grouping brackets
+  2. hubness_tradeoff  -- hubness buys variance explained but not pattern correlation,
+                          and costs transfer; the R^2/r contrast is the mechanism
+  3. within_vs_across  -- like-for-like (r against r): no arm transfers as well as it fits
+  4. maps_vs_labels    -- ICA judged on the object it produces, not only on its labels
 """
 
 import csv
@@ -44,52 +51,111 @@ mpl.rcParams['font.family'] = 'DejaVu Sans'
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROSE = ('wikitext', 'agnews', 'bookcorpus', 'tldr17')
-
-# One colour per arm, fixed across every figure. The rungs are a light-to-dark ramp so the
-# progression reads off the page; `legacy` is gray because it is the inherited pre-bugfix
-# baseline rather than a rung.
-ARM_COLORS = {
-    'legacy':       '#999999',
-    'current':      '#a6cee3',
-    'fisher_pca':   '#6baed6',
-    'nopca_fisher': '#3182bd',
-    'vmf_profile':  '#08519c',
-    'vmf_z':        '#08306b',
-}
-ARM_LABELS = {
-    'legacy': 'legacy',
-    'current': 'current',
-    'fisher_pca': '+ magnitudes',
-    'nopca_fisher': '+ no PCA',
-    'vmf_profile': '+ standardised',
-    'vmf_z': '+ effect size',
-}
-LADDER = ['legacy', 'current', 'fisher_pca', 'nopca_fisher', 'vmf_profile', 'vmf_z']
 NS_FILL, NS_EDGE = '#cccccc', '#999999'
 
-SCORES = sys.argv[1] if len(sys.argv) > 1 else 'scores_ladder.csv'
-SUFFIX = '' if SCORES == 'scores_ladder.csv' else '_' + SCORES.split('.')[0]
+SOURCES = {
+    'scores_ladder.csv': '',        # residual stream, the Iteration 13 ladder
+    'scores_yolo.csv': '',
+    'scores_yolo4.csv': '',
+    'scores_yolo_mlp.csv': 'mlp:',  # prefixed: same arm names, different units
+}
+
+# Groups, in plot order. One hue per group, light -> dark within it, so the family is
+# readable from colour alone and the bracket names it. The order inside a group is the
+# order the arms were built: inherited pipeline, converged optimizer, k = 100.
+GROUPS = [
+    ('Binarized', '#9ecae1', '#08306b', [
+        ('legacy', 'legacy'),
+        ('current', 'current'),
+        ('binarize_row_lloyd', 'row thr.'),
+        ('binarize_row_lloyd100', 'row thr. k100'),
+        ('binarize_global_lloyd', 'global thr.'),
+        ('binarize_global_lloyd100', 'global thr. k100'),
+    ]),
+    ('Fisher magnitudes', '#a1d99b', '#00441b', [
+        ('fisher_pca', 'PCA'),
+        ('nopca_fisher', 'no PCA'),
+        ('fisher_pca_lloyd', 'PCA, Lloyd'),
+        ('nopca_lloyd', 'no PCA, Lloyd'),
+        ('sparse_fisher_lloyd', 'sparse'),
+        ('sparse_fisher_lloyd100', 'sparse k100'),
+    ]),
+    ('Standardized', '#fdbe85', '#7f2704', [
+        ('vmf_profile', 'MiniBatch'),
+        ('vmf_z', 'effect size'),
+        ('vmf_lloyd', 'Lloyd'),
+        ('vmf_ward', 'Ward'),
+        ('vmf_lloyd100', 'Lloyd k100'),
+        ('vmf_ward100', 'Ward k100'),
+    ]),
+    ('Block-model', '#fc9272', '#67000d', [
+        ('blockmodel', 'k50'),
+        ('blockmodel100', 'k100'),
+    ]),
+    ('Spatial ICA', '#bcbddc', '#3f007d', [
+        ('ica', 'k50'),
+        ('ica100', 'k100'),
+    ]),
+    ('MLP neurons', '#c7c7c7', '#252525', [
+        ('mlp:vmf_profile', 'MiniBatch'),
+        ('mlp:vmf_lloyd', 'Lloyd'),
+    ]),
+]
 
 
 def load():
-    rows = [r for r in csv.DictReader(open(os.path.join(HERE, SCORES)))]
-    for r in rows:
-        r['value'] = float(r['value'])
+    rows = []
+    for fname, prefix in SOURCES.items():
+        path = os.path.join(HERE, fname)
+        if not os.path.exists(path):
+            continue
+        for r in csv.DictReader(open(path)):
+            r['value'] = float(r['value'])
+            r['variant'] = prefix + r['variant']
+            rows.append(r)
     return rows
 
 
 ROWS = load()
-ARMS = [a for a in LADDER if any(r['variant'] == a for r in ROWS)]
-# Older runs predate the partition-level references and only carry the tree-level null.
-REF = 'pnull' if any(r['tree'] == 'pnull' for r in ROWS) else 'null'
-REF_LABEL = ('null partition, real data' if REF == 'pnull'
-             else 'pipeline on shifted data')
+PRESENT = {r['variant'] for r in ROWS}
+# Drop any arm a score file does not carry, so the script still runs on a partial set.
+GROUPS = [(g, c0, c1, [(a, lab) for a, lab in arms if a in PRESENT])
+          for g, c0, c1, arms in GROUPS]
+GROUPS = [g for g in GROUPS if g[3]]
+ARMS = [a for _, _, _, arms in GROUPS for a, _ in arms]
+
+
+def _ramp(c0, c1, n):
+    """n colours from c0 to c1. A single-arm group takes the dark end."""
+    if n == 1:
+        return [c1]
+    a, b = np.array(mpl.colors.to_rgb(c0)), np.array(mpl.colors.to_rgb(c1))
+    return [mpl.colors.to_hex(a + (b - a) * i / (n - 1)) for i in range(n)]
+
+
+ARM_COLORS, ARM_LABELS, ARM_GROUP = {}, {}, {}
+for gname, c0, c1, arms in GROUPS:
+    for (arm, label), colour in zip(arms, _ramp(c0, c1, len(arms))):
+        ARM_COLORS[arm], ARM_LABELS[arm], ARM_GROUP[arm] = colour, label, gname
+
+# x positions, with a gap between groups.
+GAP = 1.0
+XPOS, GROUP_SPAN = {}, []
+_x = 0.0
+for gname, _, _, arms in GROUPS:
+    start = _x
+    for arm, _ in arms:
+        XPOS[arm] = _x
+        _x += 1.0
+    GROUP_SPAN.append((gname, start, _x - 1.0))
+    _x += GAP
+XMAX = _x - GAP
 
 
 def vals(metric, tree, variant, domains=PROSE):
-    """Per-domain measurements. Both `fit` and `eval` are restricted: for the within-domain
-    metrics the two are equal so the eval filter is a no-op, and for the across-domain ones
-    it is what keeps the 12 ordered prose pairs."""
+    """Per-domain measurements. `fit` and `eval` are both restricted: for the within-domain
+    metrics they are equal so the eval filter is a no-op, and for the across-domain ones it
+    is what keeps the 12 ordered prose pairs."""
     return [r['value'] for r in ROWS
             if r['metric'] == metric and r['tree'] == tree and r['variant'] == variant
             and r['fit'] in domains and r['eval'] in domains]
@@ -100,7 +166,7 @@ def mean(metric, tree, variant, domains=PROSE):
     return float(np.mean(v)) if v else float('nan')
 
 
-def paired_deltas(metric, variant, tree=None, domains=PROSE):
+def paired_deltas(metric, variant, tree='pnull', domains=PROSE):
     """Real minus reference, matched domain by domain (or pair by pair).
 
     The reference is computed on the same data as the real measurement, so the comparison
@@ -111,12 +177,17 @@ def paired_deltas(metric, variant, tree=None, domains=PROSE):
         return {(r['fit'], r['eval']): r['value'] for r in ROWS
                 if r['metric'] == metric and r['tree'] == t and r['variant'] == variant
                 and r['fit'] in domains and r['eval'] in domains}
-    real, ref = keyed('real'), keyed(tree or REF)
+    real, ref = keyed('real'), keyed(tree)
     keys = sorted(set(real) & set(ref))
     return np.array([real[k] - ref[k] for k in keys])
 
 
-def beats_ref(metric, variant, tree=None, domains=PROSE):
+def delta(metric, variant):
+    d = paired_deltas(metric, variant)
+    return float(np.mean(d)) if len(d) else float('nan')
+
+
+def beats_ref(metric, variant):
     """Colour is earned by a UNANIMOUS win: the arm must beat its reference in every domain.
 
     Comparing the two means is not enough -- with four prose domains no rank test reaches
@@ -124,238 +195,255 @@ def beats_ref(metric, variant, tree=None, domains=PROSE):
     one-sided, 12/12 is p = 0.00024), and it also stops a coin-flip advantage in the mean
     from being painted as a win.
     """
-    d = paired_deltas(metric, variant, tree, domains)
+    d = paired_deltas(metric, variant)
     return bool(len(d)) and bool((d > 0).all())
 
 
-def _dumbbell(ax, metric, arms, ypos):
-    for i, arm in enumerate(arms[::-1]):
-        y = ypos[i]
-        real, ref = mean(metric, 'real', arm), mean(metric, REF, arm)
-        beats = beats_ref(metric, arm)
-        c = ARM_COLORS[arm] if beats else NS_EDGE
-        ax.hlines(y, min(real, ref), max(real, ref),
-                  color=c, alpha=0.35 if beats else 0.25, linewidth=3, zorder=2)
-        for v in vals(metric, 'real', arm):
-            ax.scatter(v, y, s=9, color=c, alpha=0.30, edgecolors='none', zorder=2.5)
-        ax.scatter(ref, y, s=42, facecolors='white', edgecolors=c, linewidths=1.2, zorder=3)
-        ax.scatter(real, y, s=42, color=c if beats else NS_FILL,
-                   edgecolors='black' if beats else NS_EDGE, linewidths=0.5, zorder=3.5)
+def brackets(ax, y, drop, fontsize=8.0, lw=1.0, color='0.35'):
+    """Grouping brackets in axes coordinates below the plot, one per family."""
+    for gname, x0, x1 in GROUP_SPAN:
+        ax.plot([x0 - 0.35, x1 + 0.35], [y, y], color=color, lw=lw,
+                transform=ax.get_xaxis_transform(), clip_on=False)
+        for x in (x0 - 0.35, x1 + 0.35):
+            ax.plot([x, x], [y, y + drop], color=color, lw=lw,
+                    transform=ax.get_xaxis_transform(), clip_on=False)
+        # A two-arm group is narrower than its own name, so those labels are rotated;
+        # horizontal ones would overlap their neighbours.
+        wide = (x1 - x0) >= 3
+        ax.text((x0 + x1) / 2, y - drop * 0.6, gname,
+                ha='center' if wide else 'right', va='top' if wide else 'center',
+                rotation=0 if wide else 30, rotation_mode='anchor',
+                fontsize=fontsize, color='0.15', fontweight='bold',
+                transform=ax.get_xaxis_transform(), clip_on=False)
 
 
 # ---------------------------------------------------------------------------------------
-# Figure 1 -- the main result. Every arm clears the reference on both metrics; the gap IS
-# the finding, and the rungs above `current` open it much wider than the rungs below.
+# Figure 1 -- the main result. Arms on x (24 of them would make an unreadably tall figure
+# on y), grouped by what the clustering sees. The gap between the open and filled dot is
+# the finding: how much the partition earns beyond one that knows only per-unit properties.
 # ---------------------------------------------------------------------------------------
 def fig_references():
-    fig, axes = plt.subplots(2, 2, figsize=(6.9 * 0.88, 5.4 * 0.88), dpi=300,
-                             sharey=True, sharex='col')
-    ypos = np.arange(len(ARMS))[::-1]
+    fig, axes = plt.subplots(2, 2, figsize=(13.0 * 0.82, 6.6 * 0.82), dpi=300, sharex=True)
     panels = [
-        (axes[0, 0], 'reliability_within', 'within domain\n(split halves)'),
-        (axes[0, 1], 'fidelity_within_r', None),
-        (axes[1, 0], 'reliability_across_halves', 'across domains\n(12 prose pairs)'),
-        (axes[1, 1], 'fidelity_across_halves', None),
+        (axes[0, 0], 'reliability_within', 'Reliability (ARI)', 'within domain\n(split halves)'),
+        (axes[0, 1], 'fidelity_within_r', 'Fidelity (r)', None),
+        (axes[1, 0], 'reliability_across_halves', 'Reliability (ARI)',
+         'across domains\n(12 prose pairs)'),
+        (axes[1, 1], 'fidelity_across_halves', 'Fidelity (r)', None),
     ]
-    for ax, metric, rowlabel in panels:
-        if not any(r['metric'] == metric for r in ROWS):
-            metric = metric.replace('_halves', '')       # pre-Iteration-11 scores
-        _dumbbell(ax, metric, ARMS, ypos)
-        n_win = sum(beats_ref(metric, a) for a in ARMS)
-        # Top-right, not bottom-right: the bottom row of every panel is `legacy`, whose
-        # dumbbell runs well to the right and collides with a bottom-anchored note.
-        ax.text(0.98, 0.97, '%d/%d arms beat the reference' % (n_win, len(ARMS)),
-                transform=ax.transAxes, fontsize=7.5, color='0.35', ha='right', va='top')
-        ax.grid(axis='x', linestyle='--', alpha=0.5, zorder=1)
+    for ax, metric, title, rowlabel in panels:
+        for arm in ARMS:
+            x = XPOS[arm]
+            real, ref = mean(metric, 'real', arm), mean(metric, 'pnull', arm)
+            if not np.isfinite(real):
+                continue
+            beats = beats_ref(metric, arm)
+            c = ARM_COLORS[arm] if beats else NS_EDGE
+            ax.vlines(x, min(real, ref), max(real, ref), color=c,
+                      alpha=0.45 if beats else 0.3, linewidth=3.2, zorder=2)
+            # Faint per-domain values behind the mean, so the spread is visible.
+            for v in vals(metric, 'real', arm):
+                ax.scatter(x, v, s=7, color=c, alpha=0.28, edgecolors='none', zorder=2.5)
+            ax.scatter(x, ref, s=34, facecolors='white', edgecolors=c, linewidths=1.1,
+                       zorder=3)
+            ax.scatter(x, real, s=42, color=c if beats else NS_FILL,
+                       edgecolors='black' if beats else NS_EDGE, linewidths=0.5, zorder=3.5)
+        ax.set_title(title, fontsize=10.5)
+        ax.set_xlim(-0.8, XMAX - 0.2)
+        ax.set_ylim(bottom=min(0, ax.get_ylim()[0]))
+        ax.grid(axis='y', linestyle='--', alpha=0.5, zorder=1)
         style_spines(ax, drop_top_right=True)
-        ax.tick_params(axis='both', which='major', labelsize=9.5)
+        ax.tick_params(axis='both', which='major', labelsize=9)
         if rowlabel is not None:
             ax.set_ylabel(rowlabel, fontsize=9.5, fontweight='bold', labelpad=8)
 
-    for ax, t in zip(axes[0], ('Reliability (ARI)', 'Fidelity (r)')):
-        ax.set_title(t, fontsize=11)
+    # One callout, on the panel that carries the selection criterion.
+    ax = axes[1, 1]
+    best = max(ARMS, key=lambda a: delta('fidelity_across_halves', a))
+    # Anchored inside the panel rather than offset from the point: an offset label collided
+    # with the panel title, which sits just above the tallest arms here.
+    # A ring on the point plus a corner label: any leader line long enough to reach the
+    # best arm from a free corner would cross a third of the other arms.
+    ax.scatter(XPOS[best], mean('fidelity_across_halves', 'real', best), s=190,
+               facecolors='none', edgecolors='0.25', linewidths=1.1, zorder=4)
+    ax.text(0.02, 0.95, 'best transfer (ringed):\n%s %s' % (ARM_GROUP[best], ARM_LABELS[best]),
+            transform=ax.transAxes, ha='left', va='top', fontsize=7.5, color='0.2')
+
     for ax in axes[1]:
-        ax.set_xlim(left=0)
-    for ax in axes[:, 0]:
-        ax.set_yticks(ypos)
-        ax.set_yticklabels([ARM_LABELS[a] for a in ARMS[::-1]], fontsize=9.5)
-        ax.set_ylim(-0.7, len(ARMS) - 0.3)
+        ax.set_xticks([XPOS[a] for a in ARMS])
+        ax.set_xticklabels([ARM_LABELS[a] for a in ARMS], rotation=90, fontsize=7.5)
+        brackets(ax, y=-0.60, drop=0.035)
 
     handles = [
         Line2D([0], [0], marker='o', color='none', markerfacecolor='white',
-               markeredgecolor='black', markersize=6, label=REF_LABEL),
+               markeredgecolor='black', markersize=6, label='null partition, real data'),
         Line2D([0], [0], marker='o', color='none', markerfacecolor='black',
                markeredgecolor='black', markersize=6, label='real'),
         Line2D([0], [0], color=NS_EDGE, lw=3, alpha=0.35,
                label='does not beat it in every domain'),
     ]
-    fig.legend(handles=handles, loc='lower center', bbox_to_anchor=(0.5, -0.055),
+    fig.legend(handles=handles, loc='lower center', bbox_to_anchor=(0.5, 0.004),
                ncol=3, frameon=False, fontsize=8.5)
-    if REF == 'pnull':
-        fig.text(0.5, -0.085, 'a random partition of the same k scores 0.00 on every '
-                 'metric and every arm', ha='center', fontsize=7.5, color='0.4')
-    fig.tight_layout()
-    save_fig(fig, 'ladder_references' + SUFFIX)
+    fig.tight_layout(rect=(0, 0.04, 1, 1))
+    save_fig(fig, 'arms_references')
 
 
 # ---------------------------------------------------------------------------------------
-# Figure 2 -- the ordering is not the same question answered twice. Within domain the
-# no-PCA arm wins; across domains it is the worst of the six and the standardised arm wins.
+# Figure 2 -- why the two rows of figure 1 disagree. Hubness buys within-domain performance
+# and costs transfer, and the two fidelities are uncorrelated across arms.
 # ---------------------------------------------------------------------------------------
-def fig_within_vs_across():
-    if not any(r['metric'] == 'fidelity_across_halves' for r in ROWS):
-        return
-    fig, axes = plt.subplots(1, 2, figsize=(6.6 * 0.88, 2.9 * 0.88), dpi=300)
-    specs = [(axes[0], 'fidelity_within_r', 'fidelity_across_halves', 'Fidelity (r)'),
-             (axes[1], 'reliability_within', 'reliability_across_halves',
-              'Reliability (ARI)')]
-    for ax, m_in, m_ac, title in specs:
+def fig_hubness_tradeoff():
+    fig, axes = plt.subplots(1, 3, figsize=(10.4 * 0.86, 3.3 * 0.86), dpi=300)
+    # R^2 and r are not interchangeable here, and the difference IS the mechanism: R^2
+    # rewards predicting the overall LEVEL of the connectivity, which a hubness partition
+    # does well, while r scores only the pattern. Comparing a within-domain R^2 against an
+    # across-domain r (which is forced, since R^2 is not defined across domains) therefore
+    # manufactures a dissociation. Panels 1 and 2 are the same arms under the two measures.
+    specs = [
+        (axes[0], 'triviality_ami_hubness', 'fidelity_within',
+         'AMI with hubness', 'Within-domain fidelity R$^2$, real $-$ null',
+         'Hubness buys variance\nexplained (level)'),
+        (axes[1], 'triviality_ami_hubness', 'fidelity_within_r',
+         'AMI with hubness', 'Within-domain fidelity r, real $-$ null',
+         'but not pattern\ncorrelation'),
+        (axes[2], 'triviality_ami_hubness', 'fidelity_across_halves',
+         'AMI with hubness', 'Across-domain fidelity r, real $-$ null',
+         'and it costs transfer'),
+    ]
+    for ax, mx, my, xlabel, ylabel, title in specs:
+        xs, ys = [], []
         for arm in ARMS:
-            x = mean(m_in, 'real', arm) - mean(m_in, REF, arm)
-            y = mean(m_ac, 'real', arm) - mean(m_ac, REF, arm)
-            ax.scatter(x, y, s=75, color=ARM_COLORS[arm], edgecolors='black',
-                       linewidths=0.6, zorder=3)
-        lo = min(ax.get_xlim()[0], ax.get_ylim()[0], 0)
-        hi = max(ax.get_xlim()[1], ax.get_ylim()[1])
-        ax.plot([lo, hi], [lo, hi], color='0.6', lw=1.0, ls='--', zorder=1)
-        ax.set_xlabel('within domain', fontsize=10)
-        ax.set_ylabel('across domains', fontsize=10)
-        ax.set_title(title + ', real $-$ reference', fontsize=8.5, fontweight='bold')
-        # Everything sits below y = x: no arm transfers as well as it fits.
-        ax.set_xlim(left=0)
-        ax.set_ylim(bottom=0)
-        style_spines(ax, drop_top_right=True)
+            x = mean(mx, 'real', arm) if mx.startswith('triviality') else delta(mx, arm)
+            y = delta(my, arm)
+            if not (np.isfinite(x) and np.isfinite(y)):
+                continue
+            xs.append(x)
+            ys.append(y)
+            ax.scatter(x, y, s=52, color=ARM_COLORS[arm], edgecolors='black',
+                       linewidths=0.5, zorder=3)
+        r = float(np.corrcoef(xs, ys)[0, 1])
+        # Least-squares guide, drawn only where the relation is real.
+        if abs(r) > 0.3:
+            b, a = np.polyfit(xs, ys, 1)
+            xx = np.linspace(min(xs), max(xs), 2)
+            ax.plot(xx, a + b * xx, color='0.45', lw=1.1, ls='--', zorder=1)
+        ax.set_xlabel(xlabel, fontsize=9)
+        ax.set_ylabel(ylabel, fontsize=9)
+        ax.set_title(title, fontsize=9, fontweight='bold')
+        ax.text(0.04, 0.05, 'r = %+.2f' % r, transform=ax.transAxes, fontsize=9,
+                bbox=dict(facecolor='white', edgecolor='gray', boxstyle='round,pad=0.3'))
         ax.grid(linestyle='--', alpha=0.4, zorder=0)
-        ax.tick_params(axis='both', which='major', labelsize=9)
-    # A shared legend rather than per-point labels: with six points in a small panel the
-    # labels land on top of neighbouring dots and read as if they belonged to them.
+        style_spines(ax, drop_top_right=True)
+        ax.tick_params(axis='both', which='major', labelsize=8.5)
+
     fig.legend(handles=[Line2D([0], [0], marker='o', color='none',
-                               markerfacecolor=ARM_COLORS[a], markeredgecolor='black',
-                               markersize=6, label=ARM_LABELS[a]) for a in ARMS],
-               loc='lower center', bbox_to_anchor=(0.5, -0.10), ncol=3, frameon=False,
+                               markerfacecolor=_ramp(c0, c1, 2)[1], markeredgecolor='black',
+                               markersize=6, label=g)
+                        for g, c0, c1, _ in GROUPS],
+               loc='lower center', bbox_to_anchor=(0.5, -0.10), ncol=6, frameon=False,
                fontsize=8)
     fig.tight_layout()
-    save_fig(fig, 'within_vs_across' + SUFFIX)
+    save_fig(fig, 'hubness_tradeoff')
 
 
 # ---------------------------------------------------------------------------------------
-# Figure 3 -- two things about the reference itself. Left: a reference partition that
-# collapses is a STRONGER reference, not a weaker one, so real - pnull is conservative
-# exactly where the capacity worry said it would be inflated. Right: the pnull-to-rand gap
-# is the share of each arm's performance that a partition knowing only per-unit properties
-# already recovers.
+# Figure 3 -- the same dissociation arm by arm. Everything sits below the identity line:
+# no arm transfers as well as it fits.
 # ---------------------------------------------------------------------------------------
-def fig_reference_check():
-    if REF != 'pnull' or not any(r['tree'] == 'rand' for r in ROWS):
-        return
-    fig, axes = plt.subplots(1, 2, figsize=(6.8 * 0.88, 3.0 * 0.88), dpi=300)
-
-    ax = axes[0]
-    xs = [mean('triviality_n_effective_networks', 'pnull', a) for a in ARMS]
-    ys = [mean('fidelity_within_r', 'pnull', a) for a in ARMS]
-    for a, x, y in zip(ARMS, xs, ys):
-        ax.scatter(x, y, s=75, color=ARM_COLORS[a], edgecolors='black', linewidths=0.6,
+def fig_within_vs_across():
+    fig, ax = plt.subplots(figsize=(5.6 * 0.9, 5.0 * 0.9), dpi=300)
+    # Both axes are Pearson r: the across-domain measure cannot be R^2 (the two domains sit
+    # on different scales), so the within-domain axis uses r as well. Against a within-domain
+    # R^2 the relation looks orthogonal, which is a measure mismatch rather than a finding.
+    xs, ys = [], []
+    for arm in ARMS:
+        x, y = delta('fidelity_within_r', arm), delta('fidelity_across_halves', arm)
+        if not (np.isfinite(x) and np.isfinite(y)):
+            continue
+        xs.append(x)
+        ys.append(y)
+        ax.scatter(x, y, s=62, color=ARM_COLORS[arm], edgecolors='black', linewidths=0.5,
                    zorder=3)
-    r = float(np.corrcoef(xs, ys)[0, 1])
-    ax.set_xlabel('networks the reference partition fills', fontsize=10)
-    ax.set_ylabel('reference fidelity (r)', fontsize=10)
-    ax.set_title('A collapsed reference explains\nMORE, not less', fontsize=8.5,
-                 fontweight='bold')
-    ax.set_xlim(0, 55)
-    ax.set_ylim(0, max(ys) * 1.18)        # headroom: the top dot was clipped by autoscale
-    ax.text(0.04, 0.06, 'r = %+.2f' % r, transform=ax.transAxes, fontsize=8.5,
+    lo, hi = 0, max(ax.get_xlim()[1], ax.get_ylim()[1])
+    ax.plot([lo, hi], [lo, hi], color='0.6', lw=1.0, ls='--', zorder=1)
+    ax.text(hi * 0.97, hi * 0.97, 'equal', fontsize=8, color='0.45', rotation=45,
+            ha='right', va='bottom', rotation_mode='anchor')
+    # Name the two ends of the story rather than all 24 points.
+    ax.text(0.97, 0.06, 'r = %+.2f' % float(np.corrcoef(xs, ys)[0, 1]),
+            transform=ax.transAxes, ha='right', fontsize=9,
             bbox=dict(facecolor='white', edgecolor='gray', boxstyle='round,pad=0.3'))
-
-    ax = axes[1]
-    ypos = np.arange(len(ARMS))[::-1]
-    for i, arm in enumerate(ARMS[::-1]):
-        y, c = ypos[i], ARM_COLORS[arm]
-        real = mean('fidelity_within_r', 'real', arm)
-        d_p = real - mean('fidelity_within_r', 'pnull', arm)
-        d_r = real - mean('fidelity_within_r', 'rand', arm)
-        ax.hlines(y, d_p, d_r, color=c, alpha=0.35, linewidth=3, zorder=2)
-        ax.scatter(d_r, y, s=42, facecolors='white', edgecolors=c, linewidths=1.2, zorder=3)
-        ax.scatter(d_p, y, s=42, color=c, edgecolors='black', linewidths=0.5, zorder=3.5)
-    ax.set_yticks(ypos)
-    ax.set_yticklabels([ARM_LABELS[a] for a in ARMS[::-1]], fontsize=9)
-    ax.set_xlabel('real $-$ reference, fidelity (r)', fontsize=10)
-    ax.set_title('Gap = the share already recovered\nby per-unit properties', fontsize=8.5,
-                 fontweight='bold')
-    for ax, axis in zip(axes, ('y', 'x')):
-        ax.grid(axis=axis, linestyle='--', alpha=0.5, zorder=1)
-        style_spines(ax, drop_top_right=True)
-        ax.tick_params(axis='both', which='major', labelsize=9)
-    # Below the figure: six rows of dumbbells leave no in-axes corner that does not sit on
-    # either the top or the bottom row.
-    fig.legend(handles=[
-        Line2D([0], [0], marker='o', color='none', markerfacecolor='black',
-               markeredgecolor='black', markersize=6, label='vs null partition'),
-        Line2D([0], [0], marker='o', color='none', markerfacecolor='white',
-               markeredgecolor='black', markersize=6, label='vs random partition'),
-    ], loc='lower center', bbox_to_anchor=(0.75, -0.09), ncol=2, frameon=False, fontsize=8)
-    fig.tight_layout()
-    save_fig(fig, 'reference_check' + SUFFIX)
-
-
-# ---------------------------------------------------------------------------------------
-# Figure 4 -- held-out sits on top of in-sample, so the partitions do not overfit at all
-# and the whole gap to the uncompressed reference is the block-model form.
-# ---------------------------------------------------------------------------------------
-def fig_ceiling():
-    fig, ax = plt.subplots(figsize=(5.6 * 0.82, 3.1 * 0.82), dpi=300)
-    ypos = np.arange(len(ARMS))[::-1]
-    ceiling = mean('fidelity_within', 'real', '(ceiling)')
-
-    # The two estimates coincide to two decimals -- which IS the finding -- so a dumbbell
-    # degenerates to a single dot and reads as missing data. Offsetting them vertically
-    # keeps both visible and makes the coincidence the thing you see.
-    dy = 0.16
-    for i, arm in enumerate(ARMS[::-1]):
-        y, c = ypos[i], ARM_COLORS[arm]
-        held = mean('fidelity_within', 'real', arm)
-        ins = mean('fidelity_within_insample', 'real', arm)
-        ax.vlines(np.mean([held, ins]), y - dy, y + dy, color=c, alpha=0.45,
-                  linewidth=1.2, zorder=2)
-        ax.scatter(ins, y + dy, s=38, facecolors='white', edgecolors=c,
-                   linewidths=1.2, zorder=3)
-        ax.scatter(held, y - dy, s=38, color=c, edgecolors='black',
-                   linewidths=0.5, zorder=3.5)
-
-    ax.axvline(ceiling, color='crimson', linestyle='--', lw=1.4, alpha=0.9, zorder=2)
-    ax.text(ceiling - 0.025, len(ARMS) - 0.55,
-            'uncompressed\nreference %.2f' % ceiling, fontsize=8, color='crimson',
-            ha='right', va='top')
-    ax.annotate('', xy=(ceiling - 0.01, -0.5), xytext=(0.22, -0.5),
-                arrowprops=dict(arrowstyle='<->', color='0.5', lw=1.0))
-    ax.text((0.22 + ceiling) / 2, -0.35, 'unexplained by any 50-block partition',
-            fontsize=7.5, color='0.35', ha='center', va='bottom')
-
-    ax.set_yticks(ypos)
-    ax.set_yticklabels([ARM_LABELS[a] for a in ARMS[::-1]], fontsize=9.5)
-    ax.set_xlabel('Fidelity (R$^2$), prose domains', fontsize=11)
-    ax.set_xlim(0, 1.04)
-    ax.set_ylim(-0.85, len(ARMS) - 0.3)
-    ax.grid(axis='x', linestyle='--', alpha=0.5, zorder=1)
+    for arm, dx, dy, ha in (('vmf_ward100', 8, 2, 'left'), ('blockmodel100', 0, -14, 'center'),
+                            ('ica', 8, -2, 'left')):
+        if arm not in XPOS:
+            continue
+        x, y = delta('fidelity_within_r', arm), delta('fidelity_across_halves', arm)
+        ax.annotate('%s %s' % (ARM_GROUP[arm], ARM_LABELS[arm]), (x, y),
+                    textcoords='offset points', xytext=(dx, dy), ha=ha, fontsize=7.5,
+                    color='0.2')
+    ax.set_xlabel('Within-domain fidelity r, real $-$ null', fontsize=10)
+    ax.set_ylabel('Across-domain fidelity r, real $-$ null', fontsize=10)
+    ax.set_xlim(left=0)
+    ax.set_ylim(bottom=0)
+    ax.grid(linestyle='--', alpha=0.4, zorder=0)
     style_spines(ax, drop_top_right=True)
-    ax.tick_params(axis='both', which='major', labelsize=9.5)
-    ax.legend(handles=[
-        Line2D([0], [0], marker='o', color='none', markerfacecolor='white',
-               markeredgecolor='black', markersize=6, label='in-sample'),
-        Line2D([0], [0], marker='o', color='none', markerfacecolor='black',
-               markeredgecolor='black', markersize=6, label='held-out'),
-    ], loc='upper right', frameon=False, fontsize=8.5, bbox_to_anchor=(1.0, 0.80))
-    ax.text(0.26, 0.32, 'held-out = in-sample:\nno overfitting', transform=ax.transAxes,
-            fontsize=8, ha='left',
-            bbox=dict(facecolor='white', edgecolor='gray', boxstyle='round,pad=0.3'))
+    ax.tick_params(axis='both', which='major', labelsize=9)
+    ax.legend(handles=[Line2D([0], [0], marker='o', color='none',
+                              markerfacecolor=_ramp(c0, c1, 2)[1], markeredgecolor='black',
+                              markersize=6, label=g)
+                       for g, c0, c1, _ in GROUPS],
+              loc='upper left', frameon=False, fontsize=8)
     fig.tight_layout()
-    save_fig(fig, 'fidelity_vs_ceiling' + SUFFIX)
+    save_fig(fig, 'within_vs_across')
+
+
+# ---------------------------------------------------------------------------------------
+# Figure 4 -- ICA judged on the object it produces. Winner-take-all labels are the weakest
+# in the set, while the maps themselves are among the most reproducible things measured.
+# ---------------------------------------------------------------------------------------
+def fig_maps_vs_labels():
+    ica = [a for a in ARMS if vals('reliability_within_maps', 'real', a)]
+    if not ica:
+        return
+    fig, ax = plt.subplots(figsize=(4.6 * 0.9, 3.1 * 0.9), dpi=300)
+    x = np.arange(len(ica))
+    for i, arm in enumerate(ica):
+        lab = mean('reliability_within', 'real', arm)
+        mp = mean('reliability_within_maps', 'real', arm)
+        c = ARM_COLORS[arm]
+        ax.vlines(i, lab, mp, color=c, alpha=0.45, linewidth=3.2, zorder=2)
+        ax.scatter(i, lab, s=46, color=c, edgecolors='black', linewidths=0.5, zorder=3)
+        ax.scatter(i, mp, s=46, marker='D', color=c, edgecolors='black', linewidths=0.5,
+                   zorder=3)
+    # The best label reliability anywhere in the set, for scale.
+    best = max(ARMS, key=lambda a: mean('reliability_within', 'real', a))
+    ax.axhline(mean('reliability_within', 'real', best), color='0.5', ls=':', lw=1.1)
+    ax.text(len(ica) - 0.55, mean('reliability_within', 'real', best),
+            'best labels of any arm\n(%s %s)' % (ARM_GROUP[best],
+                                                 ARM_LABELS[best]),
+            fontsize=7, color='0.35', ha='right', va='bottom')
+    ax.set_xticks(x)
+    ax.set_xticklabels(['ICA %s' % ARM_LABELS[a] for a in ica], fontsize=9)
+    ax.set_ylabel('Reliability across halves', fontsize=10)
+    ax.set_xlim(-0.6, len(ica) - 0.4)
+    ax.set_ylim(0, 1)
+    ax.grid(axis='y', linestyle='--', alpha=0.5, zorder=1)
+    style_spines(ax, drop_top_right=True)
+    ax.tick_params(axis='both', which='major', labelsize=9)
+    ax.legend(handles=[
+        Line2D([0], [0], marker='D', color='none', markerfacecolor='black',
+               markeredgecolor='black', markersize=6, label='component maps'),
+        Line2D([0], [0], marker='o', color='none', markerfacecolor='black',
+               markeredgecolor='black', markersize=6, label='winner-take-all labels'),
+    ], loc='lower left', frameon=False, fontsize=8)
+    fig.tight_layout()
+    save_fig(fig, 'maps_vs_labels')
 
 
 if __name__ == '__main__':
     os.makedirs('plots', exist_ok=True)
     fig_references()
+    fig_hubness_tradeoff()
     fig_within_vs_across()
-    fig_reference_check()
-    fig_ceiling()
-    print('wrote plots/*%s.{svg,png} from figures/%s (reference: %s)'
-          % (SUFFIX, SCORES, REF))
+    fig_maps_vs_labels()
+    print('wrote plots/{arms_references,hubness_tradeoff,within_vs_across,maps_vs_labels}'
+          '.{svg,png} from %d arms' % len(ARMS))
