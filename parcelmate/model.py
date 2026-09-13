@@ -1,8 +1,10 @@
 import math
+import warnings
 import os
 import copy
 import numpy as np
-from scipy import optimize
+import time
+from scipy import optimize, linalg as scipy_linalg
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA, FastICA
@@ -382,6 +384,11 @@ def sample_parcellations(
         pca_whiten=True,
         blockmodel_refine_labels=False,
         blockmodel_max_iter=50,
+        binarize_scope='row',
+        sparsify_fisher=False,
+        signed_connectivity=None,
+        ica_max_iter=1000,
+        ica_tol=1e-4,
         seed=None,
         verbose=True,
         indent=0
@@ -417,14 +424,38 @@ def sample_parcellations(
                  sample is the parcellation and the restart-split ceiling is 1 by
                  construction; `n_samples` is forced to 1.
 
+      ica        MRI-style spatial ICA (LOG.md Iteration 15, YOLO 4). Needs
+                 `signed_connectivity`, the signed correlation matrix: the whitened spatial
+                 PCs are its top-k eigenvectors scaled to unit variance over units, which
+                 is exactly the spatial PCA MELODIC would compute from the token x unit
+                 matrix, so no activations are stored. FastICA over units then gives k
+                 independent spatial maps per restart; each map's sign is fixed to positive
+                 skew, maps are z-scored, and winner-take-all over components gives the
+                 hard labels that go through the same alignment and consensus as k-means
+                 (Yeo et al. 2011 compared clustering with ICA this way). The z-scored maps
+                 are returned as `maps` so the consensus map and a soft reliability can be
+                 scored too. The |r| profile preprocessing does not apply to this path.
+
+    `binarize_scope='global'` thresholds the whole matrix at its 90th percentile instead of
+    each row at its own, so hubs keep more partners than weak units (the row-wise version
+    equalises density and thereby erases hubness from the input). `sparsify_fisher` keeps the
+    Fisher-transformed magnitudes above the same per-row (or global) threshold and zeroes
+    the rest: the missing rung between binarizing and keeping the dense magnitudes.
+
     `pca_whiten=False` keeps the PCA truncation but not the whitening, which gives the last
     retained noise direction the same weight as the first structured one. `blockmodel_refine_labels`
     follows each restart with `metrics.blockmodel_refine` on the RAW |r| the scorer targets,
     so the arm optimizes the block-model error that fidelity measures rather than the
     row-profile error k-means minimizes (YOLO 2).
     """
-    assert clustering in ('minibatch', 'kmeans', 'ward'), \
-        'clustering must be minibatch, kmeans or ward, got %r' % (clustering,)
+    assert clustering in ('minibatch', 'kmeans', 'ward', 'ica'), \
+        'clustering must be minibatch, kmeans, ward or ica, got %r' % (clustering,)
+    assert binarize_scope in ('row', 'global'), \
+        'binarize_scope must be row or global, got %r' % (binarize_scope,)
+    assert not (sparsify_fisher and not fisher_transform), \
+        'sparsify_fisher keeps Fisher magnitudes, so it needs fisher_transform: true'
+    assert not (sparsify_fisher and binarize_connectivity), \
+        'sparsify_fisher and binarize_connectivity are alternatives'
     if clustering == 'ward' and n_samples != 1:
         if verbose:
             stderr('%sward is deterministic: n_samples %d -> 1\n' % (' ' * indent, n_samples))
@@ -440,6 +471,47 @@ def sample_parcellations(
     # different from one another, which the consensus averaging depends on, while making
     # the whole set of restarts reproducible.
     rng = np.random.RandomState(seed if seed is None else int(seed) % (2 ** 32))
+
+    if clustering == 'ica':
+        assert signed_connectivity is not None, \
+            'clustering=ica needs signed_connectivity (the signed correlation matrix)'
+        assert not (binarize_connectivity or fisher_transform or standardize_profiles
+                    or connectivity_pca_components or connectivity_ica_components
+                    or blockmodel_refine_labels), (
+            'clustering=ica works on the signed correlation matrix directly; set '
+            'binarize_connectivity, fisher_transform, standardize_profiles and '
+            'blockmodel_refine_labels to false and the *_components to null')
+        Rs = np.nan_to_num(np.asarray(signed_connectivity, dtype=np.float64))
+        n_units = Rs.shape[0]
+        if verbose:
+            stderr('%sTop-%d eigenvectors of the signed correlation matrix' % (' ' * indent, n_networks))
+        t1 = time.time()
+        _, evecs = scipy_linalg.eigh(Rs, subset_by_index=[n_units - n_networks, n_units - 1])
+        del Rs
+        Z = evecs * np.sqrt(n_units)   # whitened spatial PCs: unit variance over units
+        if verbose:
+            stderr(' (%0.2fs)\n%sDrawing samples\n' % (time.time() - t1, ' ' * indent))
+        samples = np.zeros((n_samples, n_units))
+        scores = np.zeros(n_samples)   # FastICA exposes no objective; restarts are unweighted
+        maps = np.zeros((n_samples, n_units, n_networks), dtype=np.float32)
+        for i in range(n_samples):
+            if verbose and n_samples > 1:
+                stderr('\r%s  Sample %d/%d' % (' ' * indent, i + 1, n_samples))
+            ica = FastICA(n_components=n_networks, whiten='unit-variance', random_state=rng,
+                          max_iter=ica_max_iter, tol=ica_tol)
+            with warnings.catch_warnings():
+                warnings.simplefilter('ignore')   # non-convergence is handled by the consensus
+                S = ica.fit_transform(Z)           # (n_units, n_networks): the spatial maps
+            S = S - S.mean(axis=0)
+            skew = (S ** 3).mean(axis=0)
+            S *= np.where(skew < 0, -1.0, 1.0)     # positive skew: the "active" tail is up
+            S /= S.std(axis=0) + 1e-12
+            maps[i] = S
+            samples[i] = S.argmax(axis=1)          # winner-take-all
+        if verbose and n_samples > 1:
+            stderr('\n')
+        return dict(samples=samples, scores=scores, maps=maps)
+
     X = connectivity
     assert not (binarize_connectivity and fisher_transform), \
         'fisher_transform is pointless after binarizing: arctanh of a 0/1 matrix is 0/inf'
@@ -450,6 +522,9 @@ def sample_parcellations(
             # the result is the transpose of a row-wise threshold. Row densities then vary
             # with hubness instead of being uniform. Comparison arm only -- never a default.
             X = (X > np.quantile(X, 0.9, axis=1)).astype(int)
+        elif binarize_scope == 'global':
+            # One threshold for the whole matrix: hubs keep many partners, weak units few.
+            X = (X > np.quantile(X, 0.9)).astype(int)
         else:
             X = (X > np.quantile(X, 0.9, axis=1, keepdims=True)).astype(int)
     elif fisher_transform:
@@ -478,6 +553,10 @@ def sample_parcellations(
         # would handicap this arm against the binarized ones, where the diagonal is 1 of
         # 999 kept partners (0.1% of the row) and therefore harmless.
         np.fill_diagonal(X, 0.0)
+        if sparsify_fisher:
+            thr = np.quantile(X, 0.9) if binarize_scope == 'global' \
+                else np.quantile(X, 0.9, axis=1, keepdims=True)
+            X = np.where(X > thr, X, 0.0)
     if standardize_profiles:
         # z-score each unit's profile across its columns. Two things follow, and both are
         # the point of this arm.
@@ -583,8 +662,14 @@ def _align_samples(
         _w = w[0]
     n_samples = samples.shape[0]
     n_units = samples.shape[1]
-    n_networks = samples.max() + 1
-    reference = (samples[0][None, ...] == np.arange(n_networks)[..., None]).astype(float)
+    if samples.ndim == 3:
+        # Soft maps (n_samples, n_units, n_networks), e.g. ICA components: aligned by the
+        # same Hungarian matching on standardized maps, averaged into a consensus map.
+        n_networks = samples.shape[2]
+        reference = samples[0].T.astype(float)
+    else:
+        n_networks = samples.max() + 1
+        reference = (samples[0][None, ...] == np.arange(n_networks)[..., None]).astype(float)
     parcellation = None
     C = 0
 
@@ -1119,6 +1204,10 @@ def run_parcellation(
         pca_whiten=True,
         blockmodel_refine_labels=False,
         blockmodel_max_iter=50,
+        binarize_scope='row',
+        sparsify_fisher=False,
+        ica_max_iter=1000,
+        ica_tol=1e-4,
         n_alignments=None,
         weight_samples=False,
         parcellate_samples=False,
@@ -1200,6 +1289,12 @@ def run_parcellation(
             pca_whiten=pca_whiten,
             blockmodel_refine_labels=blockmodel_refine_labels,
             blockmodel_max_iter=blockmodel_max_iter,
+            binarize_scope=binarize_scope,
+            sparsify_fisher=sparsify_fisher,
+            # ICA needs the sign structure; every other path sees |r| (or |z|).
+            signed_connectivity=(np.nan_to_num(data['connectivity']) if clustering == 'ica' else None),
+            ica_max_iter=ica_max_iter,
+            ica_tol=ica_tol,
             seed=derive_seed(seed, 'parcellation', path),
             verbose=verbose,
             indent=indent + 2
@@ -1213,6 +1308,15 @@ def run_parcellation(
             verbose=verbose,
             indent=indent + 2
         )
+        extra = {}
+        if 'maps' in sample:
+            # The soft object ICA actually produces: per-restart z-scored maps, aligned by
+            # the same Hungarian matching and averaged. Scored by `map_reliability`.
+            assert not weight_samples, 'ICA restarts carry no objective to weight by'
+            extra['ica_maps'] = align_samples(
+                sample['maps'], sample['scores'], n_alignments=n_alignments,
+                weight_samples=False, seed=derive_seed(seed, 'alignment_maps', path),
+                verbose=False, indent=indent + 2).astype(np.float32)
         # Two further consensuses, each from a disjoint half of the SAME restarts. This is
         # the reliability ceiling: how much of the cross-half disagreement is merely
         # k-means instability rather than the data differing. Costs two Hungarian
@@ -1240,7 +1344,7 @@ def run_parcellation(
             ]
         save_h5_data(
             dict(parcellation=parcellation, coordinates=data['coordinates'],
-                 parcellation_split1=splits[0], parcellation_split2=splits[1]),
+                 parcellation_split1=splits[0], parcellation_split2=splits[1], **extra),
             outpath,
             attrs=dict(
                 variant=variant,
@@ -1252,6 +1356,10 @@ def run_parcellation(
                 pca_whiten=bool(pca_whiten),
                 blockmodel_refine_labels=bool(blockmodel_refine_labels),
                 blockmodel_max_iter=int(blockmodel_max_iter),
+                binarize_scope=str(binarize_scope),
+                sparsify_fisher=bool(sparsify_fisher),
+                ica_max_iter=int(ica_max_iter),
+                ica_tol=float(ica_tol),
                 binarize_connectivity=bool(binarize_connectivity),
                 legacy_binarize=bool(legacy_binarize),
                 fisher_transform=bool(fisher_transform),

@@ -1,0 +1,106 @@
+# YOLO run 4, the MRI bundle (LOG.md Iteration 15): spatial ICA as a second model class, and
+# the two sparsification rungs Andrea asked for, at k = 50 and k = 100. Own tree, so the
+# YOLO 1+2 score job (which scores every variant of configs/yolo.yml) is untouched.
+#
+# ICA. MELODIC's spatial ICA is PCA of the token x unit matrix followed by FastICA on the k
+# whitened spatial maps, with units as samples. The whitened spatial PCs are the top-k
+# eigenvectors of the unit x unit correlation matrix scaled to unit variance over units, so
+# the arm is computed exactly from the signed connectivity we already store (verified:
+# identical k-dimensional subspace to the SVD of the activations). Sign fixed to positive
+# skew, maps z-scored, winner-take-all for hard labels into the ordinary consensus, and the
+# aligned consensus map stored as `ica_maps` for `reliability_within_maps`. Fidelity is
+# scored on |r| like every other arm, so the target does not change.
+#
+# Sparsification. Against `fisher_pca_lloyd` in configs/yolo.yml (dense Fisher magnitudes,
+# unwhitened PCA-200, Lloyd) this adds three one-change rungs: keep only the top-10% Fisher
+# magnitudes per row (`sparse_fisher_lloyd`), binarize per row (`binarize_row_lloyd`, i.e.
+# the ladder's `current` with the converged optimizer and no whitening), and binarize with
+# ONE global threshold (`binarize_global_lloyd`), which lets hubs keep more partners than
+# weak units instead of equalising every row's density.
+#
+# Connectivity hard-linked from results/yolo{,_null} (prose domains, halves included).
+#
+# Outputs:
+#   results/yolo4/<variant>/parcellation/
+#   results/yolo4_null/...
+#   results/yolo4/metrics/scores.csv
+
+output_dir: results/yolo4
+
+seed: 42
+
+connectivity:
+  model_name: gpt2
+  n_samples: 4
+  domains:
+    - wikitext
+    - bookcorpus
+    - agnews
+    - tldr17
+  seq_len: 1024
+  n_tokens: null
+  split: train
+  take: 100000
+  wrap: true
+  shuffle: true
+  batch_size: 8
+  highpass: null
+  lowpass: null
+  step: 0.2
+  timecourse_pca_components: null
+  timecourse_ica_components: null
+  eps: 1.0e-3
+  null_model: circshift
+  n_surrogates: 0   # |z| retired (Iteration 13); the linked files still carry surrogate_var
+
+parcellation:
+  n_networks: 50
+  n_samples: 40
+  clustering: kmeans
+  binarize_connectivity: false
+  fisher_transform: true
+  standardize_profiles: false
+  connectivity_pca_components: 200
+  pca_whiten: false
+  clustering_kwargs: null
+  n_alignments: null
+  weight_samples: false
+  parcellate_samples: false
+
+parcellation_variants:
+
+  # ---- spatial ICA on the signed correlation matrix
+  ica:
+    clustering: ica
+    fisher_transform: false
+    connectivity_pca_components: null
+  ica100:
+    clustering: ica
+    fisher_transform: false
+    connectivity_pca_components: null
+    n_networks: 100
+
+  # ---- the sparsification rungs, each one change from fisher_pca_lloyd (configs/yolo.yml)
+  sparse_fisher_lloyd:
+    sparsify_fisher: true
+  binarize_row_lloyd:
+    binarize_connectivity: true
+    fisher_transform: false
+  binarize_global_lloyd:
+    binarize_connectivity: true
+    fisher_transform: false
+    binarize_scope: global
+
+  # ---- the same three at k = 100
+  sparse_fisher_lloyd100:
+    sparsify_fisher: true
+    n_networks: 100
+  binarize_row_lloyd100:
+    binarize_connectivity: true
+    fisher_transform: false
+    n_networks: 100
+  binarize_global_lloyd100:
+    binarize_connectivity: true
+    fisher_transform: false
+    binarize_scope: global
+    n_networks: 100

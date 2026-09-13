@@ -39,6 +39,7 @@ pre-normalized.
 """
 
 import numpy as np
+from scipy import optimize
 from sklearn.metrics import adjusted_mutual_info_score, adjusted_rand_score
 
 from parcelmate.util import stderr
@@ -197,6 +198,26 @@ def reliability(parcellation_a, parcellation_b):
     across different numbers of networks and different cluster size distributions.
     """
     return float(adjusted_rand_score(hard_labels(parcellation_a), hard_labels(parcellation_b)))
+
+
+def map_reliability(maps_a, maps_b):
+    """Mean correlation between Hungarian-matched component maps from two halves.
+
+    The soft counterpart of `reliability` for an arm whose native output is a set of
+    continuous maps over units (spatial ICA, LOG.md Iteration 15). Maps are matched by
+    maximising total correlation, so a permutation of components costs nothing; signs are
+    expected to have been fixed upstream (positive skew), so plain rather than absolute
+    correlation is used and a sign flip does show up as a loss.
+    """
+    A = np.asarray(maps_a, dtype=np.float64)
+    B = np.asarray(maps_b, dtype=np.float64)
+    assert A.shape == B.shape, 'map shapes differ: %s vs %s' % (A.shape, B.shape)
+    A = (A - A.mean(0)) / (A.std(0) + 1e-12)
+    B = (B - B.mean(0)) / (B.std(0) + 1e-12)
+    C = A.T @ B / A.shape[0]
+    r_ix, c_ix = optimize.linear_sum_assignment(C, maximize=True)
+
+    return float(C[r_ix, c_ix].mean())
 
 
 def reliability_ceiling(parcellation_split1, parcellation_split2):

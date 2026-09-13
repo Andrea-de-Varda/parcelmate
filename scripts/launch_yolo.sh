@@ -27,9 +27,12 @@ CONDA_ENV=${CONDA_ENV:-parcelmate}
 MODE=${1:-}
 
 case "$MODE" in
-    generate|submit|resume) ;;
+    generate|submit|resume|generate4|submit4) ;;
     *)
-        echo "usage: $0 {generate|submit|resume}" >&2
+        echo "usage: $0 {generate|submit|resume|generate4|submit4}" >&2
+        echo "  generate4 YOLO 4 (configs/yolo4.yml): link connectivity from results/yolo" >&2
+        echo "            and write jobs/yolo4.*.pbs (run on scdt)" >&2
+        echo "  submit4   sbatch the eight YOLO 4 arms and their score job (run on sc)" >&2
         echo "  generate  write jobs/*.pbs (run on scdt)" >&2
         echo "  submit    sbatch them with dependencies (run on sc)" >&2
         echo "  resume    2026-09-12: cancel the stuck yolo.score, score the six finished" >&2
@@ -153,8 +156,57 @@ resume() {
     squeue -u "$USER" -o "%.9i %.60j %.9T %.10M %R"
 }
 
+generate4() {
+    if [ -f "$CONDA_SH" ]; then
+        source "$CONDA_SH"
+        conda activate "$CONDA_ENV"
+    fi
+    mkdir -p jobs logs
+    # Same connectivity as YOLO 1+2 (itself hard-linked from the ladder): prose domains,
+    # samples + avg + halves, so split_halves skips and no GPU is used.
+    for t in "" _null; do
+        mkdir -p results/yolo4$t/connectivity
+        for f in results/yolo$t/connectivity/connectivity_*.h5; do
+            ln -f "$f" results/yolo4$t/connectivity/
+        done
+        echo "results/yolo4$t/connectivity: $(ls results/yolo4$t/connectivity | wc -l) files"
+    done
+    local M="python -m parcelmate.bin.make_jobs"
+    local CPU=configs/cluster/sc-cpu.yml
+    # ICA: one eigendecomposition (~1-2 min) plus 40 FastICA restarts per matrix, 24 matrices.
+    $M configs/yolo4.yml -c $CPU -s parcellation -V ica -t 6 -m 16 -n 8 -o jobs/
+    $M configs/yolo4.yml -c $CPU -s parcellation -V ica100 -t 8 -m 16 -n 8 -o jobs/
+    # PCA-200 arms: fisher_pca_lloyd took 24 min for all 24 matrices.
+    for a in sparse_fisher_lloyd binarize_row_lloyd binarize_global_lloyd; do
+        $M configs/yolo4.yml -c $CPU -s parcellation -V $a -t 2 -m 16 -n 8 -o jobs/
+    done
+    for a in sparse_fisher_lloyd100 binarize_row_lloyd100 binarize_global_lloyd100; do
+        $M configs/yolo4.yml -c $CPU -s parcellation -V $a -t 3 -m 16 -n 8 -o jobs/
+    done
+    $M configs/yolo4.yml -c $CPU -s score -t 4 -m 16 -n 4 -o jobs/
+    ls -1 jobs/yolo4.*.pbs
+}
+
+submit4() {
+    mkdir -p logs
+    echo "code at $(git log --oneline | head -1)"
+    local ids=""
+    for a in ica ica100 sparse_fisher_lloyd binarize_row_lloyd binarize_global_lloyd \
+             sparse_fisher_lloyd100 binarize_row_lloyd100 binarize_global_lloyd100; do
+        id=$(sbatch --parsable jobs/yolo4.parcellation.$a.pbs)
+        echo "yolo4 $a -> $id"
+        ids="$ids:$id"
+    done
+    score=$(sbatch --parsable --dependency=afterok${ids} jobs/yolo4.score.pbs)
+    echo "yolo4 score -> $score"
+    echo
+    squeue -u "$USER" -o "%.9i %.50j %.9T %.10M %R"
+}
+
 case "$MODE" in
-    generate) generate ;;
-    submit)   submit ;;
-    resume)   resume ;;
+    generate)  generate ;;
+    submit)    submit ;;
+    resume)    resume ;;
+    generate4) generate4 ;;
+    submit4)   submit4 ;;
 esac

@@ -56,8 +56,8 @@ from parcelmate.constants import (
     CONNECTIVITY_NAME, EXTENSION, HALF_NAMES, OUTPUT_DIR, PARCELLATION_NAME,
 )
 from parcelmate.metrics import (
-    domain_average, fidelity, fidelity_ceiling, fidelity_insample, reliability,
-    reliability_ceiling, summarize, triviality,
+    domain_average, fidelity, fidelity_ceiling, fidelity_insample, map_reliability,
+    reliability, reliability_ceiling, summarize, triviality,
 )
 from parcelmate.util import (
     connectivity_matrix, derive_seed, h5_keys, load_h5_array, load_h5_data, read_attrs,
@@ -172,6 +172,11 @@ def score_tree(root, tree, variants, domains, rows, missing, cross_domain=True, 
 
             rows.append(dict(tree=tree, variant=variant, metric='reliability_within',
                              fit=domain, eval=domain, value=reliability(P_a, P_b)))
+            if 'ica_maps' in da and 'ica_maps' in db:
+                # The soft object an ICA arm produces, judged on its own terms.
+                rows.append(dict(tree=tree, variant=variant, metric='reliability_within_maps',
+                                 fit=domain, eval=domain,
+                                 value=map_reliability(da['ica_maps'], db['ica_maps'])))
             for metric_name, measure in WITHIN_MEASURES:
                 rows.append(dict(tree=tree, variant=variant, metric=metric_name,
                                  fit=domain, eval=domain,
@@ -490,7 +495,7 @@ def score_config(cfg, out=None, cross_domain=True, allow_partial=False, verbose=
     print('\n%-14s %-26s %7s %7s %7s %7s %10s %10s' % (
         'variant', 'metric', 'real', 'null', 'pnull', 'rand', 'real-pnull', 'real-rand'))
     print('-' * 96)
-    for metric in ('reliability_within', 'reliability_ceiling',
+    for metric in ('reliability_within', 'reliability_within_maps', 'reliability_ceiling',
                    'reliability_across', 'reliability_across_halves',
                    'fidelity_within', 'fidelity_within_insample', 'fidelity_within_r',
                    'fidelity_across', 'fidelity_across_halves',
