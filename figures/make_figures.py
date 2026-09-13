@@ -287,7 +287,7 @@ def fig_references():
     # Below everything, including the bracket band, which hangs outside the axes; a
     # legend reserved inside the figure lands on top of it. bbox_inches='tight' at save
     # time keeps the negative offset in frame.
-    fig.legend(handles=handles, loc='upper center', bbox_to_anchor=(0.5, 0.005),
+    fig.legend(handles=handles, loc='upper center', bbox_to_anchor=(0.5, -0.035),
                ncol=3, frameon=False, fontsize=8.5)
     fig.tight_layout(rect=(0, 0.10, 1, 1))
     # The bracket band goes below the rotated arm labels, whose depth in axes-fraction
