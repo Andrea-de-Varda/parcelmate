@@ -207,12 +207,10 @@ def brackets(ax, y, drop, fontsize=8.0, lw=1.0, color='0.35'):
         for x in (x0 - 0.35, x1 + 0.35):
             ax.plot([x, x], [y, y + drop], color=color, lw=lw,
                     transform=ax.get_xaxis_transform(), clip_on=False)
-        # A two-arm group is narrower than its own name, so those labels are rotated;
-        # horizontal ones would overlap their neighbours.
-        wide = (x1 - x0) >= 3
-        ax.text((x0 + x1) / 2, y - drop * 0.6, gname,
-                ha='center' if wide else 'right', va='top' if wide else 'center',
-                rotation=0 if wide else 30, rotation_mode='anchor',
+        # Every group label is tilted, not only the narrow ones: a mix of horizontal and
+        # rotated labels reads as two kinds of thing rather than one row of group names.
+        ax.text((x0 + x1) / 2, y - drop * 0.6, gname, ha='right', va='center',
+                rotation=30, rotation_mode='anchor',
                 fontsize=fontsize, color='0.15', fontweight='bold',
                 transform=ax.get_xaxis_transform(), clip_on=False)
 
@@ -223,7 +221,7 @@ def brackets(ax, y, drop, fontsize=8.0, lw=1.0, color='0.35'):
 # the finding: how much the partition earns beyond one that knows only per-unit properties.
 # ---------------------------------------------------------------------------------------
 def fig_references():
-    fig, axes = plt.subplots(2, 2, figsize=(13.0 * 0.82, 6.6 * 0.82), dpi=300, sharex=True)
+    fig, axes = plt.subplots(2, 2, figsize=(13.0 * 0.82, 6.5 * 0.82), dpi=300, sharex=True)
     panels = [
         (axes[0, 0], 'reliability_within', 'Reliability (ARI)', 'within domain\n(split halves)'),
         (axes[0, 1], 'fidelity_within_r', 'Fidelity (r)', None),
@@ -272,7 +270,7 @@ def fig_references():
     for ax in axes[1]:
         ax.set_xticks([XPOS[a] for a in ARMS])
         ax.set_xticklabels([ARM_LABELS[a] for a in ARMS], rotation=90, fontsize=7.5)
-        brackets(ax, y=-0.60, drop=0.035)
+        brackets(ax, y=-0.68, drop=0.035)
 
     handles = [
         Line2D([0], [0], marker='o', color='none', markerfacecolor='white',
@@ -282,7 +280,7 @@ def fig_references():
         Line2D([0], [0], color=NS_EDGE, lw=3, alpha=0.35,
                label='does not beat it in every domain'),
     ]
-    fig.legend(handles=handles, loc='lower center', bbox_to_anchor=(0.5, 0.004),
+    fig.legend(handles=handles, loc='lower center', bbox_to_anchor=(0.5, 0.0),
                ncol=3, frameon=False, fontsize=8.5)
     fig.tight_layout(rect=(0, 0.04, 1, 1))
     save_fig(fig, 'arms_references')
