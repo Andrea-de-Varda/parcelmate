@@ -15,7 +15,7 @@ from transformers import AutoModel, AutoTokenizer
 from parcelmate.constants import *
 from parcelmate.data import *
 from parcelmate.util import *
-from parcelmate.metrics import blockmodel_refine, block_sse
+from parcelmate.metrics import blockmodel_refine, block_sse, center_connectivity
 from parcelmate.plot import *
 
 
@@ -386,6 +386,8 @@ def sample_parcellations(
         blockmodel_max_iter=50,
         binarize_scope='row',
         sparsify_fisher=False,
+        sparsify_profiles=False,
+        blockmodel_center=None,
         signed_connectivity=None,
         ica_max_iter=1000,
         ica_tol=1e-4,
@@ -423,6 +425,11 @@ def sample_parcellations(
       ward       Ward agglomerative on the same features. Deterministic, so a single
                  sample is the parcellation and the restart-split ceiling is 1 by
                  construction; `n_samples` is forced to 1.
+      ward_kmeans
+                 Ward, then Lloyd k-means started from Ward's centroids (LOG.md Iteration
+                 17, T2). Deterministic like Ward, so `n_samples` is forced to 1, but it
+                 ends at a local optimum of the k-means objective, which Ward's greedy
+                 merges do not reach. `clustering_kwargs` go to the k-means step.
 
       ica        MRI-style spatial ICA (LOG.md Iteration 15, YOLO 4). Needs
                  `signed_connectivity`, the signed correlation matrix: the whitened spatial
@@ -447,18 +454,39 @@ def sample_parcellations(
     follows each restart with `metrics.blockmodel_refine` on the RAW |r| the scorer targets,
     so the arm optimizes the block-model error that fidelity measures rather than the
     row-profile error k-means minimizes (YOLO 2).
+
+    `sparsify_profiles` keeps the top 10% of each STANDARDIZED profile and re-standardizes
+    (`sparsify_standardized`): the sparsity of the row-binarized arms with the row scale of
+    the standardized ones (LOG.md Iteration 17, T2). `blockmodel_center` ('double' or
+    'degree') centres the refinement target first (`metrics.center_connectivity`), so the
+    refinement can gain only by fitting the pattern of the connectivity, not each unit's
+    overall level (T5).
     """
-    assert clustering in ('minibatch', 'kmeans', 'ward', 'ica'), \
-        'clustering must be minibatch, kmeans, ward or ica, got %r' % (clustering,)
+    assert clustering in ('minibatch', 'kmeans', 'ward', 'ward_kmeans', 'ica'), \
+        'clustering must be minibatch, kmeans, ward, ward_kmeans or ica, got %r' % (clustering,)
     assert binarize_scope in ('row', 'global'), \
         'binarize_scope must be row or global, got %r' % (binarize_scope,)
     assert not (sparsify_fisher and not fisher_transform), \
         'sparsify_fisher keeps Fisher magnitudes, so it needs fisher_transform: true'
     assert not (sparsify_fisher and binarize_connectivity), \
         'sparsify_fisher and binarize_connectivity are alternatives'
-    if clustering == 'ward' and n_samples != 1:
+    assert not (sparsify_profiles and not standardize_profiles), \
+        'sparsify_profiles sparsifies the standardized profiles, so it needs standardize_profiles: true'
+    assert not (sparsify_profiles and (sparsify_fisher or binarize_connectivity)), \
+        'sparsify_profiles, sparsify_fisher and binarize_connectivity are alternatives'
+    # z-scores already share one scale, so a global threshold would keep more partners in
+    # heavy-tailed rows and put a per-unit property back into the profiles.
+    assert not (sparsify_profiles and binarize_scope != 'row'), \
+        'sparsify_profiles is row-wise; binarize_scope must be row'
+    if blockmodel_center in ('none', 'None', False):
+        blockmodel_center = None
+    assert blockmodel_center in (None, 'double', 'degree'), \
+        'blockmodel_center must be null, double or degree, got %r' % (blockmodel_center,)
+    assert not (blockmodel_center and not blockmodel_refine_labels), \
+        'blockmodel_center sets the refinement target, so it needs blockmodel_refine_labels: true'
+    if clustering in ('ward', 'ward_kmeans') and n_samples != 1:
         if verbose:
-            stderr('%sward is deterministic: n_samples %d -> 1\n' % (' ' * indent, n_samples))
+            stderr('%s%s is deterministic: n_samples %d -> 1\n' % (' ' * indent, clustering, n_samples))
         n_samples = 1
     if verbose:
         stderr('%sSampling (n_networks=%d, clustering=%s)\n' % (' ' * indent, n_networks, clustering))
@@ -579,6 +607,8 @@ def sample_parcellations(
         # it. `triviality_ami_hubness` and `fidelity_within` together adjudicate -- hubness
         # was nuisance if AMI falls and fidelity holds, signal if fidelity falls with it.
         X = standardize_array(np.asarray(X, dtype=np.float64), axis=-1)
+        if sparsify_profiles:
+            X = sparsify_standardized(X)
     if connectivity_pca_components:
         n_components = connectivity_pca_components
         if n_components == 'auto':
@@ -613,6 +643,10 @@ def sample_parcellations(
         # The scorer's target is |r| itself (util.connectivity_matrix), not the Fisher or
         # standardized features k-means saw, so the refinement runs on `connectivity`.
         R_target = np.asarray(connectivity, dtype=np.float64)
+        if blockmodel_center:
+            # Fidelity is still scored on raw |r|; only what the refinement may fit changes.
+            # Uncentred, the refinement bought within-domain fit with hubness (Iteration 16).
+            R_target = center_connectivity(R_target, blockmodel_center)
     for i in range(n_samples):
         if verbose and n_samples > 1:
             stderr('\r%sSample %d/%d' % (' ' * indent, i + 1, n_samples))
@@ -621,6 +655,18 @@ def sample_parcellations(
             m = AgglomerativeClustering(n_clusters=n_networks, linkage='ward', **_clustering_kwargs)
             _sample = m.fit_predict(X)
             _score = 0.0  # no inertia; every restart is identical anyway
+        elif clustering == 'ward_kmeans':
+            # Lloyd from Ward's centroids. A tree cut at k leaves no cluster empty, so every
+            # centroid is defined, and with an explicit init Lloyd is deterministic.
+            ward_labels = AgglomerativeClustering(n_clusters=n_networks, linkage='ward').fit_predict(X)
+            onehot = np.zeros((n_units, n_networks))
+            onehot[np.arange(n_units), ward_labels] = 1.0
+            centers = (onehot.T @ np.asarray(X, dtype=np.float64)) / onehot.sum(axis=0)[:, None]
+            _clustering_kwargs.setdefault('n_init', 1)
+            _clustering_kwargs.setdefault('random_state', rng)  # so nothing falls back to the global RNG
+            m = KMeans(n_clusters=n_networks, init=centers, **_clustering_kwargs)
+            _sample = m.fit_predict(X)
+            _score = m.inertia_
         else:
             _clustering_kwargs.setdefault('random_state', rng)  # Explicit config still wins
             if clustering == 'kmeans':
@@ -643,6 +689,24 @@ def sample_parcellations(
         samples=samples,  # <n_samples, n_units>
         scores=scores  # <n_samples>
     )
+
+
+def sparsify_standardized(Z, q=0.9):
+    """Keep each standardized profile's entries above its q-quantile, zero the rest, and
+    re-standardize (LOG.md Iteration 17, T2).
+
+    The ORDER is the point. The kept set is the same whether one thresholds the magnitudes
+    or their z-scores, since a z-score is a monotone function of its row, but the kept
+    values are not. Thresholded magnitudes keep their offset from zero, so the kept entries
+    of a unit with a high baseline stand far above the zeros (a nearly binary profile) while
+    those of a unit with a low baseline are graded, and the unit's level leaks back into the
+    shape of its profile. Kept z-scores start from the same place in every row, so two units
+    with the same pattern at different levels get identical profiles. Re-standardizing puts
+    each row back on the sphere, so Euclidean distance is again a monotone function of the
+    correlation between profiles.
+    """
+    thr = np.quantile(Z, q, axis=1, keepdims=True)
+    return standardize_array(np.where(Z > thr, Z, 0.0), axis=-1)
 
 
 def _align_samples(
@@ -1206,6 +1270,8 @@ def run_parcellation(
         blockmodel_max_iter=50,
         binarize_scope='row',
         sparsify_fisher=False,
+        sparsify_profiles=False,
+        blockmodel_center=None,
         ica_max_iter=1000,
         ica_tol=1e-4,
         n_alignments=None,
@@ -1291,6 +1357,8 @@ def run_parcellation(
             blockmodel_max_iter=blockmodel_max_iter,
             binarize_scope=binarize_scope,
             sparsify_fisher=sparsify_fisher,
+            sparsify_profiles=sparsify_profiles,
+            blockmodel_center=blockmodel_center,
             # ICA needs the sign structure; every other path sees |r| (or |z|).
             signed_connectivity=(np.nan_to_num(data['connectivity']) if clustering == 'ica' else None),
             ica_max_iter=ica_max_iter,
@@ -1358,6 +1426,8 @@ def run_parcellation(
                 blockmodel_max_iter=int(blockmodel_max_iter),
                 binarize_scope=str(binarize_scope),
                 sparsify_fisher=bool(sparsify_fisher),
+                sparsify_profiles=bool(sparsify_profiles),
+                blockmodel_center=str(blockmodel_center),
                 ica_max_iter=int(ica_max_iter),
                 ica_tol=float(ica_tol),
                 binarize_connectivity=bool(binarize_connectivity),

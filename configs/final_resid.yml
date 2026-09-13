@@ -1,0 +1,61 @@
+# Final test T1, residual-stream half (LOG.md Iteration 17): Ward on standardized Fisher
+# profiles at k = 150 and 200, extending `vmf_ward` (k = 50) and `vmf_ward100` of
+# configs/yolo.yml, whose settings these arms repeat except for k (under test). With the MLP
+# Ward arms of configs/final_mlp.yml this gives the k trend on both unit types. On the
+# residual stream Ward's reliability and transfer both rose from k = 50 to 100, and so did
+# its AMI with the dimension index (0.53 -> 0.61). If chain-following is what grows with k,
+# it should keep growing here and not on MLP units.
+#
+# Connectivity hard-linked from results/yolo{,_null} (itself linked from the ladder), so the
+# `connectivity` section must stay identical to configs/yolo.yml (under test).
+#
+# Outputs:
+#   results/final_resid/<variant>/parcellation/
+#   results/final_resid_null/...
+#   results/final_resid/metrics/scores.csv
+
+output_dir: results/final_resid
+
+seed: 42
+
+connectivity:
+  model_name: gpt2
+  n_samples: 4
+  domains:
+    - wikitext
+    - bookcorpus
+    - agnews
+    - tldr17
+  seq_len: 1024
+  n_tokens: null
+  split: train
+  take: 100000
+  wrap: true
+  shuffle: true
+  batch_size: 8
+  highpass: null
+  lowpass: null
+  step: 0.2
+  timecourse_pca_components: null
+  timecourse_ica_components: null
+  eps: 1.0e-3
+  null_model: circshift
+  n_surrogates: 0
+
+parcellation:
+  n_networks: 150
+  n_samples: 40   # Ward forces 1; kept so the settings match configs/yolo.yml exactly
+  clustering: ward
+  binarize_connectivity: false
+  fisher_transform: true
+  standardize_profiles: true
+  connectivity_pca_components: null
+  clustering_kwargs: null
+  n_alignments: null
+  weight_samples: false
+  parcellate_samples: false
+
+parcellation_variants:
+  vmf_ward150: {}
+  vmf_ward200:
+    n_networks: 200

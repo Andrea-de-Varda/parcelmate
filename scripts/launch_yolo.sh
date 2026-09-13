@@ -1,6 +1,7 @@
 #!/bin/bash
 #
-# Generate and submit the Iteration 14 YOLO runs (LOG.md Iteration 14).
+# Generate and submit the YOLO runs (LOG.md Iterations 14-15) and the final tests T1, T2
+# and T5 (Iteration 17).
 #
 # `jobs/` is gitignored -- batch scripts are generated artifacts, not source -- so the
 # generation step has to run on the cluster. Following the division in info/CLUSTER.md
@@ -27,9 +28,13 @@ CONDA_ENV=${CONDA_ENV:-parcelmate}
 MODE=${1:-}
 
 case "$MODE" in
-    generate|submit|resume|generate4|submit4) ;;
+    generate|submit|resume|generate4|submit4|generate_final|submit_final) ;;
     *)
-        echo "usage: $0 {generate|submit|resume|generate4|submit4}" >&2
+        echo "usage: $0 {generate|submit|resume|generate4|submit4|generate_final|submit_final}" >&2
+        echo "  generate_final  final tests T1, T2, T5 (configs/final_mlp.yml, final_resid.yml):" >&2
+        echo "                  link connectivity from results/yolo_mlp and results/yolo, write" >&2
+        echo "                  jobs/final_*.pbs (run on scdt)" >&2
+        echo "  submit_final    sbatch the 17 arms and their three score jobs (run on sc)" >&2
         echo "  generate4 YOLO 4 (configs/yolo4.yml): link connectivity from results/yolo" >&2
         echo "            and write jobs/yolo4.*.pbs (run on scdt)" >&2
         echo "  submit4   sbatch the eight YOLO 4 arms and their score job (run on sc)" >&2
@@ -203,10 +208,108 @@ submit4() {
     squeue -u "$USER" -o "%.9i %.50j %.9T %.10M %R"
 }
 
+# Final tests T1, T2, T5 (LOG.md Iteration 17). The arm lists are grouped by cost, and a test
+# checks that together they are exactly the arms of the two configs.
+FINAL_MLP_WARD="vmf_ward vmf_ward100 vmf_ward150 vmf_ward200 vmf_sparse_ward100"
+FINAL_MLP_WARD_PLUS="vmf_wardlloyd100 vmf_ward100_bm vmf_ward100_bm_double vmf_ward100_bm_degree"
+FINAL_MLP_PCA="vmf_pca20_ward100 vmf_pca20_lloyd100 vmf_pca100_ward100 vmf_pca100_lloyd100"
+FINAL_MLP_LLOYD="vmf_lloyd100 vmf_sparse_lloyd100"
+FINAL_RESID="vmf_ward150 vmf_ward200"
+
+generate_final() {
+    if [ -f "$CONDA_SH" ]; then
+        source "$CONDA_SH"
+        conda activate "$CONDA_ENV"
+    fi
+    mkdir -p jobs logs
+    # Connectivity is already on disk: MLP units from YOLO 3, the residual stream from YOLO 1+2
+    # (itself linked from the ladder). Prose domains, samples + avg + halves, both trees.
+    local pair dst src t f
+    for pair in final_mlp:yolo_mlp final_resid:yolo; do
+        dst=${pair%%:*}
+        src=${pair##*:}
+        for t in "" _null; do
+            mkdir -p results/$dst$t/connectivity
+            for f in results/$src$t/connectivity/connectivity_*.h5; do
+                ln -f "$f" results/$dst$t/connectivity/
+            done
+            echo "results/$dst$t/connectivity: $(ls results/$dst$t/connectivity | wc -l) files"
+        done
+    done
+    local M="python -m parcelmate.bin.make_jobs"
+    local CPU=configs/cluster/sc-cpu.yml
+    local a
+    # Ward on 9,984 full profiles: scipy's linkage is single-threaded, and YOLO 1 took
+    # 2 h 19 (k = 50) and 2 h 54 (k = 100) for 24 matrices. The tree does not depend on k.
+    for a in $FINAL_MLP_WARD; do
+        $M configs/final_mlp.yml -c $CPU -s parcellation -V $a -t 5 -m 16 -n 4 -o jobs/
+    done
+    # Ward plus one Lloyd run, or plus the block-model refinement (BLAS sweeps, minutes).
+    for a in $FINAL_MLP_WARD_PLUS; do
+        $M configs/final_mlp.yml -c $CPU -s parcellation -V $a -t 8 -m 16 -n 8 -o jobs/
+    done
+    # PCA-20/100 and then clustering in 20-100 dimensions: about a minute per matrix.
+    for a in $FINAL_MLP_PCA; do
+        $M configs/final_mlp.yml -c $CPU -s parcellation -V $a -t 2 -m 16 -n 8 -o jobs/
+    done
+    # 40 Lloyd restarts at k = 100 on full profiles: 6 h 07 on the residual stream, and MLP
+    # Lloyd ran 1.45x slower than residual at k = 50 (4 h 08 against 2 h 51), so ~9 h.
+    for a in $FINAL_MLP_LLOYD; do
+        $M configs/final_mlp.yml -c $CPU -s parcellation -V $a -t 14 -m 16 -n 8 -o jobs/
+    done
+    # An early score of the 13 arms that do not wait on the two Lloyd arms (its name is
+    # 13arms_<digest>, from `variants_tag`), then the full table.
+    $M configs/final_mlp.yml -c $CPU -s score -V $FINAL_MLP_WARD $FINAL_MLP_WARD_PLUS $FINAL_MLP_PCA \
+        -t 6 -m 16 -n 4 -o jobs/
+    $M configs/final_mlp.yml -c $CPU -s score -t 6 -m 16 -n 4 -o jobs/
+    for a in $FINAL_RESID; do
+        $M configs/final_resid.yml -c $CPU -s parcellation -V $a -t 5 -m 16 -n 4 -o jobs/
+    done
+    $M configs/final_resid.yml -c $CPU -s score -t 2 -m 16 -n 4 -o jobs/
+    ls -1 jobs/final_*.pbs
+}
+
+submit_final() {
+    mkdir -p logs
+    echo "code at $(git log --oneline | head -1)"
+    local a id early="" all="" resid="" early_pbs
+    for a in $FINAL_MLP_WARD $FINAL_MLP_WARD_PLUS $FINAL_MLP_PCA; do
+        id=$(sbatch --parsable jobs/final_mlp.parcellation.$a.pbs)
+        echo "final_mlp $a -> $id"
+        early="$early:$id"
+    done
+    all=$early
+    for a in $FINAL_MLP_LLOYD; do
+        id=$(sbatch --parsable jobs/final_mlp.parcellation.$a.pbs)
+        echo "final_mlp $a -> $id"
+        all="$all:$id"
+    done
+    early_pbs=$(ls jobs/final_mlp.score.13arms_*.pbs)
+    if [ "$(echo "$early_pbs" | wc -l)" -ne 1 ]; then
+        echo "expected one early score script, found: $early_pbs" >&2
+        exit 1
+    fi
+    id=$(sbatch --parsable --dependency=afterok${early} "$early_pbs")
+    echo "final_mlp early score (13 arms) -> $id"
+    id=$(sbatch --parsable --dependency=afterok${all} jobs/final_mlp.score.pbs)
+    echo "final_mlp full score -> $id"
+    for a in $FINAL_RESID; do
+        id=$(sbatch --parsable jobs/final_resid.parcellation.$a.pbs)
+        echo "final_resid $a -> $id"
+        resid="$resid:$id"
+    done
+    id=$(sbatch --parsable --dependency=afterok${resid} jobs/final_resid.score.pbs)
+    echo "final_resid score -> $id"
+    echo
+    squeue -u "$USER" -o "%.9i %.50j %.9T %.10M %R"
+}
+
 case "$MODE" in
     generate)  generate ;;
     submit)    submit ;;
     resume)    resume ;;
     generate4) generate4 ;;
     submit4)   submit4 ;;
+    generate_final) generate_final ;;
+    submit_final)   submit_final ;;
 esac

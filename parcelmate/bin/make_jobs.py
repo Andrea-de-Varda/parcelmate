@@ -3,6 +3,8 @@ import argparse
 
 import yaml
 
+from parcelmate.util import variants_tag
+
 # Built-in fallbacks, used when neither the cluster profile nor the CLI supplies a value.
 DEFAULTS = {
     'time': 24,
@@ -54,7 +56,7 @@ def get_job(config_path, settings, steps=None, overwrite=False, seed=None, varia
     if steps:
         job_name = '%s.%s' % (job_name, '_'.join(steps))
     if variants:
-        job_name = '%s.%s' % (job_name, '_'.join(variants))
+        job_name = '%s.%s' % (job_name, variants_tag(variants))
     log_dir = settings['log_dir']
     if settings['workdir'] and not os.path.isabs(log_dir):
         log_dir = os.path.join(settings['workdir'], log_dir)
@@ -167,7 +169,7 @@ if __name__ == '__main__':
         if args.steps:
             job_name = '%s.%s' % (job_name, '_'.join(args.steps))
         if args.variants:
-            job_name = '%s.%s' % (job_name, '_'.join(args.variants))
+            job_name = '%s.%s' % (job_name, variants_tag(args.variants))
         filename = os.path.join(outdir, job_name + '.pbs')
         with open(filename, 'w') as f:
             f.write(get_job(path, settings, steps=args.steps, overwrite=args.overwrite, seed=args.seed,

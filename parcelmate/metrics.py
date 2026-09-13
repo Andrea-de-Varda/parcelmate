@@ -398,6 +398,59 @@ def blockmodel_refine(R, labels, n_networks, max_iter=50, verbose=False):
     return best_labels, best_sse
 
 
+def center_connectivity(R, mode):
+    """Remove each unit's overall level from a connectivity matrix, for a block-model fit.
+
+    Refining a partition on raw |r| bought within-domain fit with hubness: blocks can fit a
+    unit's overall connection strength by grouping strong units together, and that is the
+    part of the connectome a partition knowing only per-unit properties already recovers
+    (the `blockmodel` arms, LOG.md Iteration 16). Refining on a centred matrix leaves only
+    the pattern to gain from (Iteration 17, T5). Per-unit effects can be additive or
+    multiplicative, and each centring removes one exactly while leaving a rank-1 residue of
+    the other, so both are offered:
+
+      double  R_ij - g - a_i - a_j, the least-squares additive fit over i != j:
+              g = off-diagonal grand mean, a_i = (r_i - (n - 1) g) / (n - 2), r_i the
+              off-diagonal row sum. Exact for R_ij = mu + a_i + a_j, and every row of the
+              result sums to zero. A multiplicative theta_i theta_j leaves
+              (theta_i - mean)(theta_j - mean): strong units still attract strong units.
+      degree  R_ij - r_i r_j / sum(r), the expectation removed in the modularity matrix
+              (Newman 2006, PNAS 103:8577) and the correction the degree-corrected block
+              model builds in (Karrer & Newman 2011, Phys. Rev. E 83:016107). Exact up to
+              O(1/n) for R_ij = c theta_i theta_j. An additive a_i + a_j leaves
+              -(a_i - mean)(a_j - mean) / (2 mean).
+
+    On the planted generator in tests/verify_iter10_final.py, refinement on raw |r| drifts
+    to hubness under either kind of effect, `degree` keeps the planted partition under
+    both, and `double` starts to leak once a multiplicative effect is strong.
+
+    Returns a new float64 array with a zero diagonal; `R` is untouched. The result is
+    signed, which `blockmodel_refine` handles: its cost is a plain sum of squares.
+    """
+    assert mode in ('double', 'degree'), 'mode must be double or degree, got %r' % (mode,)
+    out = np.array(R, dtype=np.float64, copy=True)
+    np.fill_diagonal(out, 0.0)
+    n = out.shape[0]
+    assert n > 2, 'centring needs more than two units'
+    r = out.sum(axis=1)
+    if mode == 'double':
+        g = r.sum() / (n * (n - 1))
+        a = (r - (n - 1) * g) / (n - 2)
+        out -= g
+        out -= a[:, None]
+        out -= a[None, :]
+    else:
+        total = r.sum()
+        assert total > 0, 'degree centring needs a matrix with positive total strength'
+        # A block of rows at a time, so no n x n temporary is built next to `out`.
+        step = 1024
+        for s in range(0, n, step):
+            out[s:s + step] -= np.outer(r[s:s + step], r) / total
+    np.fill_diagonal(out, 0.0)
+
+    return out
+
+
 SUMMARY_TREES = ('real', 'null', 'pnull', 'rand')
 
 

@@ -1,0 +1,128 @@
+# Final tests T1, T2 and T5 on MLP units (LOG.md Iteration 17). GPT-2 post-GELU neurons,
+# 12 x 832 = 9,984 units, prose domains. Connectivity is hard-linked from
+# results/yolo_mlp{,_null} (`scripts/launch_yolo.sh generate_final`), so no GPU is used and
+# the `connectivity` section below must stay identical to configs/yolo_mlp.yml (under test).
+# Every arm clusters standardized Fisher profiles, the family that owns transfer
+# (Iteration 16), and every arm is parcellated on the null tree too, so each has its own
+# matched null partition.
+#
+# T1 -- unit, algorithm, k. Ward at k = 50, 100, 150, 200 and Lloyd at k = 100, with settings
+#   identical to the residual-stream arms of configs/yolo.yml (under test); residual Ward at
+#   k = 150 and 200 is configs/final_resid.yml. MLP units have no residual-stream chains, so
+#   this is the clean test of whether Ward's transfer lead on the residual stream
+#   (across-domain fidelity, real - pnull, 0.224 against 0.189 for Lloyd at k = 100) was
+#   chain-following.
+#
+# T2 -- denoise the standardized profiles. At equal optimizer, row-binarized profiles
+#   (PCA-200, unwhitened) were more reliable than standardized ones (0.65 against 0.57) with
+#   the same raw transfer. Either the PCA truncation denoised, or keeping only each unit's
+#   strongest 10% of partners did. Both, applied to the standardized profiles: PCA-d without
+#   whitening (d = 20, 100), and the top 10% of each z-scored profile, re-standardized
+#   (`sparsify_profiles`), each with Ward and with Lloyd; plus Lloyd started from Ward's
+#   centroids (`clustering: ward_kmeans`), a deterministic k-means.
+#
+# T5 -- a pattern-only block-model polish. Ward k = 100 refined by block-model coordinate
+#   descent on raw |r| (the control: the `blockmodel` arms bought within-domain fit with
+#   hubness) and on |r| with each unit's level removed first, additively (`double`) or
+#   multiplicatively (`degree`, the modularity-matrix correction). Fidelity is scored on raw
+#   |r| for all three. k = 100 because T1 has not chosen k yet; the polish is cheap to rerun.
+#
+# Outputs:
+#   results/final_mlp/<variant>/parcellation/
+#   results/final_mlp_null/...                 circshift null, same arms
+#   results/final_mlp/metrics/scores.csv
+
+output_dir: results/final_mlp
+
+seed: 42
+
+connectivity:
+  model_name: gpt2
+  unit_type: mlp
+  units_per_layer: 832
+  n_samples: 4
+  domains:
+    - wikitext
+    - bookcorpus
+    - agnews
+    - tldr17
+  seq_len: 1024
+  n_tokens: null
+  split: train
+  take: 100000
+  wrap: true
+  shuffle: true
+  batch_size: 8
+  highpass: null
+  lowpass: null
+  step: 0.2
+  timecourse_pca_components: null
+  timecourse_ica_components: null
+  eps: 1.0e-3
+  null_model: circshift
+  n_surrogates: 0
+
+parcellation:
+  n_networks: 100
+  # Read by the Lloyd arms only (40 restarts; the ceiling compares two 20-restart
+  # consensuses). Ward and ward_kmeans are deterministic and force a single sample.
+  n_samples: 40
+  clustering: ward
+  binarize_connectivity: false
+  fisher_transform: true
+  standardize_profiles: true
+  connectivity_pca_components: null
+  clustering_kwargs: null
+  n_alignments: null
+  weight_samples: false
+  parcellate_samples: false
+
+parcellation_variants:
+
+  # ---- T1: unit, algorithm, k
+  vmf_ward:
+    n_networks: 50
+  vmf_ward100: {}
+  vmf_ward150:
+    n_networks: 150
+  vmf_ward200:
+    n_networks: 200
+  vmf_lloyd100:
+    clustering: kmeans
+
+  # ---- T2: denoised standardized profiles, all at k = 100
+  # PCA after standardizing (the order the code applies them), without whitening and
+  # without re-normalizing the rows: the discarded components are treated as noise.
+  vmf_pca20_ward100:
+    connectivity_pca_components: 20
+    pca_whiten: false
+  vmf_pca20_lloyd100:
+    connectivity_pca_components: 20
+    pca_whiten: false
+    clustering: kmeans
+  vmf_pca100_ward100:
+    connectivity_pca_components: 100
+    pca_whiten: false
+  vmf_pca100_lloyd100:
+    connectivity_pca_components: 100
+    pca_whiten: false
+    clustering: kmeans
+  # The top 10% of each z-scored profile, re-standardized.
+  vmf_sparse_ward100:
+    sparsify_profiles: true
+  vmf_sparse_lloyd100:
+    sparsify_profiles: true
+    clustering: kmeans
+  # Lloyd from Ward's centroids: deterministic, and at a k-means local optimum.
+  vmf_wardlloyd100:
+    clustering: ward_kmeans
+
+  # ---- T5: block-model polish of Ward k = 100
+  vmf_ward100_bm:
+    blockmodel_refine_labels: true
+  vmf_ward100_bm_double:
+    blockmodel_refine_labels: true
+    blockmodel_center: double
+  vmf_ward100_bm_degree:
+    blockmodel_refine_labels: true
+    blockmodel_center: degree

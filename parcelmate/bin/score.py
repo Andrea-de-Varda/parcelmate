@@ -61,7 +61,7 @@ from parcelmate.metrics import (
 )
 from parcelmate.util import (
     connectivity_matrix, derive_seed, h5_keys, load_h5_array, load_h5_data, read_attrs,
-    stderr,
+    stderr, variants_tag,
 )
 
 # Within-domain, both halves share a scale, so variance explained is meaningful and is the
@@ -480,7 +480,7 @@ def score_config(cfg, out=None, cross_domain=True, allow_partial=False, verbose=
     # A restricted variant set writes to its own file, so a partial table never overwrites
     # the full one; the full score of the same tree can still be run later.
     default_name = 'scores.csv' if variants == all_variants \
-        else 'scores_%s.csv' % '_'.join(variants)
+        else 'scores_%s.csv' % variants_tag(variants)
     out_path = out or os.path.join(root, 'metrics', default_name)
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     with open(out_path, 'w', newline='') as f:

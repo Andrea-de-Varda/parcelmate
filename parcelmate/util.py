@@ -29,6 +29,24 @@ def derive_seed(seed, *keys):
     return int((int(seed) + int(digest[:8], 16)) % (2 ** 32))
 
 
+def variants_tag(variants, max_len=100):
+    """Name for a restricted set of arms (`-V`), used in job names and score file names.
+
+    The arm names joined by '_' while that stays short, as before. Past `max_len` it becomes
+    '<n>arms_<digest>', the digest taken over the sorted names, so two different subsets
+    never share a name and no path runs into the 255-byte file-name limit: the 13-arm early
+    score of configs/final_mlp.yml is 215 characters joined, before the job prefix and the
+    SLURM log suffix are added. `max_len` sits above the longest list used before (72
+    characters, the YOLO 1 partial score), so earlier job and file names are unchanged.
+    """
+    joined = '_'.join(variants)
+    if len(joined) <= max_len:
+        return joined
+    digest = hashlib.sha1(' '.join(sorted(variants)).encode('utf-8')).hexdigest()[:8]
+
+    return '%darms_%s' % (len(variants), digest)
+
+
 def set_seed(seed):
     """Seed the global RNGs (numpy, torch, python's random). No-op if seed is None.
 
