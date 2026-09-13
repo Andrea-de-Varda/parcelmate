@@ -199,8 +199,13 @@ def beats_ref(metric, variant):
     return bool(len(d)) and bool((d > 0).all())
 
 
-def brackets(ax, y, drop, fontsize=8.0, lw=1.0, color='0.35'):
-    """Grouping brackets in axes coordinates below the plot, one per family."""
+def brackets(ax, y, drop, label_gap, fontsize=8.0, lw=1.0, color='0.35'):
+    """Grouping brackets below the plot, one per family, in axes coordinates.
+
+    `y` is the bracket line, in axis-height units below the axes. It has to clear the
+    rotated arm labels, whose length is set by the longest of them ("global thr. k100"),
+    not by the axes; `label_gap` then separates each group name from its own bracket.
+    """
     for gname, x0, x1 in GROUP_SPAN:
         ax.plot([x0 - 0.35, x1 + 0.35], [y, y], color=color, lw=lw,
                 transform=ax.get_xaxis_transform(), clip_on=False)
@@ -209,7 +214,7 @@ def brackets(ax, y, drop, fontsize=8.0, lw=1.0, color='0.35'):
                     transform=ax.get_xaxis_transform(), clip_on=False)
         # Every group label is tilted, not only the narrow ones: a mix of horizontal and
         # rotated labels reads as two kinds of thing rather than one row of group names.
-        ax.text((x0 + x1) / 2, y - drop * 0.6, gname, ha='right', va='center',
+        ax.text((x0 + x1) / 2, y - label_gap, gname, ha='right', va='center',
                 rotation=30, rotation_mode='anchor',
                 fontsize=fontsize, color='0.15', fontweight='bold',
                 transform=ax.get_xaxis_transform(), clip_on=False)
@@ -221,7 +226,7 @@ def brackets(ax, y, drop, fontsize=8.0, lw=1.0, color='0.35'):
 # the finding: how much the partition earns beyond one that knows only per-unit properties.
 # ---------------------------------------------------------------------------------------
 def fig_references():
-    fig, axes = plt.subplots(2, 2, figsize=(13.0 * 0.82, 6.5 * 0.82), dpi=300, sharex=True)
+    fig, axes = plt.subplots(2, 2, figsize=(13.0 * 0.82, 6.7 * 0.82), dpi=300, sharex=True)
     panels = [
         (axes[0, 0], 'reliability_within', 'Reliability (ARI)', 'within domain\n(split halves)'),
         (axes[0, 1], 'fidelity_within_r', 'Fidelity (r)', None),
@@ -270,7 +275,6 @@ def fig_references():
     for ax in axes[1]:
         ax.set_xticks([XPOS[a] for a in ARMS])
         ax.set_xticklabels([ARM_LABELS[a] for a in ARMS], rotation=90, fontsize=7.5)
-        brackets(ax, y=-0.68, drop=0.035)
 
     handles = [
         Line2D([0], [0], marker='o', color='none', markerfacecolor='white',
@@ -280,9 +284,22 @@ def fig_references():
         Line2D([0], [0], color=NS_EDGE, lw=3, alpha=0.35,
                label='does not beat it in every domain'),
     ]
-    fig.legend(handles=handles, loc='lower center', bbox_to_anchor=(0.5, 0.0),
+    # Below everything, including the bracket band, which hangs outside the axes; a
+    # legend reserved inside the figure lands on top of it. bbox_inches='tight' at save
+    # time keeps the negative offset in frame.
+    fig.legend(handles=handles, loc='upper center', bbox_to_anchor=(0.5, 0.005),
                ncol=3, frameon=False, fontsize=8.5)
-    fig.tight_layout(rect=(0, 0.04, 1, 1))
+    fig.tight_layout(rect=(0, 0.10, 1, 1))
+    # The bracket band goes below the rotated arm labels, whose depth in axes-fraction
+    # units depends on the longest label AND on the axes height, so it is measured from the
+    # rendered labels rather than guessed. Done after tight_layout, which is what fixes the
+    # axes height.
+    fig.canvas.draw()
+    for ax in axes[1]:
+        inv = ax.transAxes.inverted()
+        depth = min(inv.transform((0, lbl.get_window_extent().y0))[1]
+                    for lbl in ax.get_xticklabels())
+        brackets(ax, y=depth - 0.05, drop=0.035, label_gap=0.09)
     save_fig(fig, 'arms_references')
 
 
