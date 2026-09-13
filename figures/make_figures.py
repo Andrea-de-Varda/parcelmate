@@ -26,6 +26,8 @@ Within a group the order is inherited pipeline -> converged optimizer -> k = 100
 Figures:
   1. arms_references   -- the main result: real vs the null partition, within and across
                           domains, all 24 arms on x with grouping brackets
+  1b. arms_deltas      -- the same, as real minus null alone: easier to rank once figure 1
+                          has shown where the null sits
   2. hubness_tradeoff  -- hubness buys variance explained but not pattern correlation,
                           and costs transfer; the R^2/r contrast is the mechanism
   3. within_vs_across  -- like-for-like (r against r): no arm transfers as well as it fits
@@ -220,6 +222,37 @@ def brackets(ax, y, drop, label_gap, fontsize=8.0, lw=1.0, color='0.35'):
                 transform=ax.get_xaxis_transform(), clip_on=False)
 
 
+def place_brackets(fig, axes_row):
+    """Draw the group brackets below the rotated arm labels of each axis in `axes_row`.
+
+    The depth of a rotated label in axes-fraction units depends on the longest label AND on
+    the axes height, so a fixed offset collides with "global thr. k100" whenever the figure
+    is resized. Measure the rendered labels instead. Call after `tight_layout`, which is
+    what fixes the axes height.
+    """
+    fig.canvas.draw()
+    for ax in axes_row:
+        inv = ax.transAxes.inverted()
+        depth = min(inv.transform((0, lbl.get_window_extent().y0))[1]
+                    for lbl in ax.get_xticklabels())
+        brackets(ax, y=depth - 0.05, drop=0.035, label_gap=0.09)
+
+
+def arm_labels(axes_row):
+    for ax in axes_row:
+        ax.set_xticks([XPOS[a] for a in ARMS])
+        ax.set_xticklabels([ARM_LABELS[a] for a in ARMS], rotation=90, fontsize=7.5)
+
+
+PANELS = [
+    ((0, 0), 'reliability_within', 'Reliability (ARI)', 'within domain\n(split halves)'),
+    ((0, 1), 'fidelity_within_r', 'Fidelity (r)', None),
+    ((1, 0), 'reliability_across_halves', 'Reliability (ARI)',
+     'across domains\n(12 prose pairs)'),
+    ((1, 1), 'fidelity_across_halves', 'Fidelity (r)', None),
+]
+
+
 # ---------------------------------------------------------------------------------------
 # Figure 1 -- the main result. Arms on x (24 of them would make an unreadably tall figure
 # on y), grouped by what the clustering sees. The gap between the open and filled dot is
@@ -227,14 +260,8 @@ def brackets(ax, y, drop, label_gap, fontsize=8.0, lw=1.0, color='0.35'):
 # ---------------------------------------------------------------------------------------
 def fig_references():
     fig, axes = plt.subplots(2, 2, figsize=(13.0 * 0.82, 6.7 * 0.82), dpi=300, sharex=True)
-    panels = [
-        (axes[0, 0], 'reliability_within', 'Reliability (ARI)', 'within domain\n(split halves)'),
-        (axes[0, 1], 'fidelity_within_r', 'Fidelity (r)', None),
-        (axes[1, 0], 'reliability_across_halves', 'Reliability (ARI)',
-         'across domains\n(12 prose pairs)'),
-        (axes[1, 1], 'fidelity_across_halves', 'Fidelity (r)', None),
-    ]
-    for ax, metric, title, rowlabel in panels:
+    for (i, j), metric, title, rowlabel in PANELS:
+        ax = axes[i, j]
         for arm in ARMS:
             x = XPOS[arm]
             real, ref = mean(metric, 'real', arm), mean(metric, 'pnull', arm)
@@ -272,9 +299,7 @@ def fig_references():
     ax.text(0.02, 0.95, 'best transfer (ringed):\n%s %s' % (ARM_GROUP[best], ARM_LABELS[best]),
             transform=ax.transAxes, ha='left', va='top', fontsize=7.5, color='0.2')
 
-    for ax in axes[1]:
-        ax.set_xticks([XPOS[a] for a in ARMS])
-        ax.set_xticklabels([ARM_LABELS[a] for a in ARMS], rotation=90, fontsize=7.5)
+    arm_labels(axes[1])
 
     handles = [
         Line2D([0], [0], marker='o', color='none', markerfacecolor='white',
@@ -290,17 +315,64 @@ def fig_references():
     fig.legend(handles=handles, loc='upper center', bbox_to_anchor=(0.5, -0.035),
                ncol=3, frameon=False, fontsize=8.5)
     fig.tight_layout(rect=(0, 0.10, 1, 1))
-    # The bracket band goes below the rotated arm labels, whose depth in axes-fraction
-    # units depends on the longest label AND on the axes height, so it is measured from the
-    # rendered labels rather than guessed. Done after tight_layout, which is what fixes the
-    # axes height.
-    fig.canvas.draw()
-    for ax in axes[1]:
-        inv = ax.transAxes.inverted()
-        depth = min(inv.transform((0, lbl.get_window_extent().y0))[1]
-                    for lbl in ax.get_xticklabels())
-        brackets(ax, y=depth - 0.05, drop=0.035, label_gap=0.09)
+    place_brackets(fig, axes[1])
     save_fig(fig, 'arms_references')
+
+
+# ---------------------------------------------------------------------------------------
+# Figure 1b -- the same comparison as one number per arm. Figure 1 shows where the null
+# partition sits, which is what makes "real - null" a credible quantity; once that is
+# established the difference alone is easier to rank, and the arms are directly comparable
+# down each column.
+# ---------------------------------------------------------------------------------------
+def fig_deltas():
+    fig, axes = plt.subplots(2, 2, figsize=(13.0 * 0.82, 6.4 * 0.82), dpi=300, sharex=True)
+    for (i, j), metric, title, rowlabel in PANELS:
+        ax = axes[i, j]
+        for arm in ARMS:
+            d = paired_deltas(metric, arm)
+            if not len(d):
+                continue
+            x, beats = XPOS[arm], beats_ref(metric, arm)
+            c = ARM_COLORS[arm] if beats else NS_EDGE
+            ax.vlines(x, 0, d.mean(), color=c, alpha=0.45 if beats else 0.3, linewidth=3.2,
+                      zorder=2)
+            # Per-domain differences, which are the unit of evidence behind the mean and
+            # behind the unanimity rule that decides the colour.
+            for v in d:
+                ax.scatter(x, v, s=7, color=c, alpha=0.28, edgecolors='none', zorder=2.5)
+            ax.scatter(x, d.mean(), s=42, color=c if beats else NS_FILL,
+                       edgecolors='black' if beats else NS_EDGE, linewidths=0.5, zorder=3.5)
+        ax.axhline(0, color='0.35', lw=1.0, zorder=1.5)
+        ax.set_title(title + ', real $-$ null', fontsize=10.5)
+        ax.set_xlim(-0.8, XMAX - 0.2)
+        ax.grid(axis='y', linestyle='--', alpha=0.5, zorder=1)
+        style_spines(ax, drop_top_right=True)
+        ax.tick_params(axis='both', which='major', labelsize=9)
+        if rowlabel is not None:
+            ax.set_ylabel(rowlabel, fontsize=9.5, fontweight='bold', labelpad=8)
+
+    ax = axes[1, 1]
+    best = max(ARMS, key=lambda a: delta('fidelity_across_halves', a))
+    ax.scatter(XPOS[best], delta('fidelity_across_halves', best), s=190, facecolors='none',
+               edgecolors='0.25', linewidths=1.1, zorder=4)
+    ax.text(0.02, 0.95, 'best transfer (ringed):\n%s %s' % (ARM_GROUP[best], ARM_LABELS[best]),
+            transform=ax.transAxes, ha='left', va='top', fontsize=7.5, color='0.2')
+
+    arm_labels(axes[1])
+    handles = [
+        Line2D([0], [0], marker='o', color='none', markerfacecolor='black',
+               markeredgecolor='black', markersize=6, label='real $-$ null partition'),
+        Line2D([0], [0], marker='o', color='none', markerfacecolor='0.75',
+               markeredgecolor='none', markersize=4, label='one prose domain (or pair)'),
+        Line2D([0], [0], color=NS_EDGE, lw=3, alpha=0.35,
+               label='does not beat the null in every domain'),
+    ]
+    fig.legend(handles=handles, loc='upper center', bbox_to_anchor=(0.5, -0.035),
+               ncol=3, frameon=False, fontsize=8.5)
+    fig.tight_layout(rect=(0, 0.10, 1, 1))
+    place_brackets(fig, axes[1])
+    save_fig(fig, 'arms_deltas')
 
 
 # ---------------------------------------------------------------------------------------
@@ -457,8 +529,10 @@ def fig_maps_vs_labels():
 if __name__ == '__main__':
     os.makedirs('plots', exist_ok=True)
     fig_references()
+    fig_deltas()
     fig_hubness_tradeoff()
     fig_within_vs_across()
     fig_maps_vs_labels()
-    print('wrote plots/{arms_references,hubness_tradeoff,within_vs_across,maps_vs_labels}'
+    print('wrote plots/{arms_references,arms_deltas,hubness_tradeoff,within_vs_across,'
+          'maps_vs_labels}'
           '.{svg,png} from %d arms' % len(ARMS))
