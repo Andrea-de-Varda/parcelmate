@@ -1,13 +1,15 @@
-"""Publication figures across every arm of every run (LOG.md Iterations 13-16).
+"""Publication figures across every arm of every run (LOG.md Iterations 13-18).
 
     python figures/make_figures.py      ->  plots/*.svg + *.png
 
-Combines four score files into one comparison of 24 arms:
+Combines six score files into one comparison of 41 arms:
 
-    scores_ladder.csv    the six-arm ladder, MiniBatch k-means, residual stream (Iter. 13)
-    scores_yolo.csv      converged optimizer, Ward, block-model objective, k = 100 (Iter. 16)
-    scores_yolo4.csv     spatial ICA and the sparsification rungs (Iter. 16)
-    scores_yolo_mlp.csv  the same pipeline on MLP neurons instead of the residual stream
+    scores_ladder.csv       the six-arm ladder, MiniBatch k-means, residual stream (Iter. 13)
+    scores_yolo.csv         converged optimizer, Ward, block-model objective, k = 100 (Iter. 16)
+    scores_yolo4.csv        spatial ICA and the sparsification rungs (Iter. 16)
+    scores_yolo_mlp.csv     the same pipeline on MLP neurons instead of the residual stream
+    scores_final_resid.csv  residual Ward at k = 150, 200 (final test T1, Iter. 18)
+    scores_final_mlp.csv    final tests T1, T2, T5 on MLP neurons (Iter. 18)
 
 Every number is a per-domain measurement averaged over the four prose domains; whitespace,
 codeparrot and random are excluded because a block model fits their degenerate connectivity
@@ -28,8 +30,9 @@ Figures:
                           domains, all 24 arms on x with grouping brackets
   1b. arms_deltas      -- the same, as real minus null alone: easier to rank once figure 1
                           has shown where the null sits
-  2. hubness_tradeoff  -- hubness buys variance explained but not pattern correlation,
-                          and costs transfer; the R^2/r contrast is the mechanism
+  2. hubness_tradeoff  -- hubness against level (R^2), pattern (r) and transfer, with r
+                          per unit type: on the residual stream hubness costs transfer,
+                          on MLP neurons the block polish breaks that relation
   3. within_vs_across  -- like-for-like (r against r): no arm transfers as well as it fits
   4. maps_vs_labels    -- ICA judged on the object it produces, not only on its labels
 """
@@ -60,6 +63,8 @@ SOURCES = {
     'scores_yolo.csv': '',
     'scores_yolo4.csv': '',
     'scores_yolo_mlp.csv': 'mlp:',  # prefixed: same arm names, different units
+    'scores_final_resid.csv': '',
+    'scores_final_mlp.csv': 'mlp:',
 }
 
 # Groups, in plot order. One hue per group, light -> dark within it, so the family is
@@ -89,6 +94,8 @@ GROUPS = [
         ('vmf_ward', 'Ward'),
         ('vmf_lloyd100', 'Lloyd k100'),
         ('vmf_ward100', 'Ward k100'),
+        ('vmf_ward150', 'Ward k150'),
+        ('vmf_ward200', 'Ward k200'),
     ]),
     ('Block-model', '#fc9272', '#67000d', [
         ('blockmodel', 'k50'),
@@ -98,9 +105,29 @@ GROUPS = [
         ('ica', 'k50'),
         ('ica100', 'k100'),
     ]),
-    ('MLP neurons', '#c7c7c7', '#252525', [
+    # MLP neurons (prefix `mlp:`), everything on standardized profiles.
+    ('MLP standardized', '#c7c7c7', '#252525', [
         ('mlp:vmf_profile', 'MiniBatch'),
         ('mlp:vmf_lloyd', 'Lloyd'),
+        ('mlp:vmf_ward', 'Ward'),
+        ('mlp:vmf_lloyd100', 'Lloyd k100'),
+        ('mlp:vmf_ward100', 'Ward k100'),
+        ('mlp:vmf_ward150', 'Ward k150'),
+        ('mlp:vmf_ward200', 'Ward k200'),
+        ('mlp:vmf_wardlloyd100', 'Ward-init Lloyd k100'),
+    ]),
+    ('MLP denoised', '#a6dcd6', '#01665e', [
+        ('mlp:vmf_pca20_ward100', 'PCA20 Ward'),
+        ('mlp:vmf_pca20_lloyd100', 'PCA20 Lloyd'),
+        ('mlp:vmf_pca100_ward100', 'PCA100 Ward'),
+        ('mlp:vmf_pca100_lloyd100', 'PCA100 Lloyd'),
+        ('mlp:vmf_sparse_ward100', 'sparse Ward'),
+        ('mlp:vmf_sparse_lloyd100', 'sparse Lloyd'),
+    ]),
+    ('MLP block polish', '#f1b6da', '#8e0152', [
+        ('mlp:vmf_ward100_bm', 'raw'),
+        ('mlp:vmf_ward100_bm_double', 'double-centred'),
+        ('mlp:vmf_ward100_bm_degree', 'degree-corrected'),
     ]),
 ]
 
@@ -140,11 +167,19 @@ for gname, c0, c1, arms in GROUPS:
     for (arm, label), colour in zip(arms, _ramp(c0, c1, len(arms))):
         ARM_COLORS[arm], ARM_LABELS[arm], ARM_GROUP[arm] = colour, label, gname
 
-# x positions, with a gap between groups.
-GAP = 1.0
+def is_mlp(arm):
+    return arm.startswith('mlp:')
+
+
+# x positions, with a gap between groups and a wider one where the unit changes.
+GAP, UNIT_GAP = 1.0, 2.0
 XPOS, GROUP_SPAN = {}, []
+UNIT_DIVIDER = None
 _x = 0.0
-for gname, _, _, arms in GROUPS:
+for gi, (gname, _, _, arms) in enumerate(GROUPS):
+    if gi and is_mlp(arms[0][0]) and not is_mlp(GROUPS[gi - 1][3][0][0]):
+        _x += UNIT_GAP - GAP
+        UNIT_DIVIDER = _x - UNIT_GAP / 2 - 0.5
     start = _x
     for arm, _ in arms:
         XPOS[arm] = _x
@@ -152,6 +187,8 @@ for gname, _, _, arms in GROUPS:
     GROUP_SPAN.append((gname, start, _x - 1.0))
     _x += GAP
 XMAX = _x - GAP
+# The arm axis was 29 units wide at 10.7 in for 24 arms; keep that density as arms are added.
+ARMS_FIG_W = 13.0 * 0.82 * (XMAX + 1.0) / 29.0
 
 
 def vals(metric, tree, variant, domains=PROSE):
@@ -244,6 +281,62 @@ def arm_labels(axes_row):
         ax.set_xticklabels([ARM_LABELS[a] for a in ARMS], rotation=90, fontsize=7.5)
 
 
+def unit_divider(axes, top_row):
+    """A dashed rule between residual-stream and MLP arms, named once in each top panel.
+
+    The unit is the largest split in the comparison (residual-stream results carry the
+    chain confound, LOG.md Iteration 18), so it gets a rule rather than one more bracket.
+    Headroom is added so the two names never sit on a data point.
+    """
+    if UNIT_DIVIDER is None:
+        return
+    for ax in np.ravel(axes):
+        ax.axvline(UNIT_DIVIDER, color='0.55', lw=1.0, ls=(0, (4, 3)), zorder=1.2)
+    for ax in top_row:
+        lo, hi = ax.get_ylim()
+        ax.set_ylim(lo, hi + 0.14 * (hi - lo))
+        tr = ax.get_xaxis_transform()
+        kw = dict(transform=tr, va='top', fontsize=8.5, color='0.3', fontstyle='italic')
+        ax.text(UNIT_DIVIDER - 0.5, 0.985, 'residual stream', ha='right', **kw)
+        ax.text(UNIT_DIVIDER + 0.5, 0.985, 'MLP neurons', ha='left', **kw)
+
+
+def group_handles():
+    return [Line2D([0], [0], marker='o', color='none', markerfacecolor=_ramp(c0, c1, 2)[1],
+                   markeredgecolor='black', markersize=6, label=g)
+            for g, c0, c1, _ in GROUPS]
+
+
+def unit_handles():
+    """Marker shape carries the unit in the scatter figures, colour the group."""
+    return [Line2D([0], [0], marker=m, color='none', markerfacecolor='white',
+                   markeredgecolor='black', markersize=6, label=lab)
+            for m, lab in (('o', 'residual stream'), ('s', 'MLP neurons'))]
+
+
+def best_per_unit(metric, value):
+    """The arm with the largest real - null on `metric` among residual and among MLP arms.
+
+    Ringed separately: residual-stream transfer is inflated by chain-following (Iteration
+    18), so one overall winner would always be a residual arm and say nothing about MLP.
+    """
+    out = []
+    for unit in (False, True):
+        pool = [a for a in ARMS if is_mlp(a) == unit and np.isfinite(delta(metric, a))]
+        if pool:
+            best = max(pool, key=lambda a: delta(metric, a))
+            out.append((best, value(best)))
+    return out
+
+
+def ring_best(ax, metric, value):
+    for arm, y in best_per_unit(metric, value):
+        ax.scatter(XPOS[arm], y, s=190, facecolors='none', edgecolors='0.25',
+                   linewidths=1.1, zorder=4)
+    ax.text(0.01, 0.80, 'ringed: best transfer\nwithin each unit type', transform=ax.transAxes,
+            ha='left', va='top', fontsize=7.5, color='0.2')
+
+
 PANELS = [
     ((0, 0), 'reliability_within', 'Reliability (ARI)', 'within domain\n(split halves)'),
     ((0, 1), 'fidelity_within_r', 'Fidelity (r)', None),
@@ -259,7 +352,7 @@ PANELS = [
 # the finding: how much the partition earns beyond one that knows only per-unit properties.
 # ---------------------------------------------------------------------------------------
 def fig_references():
-    fig, axes = plt.subplots(2, 2, figsize=(13.0 * 0.82, 6.7 * 0.82), dpi=300, sharex=True)
+    fig, axes = plt.subplots(2, 2, figsize=(ARMS_FIG_W, 6.7 * 0.82), dpi=300, sharex=True)
     for (i, j), metric, title, rowlabel in PANELS:
         ax = axes[i, j]
         for arm in ARMS:
@@ -287,17 +380,11 @@ def fig_references():
         if rowlabel is not None:
             ax.set_ylabel(rowlabel, fontsize=9.5, fontweight='bold', labelpad=8)
 
-    # One callout, on the panel that carries the selection criterion.
-    ax = axes[1, 1]
-    best = max(ARMS, key=lambda a: delta('fidelity_across_halves', a))
-    # Anchored inside the panel rather than offset from the point: an offset label collided
-    # with the panel title, which sits just above the tallest arms here.
-    # A ring on the point plus a corner label: any leader line long enough to reach the
-    # best arm from a free corner would cross a third of the other arms.
-    ax.scatter(XPOS[best], mean('fidelity_across_halves', 'real', best), s=190,
-               facecolors='none', edgecolors='0.25', linewidths=1.1, zorder=4)
-    ax.text(0.02, 0.95, 'best transfer (ringed):\n%s %s' % (ARM_GROUP[best], ARM_LABELS[best]),
-            transform=ax.transAxes, ha='left', va='top', fontsize=7.5, color='0.2')
+    unit_divider(axes, axes[0])
+    # One callout, on the panel that carries the selection criterion: a ring on each unit
+    # type's best arm plus a corner note, since a leader line would cross other arms.
+    ring_best(axes[1, 1], 'fidelity_across_halves',
+              lambda a: mean('fidelity_across_halves', 'real', a))
 
     arm_labels(axes[1])
 
@@ -326,7 +413,7 @@ def fig_references():
 # down each column.
 # ---------------------------------------------------------------------------------------
 def fig_deltas():
-    fig, axes = plt.subplots(2, 2, figsize=(13.0 * 0.82, 6.4 * 0.82), dpi=300, sharex=True)
+    fig, axes = plt.subplots(2, 2, figsize=(ARMS_FIG_W, 6.4 * 0.82), dpi=300, sharex=True)
     for (i, j), metric, title, rowlabel in PANELS:
         ax = axes[i, j]
         for arm in ARMS:
@@ -352,12 +439,8 @@ def fig_deltas():
         if rowlabel is not None:
             ax.set_ylabel(rowlabel, fontsize=9.5, fontweight='bold', labelpad=8)
 
-    ax = axes[1, 1]
-    best = max(ARMS, key=lambda a: delta('fidelity_across_halves', a))
-    ax.scatter(XPOS[best], delta('fidelity_across_halves', best), s=190, facecolors='none',
-               edgecolors='0.25', linewidths=1.1, zorder=4)
-    ax.text(0.02, 0.95, 'best transfer (ringed):\n%s %s' % (ARM_GROUP[best], ARM_LABELS[best]),
-            transform=ax.transAxes, ha='left', va='top', fontsize=7.5, color='0.2')
+    unit_divider(axes, axes[0])
+    ring_best(axes[1, 1], 'fidelity_across_halves', lambda a: delta('fidelity_across_halves', a))
 
     arm_labels(axes[1])
     handles = [
@@ -386,48 +469,50 @@ def fig_hubness_tradeoff():
     # does well, while r scores only the pattern. Comparing a within-domain R^2 against an
     # across-domain r (which is forced, since R^2 is not defined across domains) therefore
     # manufactures a dissociation. Panels 1 and 2 are the same arms under the two measures.
+    # Correlations are reported per unit type: on MLP neurons the block-model polish combines
+    # high hubness with high transfer (Iteration 18), so one pooled r would mix two relations.
     specs = [
-        (axes[0], 'triviality_ami_hubness', 'fidelity_within',
-         'AMI with hubness', 'Within-domain fidelity R$^2$, real $-$ null',
-         'Hubness buys variance\nexplained (level)'),
-        (axes[1], 'triviality_ami_hubness', 'fidelity_within_r',
-         'AMI with hubness', 'Within-domain fidelity r, real $-$ null',
-         'but not pattern\ncorrelation'),
-        (axes[2], 'triviality_ami_hubness', 'fidelity_across_halves',
-         'AMI with hubness', 'Across-domain fidelity r, real $-$ null',
-         'and it costs transfer'),
+        (axes[0], 'fidelity_within', 'Within-domain fidelity R$^2$, real $-$ null',
+         'Level: variance explained'),
+        (axes[1], 'fidelity_within_r', 'Within-domain fidelity r, real $-$ null',
+         'Pattern: within-domain r'),
+        (axes[2], 'fidelity_across_halves', 'Across-domain fidelity r, real $-$ null',
+         'Transfer: across-domain r'),
     ]
-    for ax, mx, my, xlabel, ylabel, title in specs:
-        xs, ys = [], []
-        for arm in ARMS:
-            x = mean(mx, 'real', arm) if mx.startswith('triviality') else delta(mx, arm)
-            y = delta(my, arm)
-            if not (np.isfinite(x) and np.isfinite(y)):
+    for ax, my, ylabel, title in specs:
+        stats = []
+        for unit, marker, ls, name in ((False, 'o', '--', 'residual'), (True, 's', ':', 'MLP')):
+            xs, ys = [], []
+            for arm in ARMS:
+                if is_mlp(arm) != unit:
+                    continue
+                x, y = mean('triviality_ami_hubness', 'real', arm), delta(my, arm)
+                if not (np.isfinite(x) and np.isfinite(y)):
+                    continue
+                xs.append(x)
+                ys.append(y)
+                ax.scatter(x, y, s=46 if unit else 52, marker=marker, color=ARM_COLORS[arm],
+                           edgecolors='black', linewidths=0.5, zorder=3)
+            if len(xs) < 3:
                 continue
-            xs.append(x)
-            ys.append(y)
-            ax.scatter(x, y, s=52, color=ARM_COLORS[arm], edgecolors='black',
-                       linewidths=0.5, zorder=3)
-        r = float(np.corrcoef(xs, ys)[0, 1])
-        # Least-squares guide, drawn only where the relation is real.
-        if abs(r) > 0.3:
-            b, a = np.polyfit(xs, ys, 1)
-            xx = np.linspace(min(xs), max(xs), 2)
-            ax.plot(xx, a + b * xx, color='0.45', lw=1.1, ls='--', zorder=1)
-        ax.set_xlabel(xlabel, fontsize=9)
+            r = float(np.corrcoef(xs, ys)[0, 1])
+            stats.append('%s r = %+.2f' % (name, r))
+            # Least-squares guide, drawn only where the relation is real.
+            if abs(r) > 0.3:
+                b, a = np.polyfit(xs, ys, 1)
+                xx = np.linspace(min(xs), max(xs), 2)
+                ax.plot(xx, a + b * xx, color='0.45', lw=1.1, ls=ls, zorder=1)
+        ax.set_xlabel('AMI with hubness', fontsize=9)
         ax.set_ylabel(ylabel, fontsize=9)
         ax.set_title(title, fontsize=9, fontweight='bold')
-        ax.text(0.04, 0.05, 'r = %+.2f' % r, transform=ax.transAxes, fontsize=9,
+        ax.text(0.97, 0.05, '\n'.join(stats), transform=ax.transAxes, fontsize=8, ha='right',
                 bbox=dict(facecolor='white', edgecolor='gray', boxstyle='round,pad=0.3'))
         ax.grid(linestyle='--', alpha=0.4, zorder=0)
         style_spines(ax, drop_top_right=True)
         ax.tick_params(axis='both', which='major', labelsize=8.5)
 
-    fig.legend(handles=[Line2D([0], [0], marker='o', color='none',
-                               markerfacecolor=_ramp(c0, c1, 2)[1], markeredgecolor='black',
-                               markersize=6, label=g)
-                        for g, c0, c1, _ in GROUPS],
-               loc='lower center', bbox_to_anchor=(0.5, -0.10), ncol=6, frameon=False,
+    fig.legend(handles=group_handles() + unit_handles(),
+               loc='lower center', bbox_to_anchor=(0.5, -0.17), ncol=5, frameon=False,
                fontsize=8)
     fig.tight_layout()
     save_fig(fig, 'hubness_tradeoff')
@@ -449,36 +534,47 @@ def fig_within_vs_across():
             continue
         xs.append(x)
         ys.append(y)
-        ax.scatter(x, y, s=62, color=ARM_COLORS[arm], edgecolors='black', linewidths=0.5,
-                   zorder=3)
+        ax.scatter(x, y, s=54 if is_mlp(arm) else 62, marker='s' if is_mlp(arm) else 'o',
+                   color=ARM_COLORS[arm], edgecolors='black', linewidths=0.5, zorder=3)
     lo, hi = 0, max(ax.get_xlim()[1], ax.get_ylim()[1])
     ax.plot([lo, hi], [lo, hi], color='0.6', lw=1.0, ls='--', zorder=1)
     ax.text(hi * 0.97, hi * 0.97, 'equal', fontsize=8, color='0.45', rotation=45,
             ha='right', va='bottom', rotation_mode='anchor')
     # Name the two ends of the story rather than all 24 points.
-    ax.text(0.97, 0.06, 'r = %+.2f' % float(np.corrcoef(xs, ys)[0, 1]),
-            transform=ax.transAxes, ha='right', fontsize=9,
+    # Upper left: above the identity line, where no arm can sit.
+    ax.text(0.04, 0.96, 'r = %+.2f' % float(np.corrcoef(xs, ys)[0, 1]),
+            transform=ax.transAxes, ha='left', va='top', fontsize=9,
             bbox=dict(facecolor='white', edgecolor='gray', boxstyle='round,pad=0.3'))
-    for arm, dx, dy, ha in (('vmf_ward100', 8, 2, 'left'), ('blockmodel100', 0, -14, 'center'),
-                            ('ica', 8, -2, 'left')):
+    # Label positions chosen to sit in empty space and never cross the identity line; the
+    # two inside the crowded middle get a thin leader from a free spot below the cloud.
+    labels = (
+        ('vmf_ward200', 'Standardized\nWard k200', (9, -8), 'left', False),
+        ('mlp:vmf_ward100_bm', 'MLP block\npolish, raw', (9, -8), 'left', False),
+        ('ica', 'Spatial ICA k50', (0, -15), 'center', False),
+        ('blockmodel100', 'Block-model k100', (0.30, 0.035), 'center', True),
+    )
+    for arm, text, off, ha, leader in labels:
         if arm not in XPOS:
             continue
         x, y = delta('fidelity_within_r', arm), delta('fidelity_across_halves', arm)
-        ax.annotate('%s %s' % (ARM_GROUP[arm], ARM_LABELS[arm]), (x, y),
-                    textcoords='offset points', xytext=(dx, dy), ha=ha, fontsize=7.5,
-                    color='0.2')
+        if leader:
+            ax.annotate(text, (x, y), xytext=off, textcoords='data', ha=ha, va='center',
+                        fontsize=7.5, color='0.2',
+                        arrowprops=dict(arrowstyle='-', color='0.45', lw=0.7,
+                                        shrinkA=2, shrinkB=5))
+        else:
+            ax.annotate(text, (x, y), textcoords='offset points', xytext=off, ha=ha,
+                        fontsize=7.5, color='0.2')
     ax.set_xlabel('Within-domain fidelity r, real $-$ null', fontsize=10)
     ax.set_ylabel('Across-domain fidelity r, real $-$ null', fontsize=10)
-    ax.set_xlim(left=0)
+    # Room on the right for the labels of the two right-most arms.
+    ax.set_xlim(0, max(xs) * 1.32)
     ax.set_ylim(bottom=0)
     ax.grid(linestyle='--', alpha=0.4, zorder=0)
     style_spines(ax, drop_top_right=True)
     ax.tick_params(axis='both', which='major', labelsize=9)
-    ax.legend(handles=[Line2D([0], [0], marker='o', color='none',
-                              markerfacecolor=_ramp(c0, c1, 2)[1], markeredgecolor='black',
-                              markersize=6, label=g)
-                       for g, c0, c1, _ in GROUPS],
-              loc='upper left', frameon=False, fontsize=8)
+    ax.legend(handles=group_handles() + unit_handles(),
+              loc='upper left', bbox_to_anchor=(1.04, 1.0), frameon=False, fontsize=8)
     fig.tight_layout()
     save_fig(fig, 'within_vs_across')
 
