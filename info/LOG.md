@@ -721,6 +721,16 @@ Every code change to the repo, newest last. Format: date — files — what and 
   - [configs/last_mlp.yml](../configs/last_mlp.yml) (14 arms) and [configs/pooled_mlp.yml](../configs/pooled_mlp.yml) (11 pools, 26 scored pairs, 3 arms).
   - [scripts/launch_yolo.sh](../scripts/launch_yolo.sh): `generate_last` and `submit_last`.
   - [tests/verify_iter11_last.py](../tests/verify_iter11_last.py): 71 checks; the full suite is green.
+- 2026-09-14 -- **submitted the last round** at commit `c95e63a` (`generate_last` on scdt: 28 connectivity files hard-linked into each of `results/{last_mlp,pooled_mlp}{,_null}`; `submit_last` on sc). 21 jobs on `john`:
+
+  | jobs | what | dependency |
+  |---|---|---|
+  | 17433360-73 | the 14 `last_mlp` arms | none |
+  | 17433374 | `last_mlp` score | afterok on 17433360-73 |
+  | 17433375 | pool step | none |
+  | 17433376-78 | the 3 `pooled_mlp` arms | afterok on 17433375 |
+  | 17433379 | `pooled_mlp` score | afterok on 17433376-78 |
+  | 17433380 | yardstick | none |
 
 ## Cluster
 
