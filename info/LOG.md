@@ -8,7 +8,7 @@ parcelmate applies the methodology of fMRI functional connectivity analysis to t
 
 Method design decisions -- which pipeline steps are free choices rather than necessities, what the alternatives are, and why -- are recorded separately in [PARCELLATION_DESIGN.md](PARCELLATION_DESIGN.md). This file records bugs, fixes and the dated edit history.
 
-**Current state (2026-09-14).** The paragraph above describes the inherited pipeline. Since then: units can be residual-stream dimensions or post-GELU MLP neurons (`unit_type`); parcellation has converged Lloyd, Ward, Ward-initialised Lloyd, spatial ICA and a block-model refinement with optional centring, on binarized, Fisher, sparsified or standardized profiles; and every arm is scored on within- and across-domain reliability (ARI) and fidelity (block-mean prediction of held-out |r|) against a null partition evaluated on the real data (Iterations 12-13). 41 arms are scored across six score files (Iterations 13-18, [plots/](../plots/)). Settled so far: across-domain fidelity against the null partition is the selection criterion (Iteration 16); residual-stream results are confounded by dimension chains, so the unit is MLP neurons (Iteration 18); on MLP units Lloyd consensus is far more reliable than Ward, and a block-model polish is the largest fidelity lever (Iteration 18). Open: the polish from a reliable Lloyd start, pooled estimation (T4), a consensus robust to non-unique optima (T3), all built and submitted as the last round (Iteration 19); then replication on a second model.
+**Current state (2026-09-14).** The paragraph above describes the inherited pipeline. Since then: units can be residual-stream dimensions or post-GELU MLP neurons (`unit_type`); parcellation has converged Lloyd, Ward, Ward-initialised Lloyd, spatial ICA and a block-model refinement with optional centring, on binarized, Fisher, sparsified or standardized profiles; and every arm is scored on within- and across-domain reliability (ARI) and fidelity (block-mean prediction of held-out |r|) against a null partition evaluated on the real data (Iterations 12-13). 41 arms are scored across six score files (Iterations 13-18, [plots/](../plots/)). Settled so far: across-domain fidelity against the null partition is the selection criterion (Iteration 16); residual-stream results are confounded by dimension chains, so the unit is MLP neurons (Iteration 18); on MLP units Lloyd consensus is far more reliable than Ward, and a block-model polish is the largest fidelity lever (Iteration 18). The last round (Iterations 19-20) settled the rest. The final pipeline is: sparsified standardized profiles, PCA-100, Lloyd with 200 restarts and Hungarian consensus, k = 100, estimated on the pooled connectome. The block-model polish and the co-association consensus were dropped because they cost reliability. Open: a confirmation run of that exact combination, and replication on a second model.
 
 Code map: [parcelmate/model.py](../parcelmate/model.py) (pipeline + perturbation machinery), [parcelmate/data.py](../parcelmate/data.py) (datasets, tokenization, filtering, correlation), [parcelmate/plot.py](../parcelmate/plot.py), [parcelmate/util.py](../parcelmate/util.py) (HDF5 I/O), [parcelmate/cfg.py](../parcelmate/cfg.py) (YAML config), [parcelmate/constants.py](../parcelmate/constants.py), [parcelmate/bin/main.py](../parcelmate/bin/main.py) (CLI driver).
 
@@ -497,7 +497,7 @@ All 20 jobs completed inside their limits (17417195-214): Ward arms 2 h 05 - 3 h
 
 Andrea asked for the remaining tests as a last round, tested and submitted. Taken to mean the three open items of Iteration 18: the candidate pipeline (Lloyd consensus plus a block-model polish, which had only been run from Ward), T3 (a consensus robust to non-unique optima, with the hard-label yardstick) and T4 (pooled estimation). Not included: the second-model replication, which validates whatever this round selects and so follows it. Everything is on MLP units, with connectivity already on disk; no GPU.
 
-**Recommendation going in (given to Andrea before this round).** MLP neurons, standardized Fisher profiles reduced to 100 principal components without whitening, Lloyd consensus at k = 100, one degree-corrected polish of the consensus labels. PCA-100 Lloyd matched full-profile Lloyd on every metric at 19 min instead of 8 h for 24 matrices (Iteration 18), so dimension reduction is already the efficiency lever. Nonlinear embeddings (t-SNE, UMAP) were advised against. Speed is already solved. They preserve neighbourhoods rather than distances, which breaks the link between the k-means objective and the block-model fidelity being scored. And their stochasticity adds variance to a metric already limited by optimizer variance. PCA-20 had shown that fewer dimensions do not buy reliability.
+**Recommendation going in (given to Andrea before this round).** MLP neurons, standardized Fisher profiles reduced to 100 principal components without whitening, Lloyd consensus at k = 100, one degree-corrected polish of the consensus labels. *(Revised in Iteration 20: the polish is dropped, because it costs reliability.)* PCA-100 Lloyd matched full-profile Lloyd on every metric at 19 min instead of 8 h for 24 matrices (Iteration 18), so dimension reduction is already the efficiency lever. Nonlinear embeddings (t-SNE, UMAP) were advised against. Speed is already solved. They preserve neighbourhoods rather than distances, which breaks the link between the k-means objective and the block-model fidelity being scored. And their stochasticity adds variance to a metric already limited by optimizer variance. PCA-20 had shown that fewer dimensions do not buy reliability.
 
 **Run 1, [configs/last_mlp.yml](../configs/last_mlp.yml), 14 arms.** All arms use standardized Fisher profiles, PCA-100 unwhitened, 40 Lloyd restarts and stored restart labels. The base arm repeats `vmf_pca100_lloyd100` of `final_mlp` with the same seeds, and differs only in storing the labels (under test).
 - **Candidate:** unpolished, and polished once raw, `double`-centred and `degree`-corrected.
@@ -558,8 +558,76 @@ The earlier suite (iter0-10) and 13 pytest cases pass unchanged.
 - **Run 2:** a pool job at 2 h, then three parcellation jobs at 8 h each (90 matrices per arm), then a score job at 8 h.
 - **Run 3:** the yardstick at 3 h and 8 cores, with no dependencies.
 
+## Iteration 20 -- the last round scored, and the final pipeline (2026-09-15)
+
+All 21 jobs (17433360-80) completed with exit 0 and no errors in their logs. The 14 `last_mlp` arms took 13 min to 1 h 04, and their score 2 h 26. The pool step took 27 min, the three pooled arms 1 h 04 to 2 h 09, and the pooled score 2 h 10. The yardstick took 10 min. Tables were pulled to [figures/scores_last_mlp.csv](../figures/scores_last_mlp.csv), [figures/scores_pooled_mlp.csv](../figures/scores_pooled_mlp.csv) and [figures/yardstick_final_mlp.csv](../figures/yardstick_final_mlp.csv).
+
+**Sanity checks pass.** The base arm reproduces `final_mlp`'s `vmf_pca100_lloyd100` exactly: difference 0 on reliability, ceiling, both within fidelities, and both across-halves metrics over all 12 pairs. The pooled tree's four single domains equal the `last_mlp` numbers for all three arms. Every arm beats its null partition in every domain and pair on every metric. The null partitions fill all k networks (entropy 62 for the base arm's reference). Read against the rules written in Iteration 19 before the run. Prose means; Δp = real - pnull; the co-association r of the polished arms equals the base arm's because they share restarts.
+
+| arm (MLP, PCA-100 Lloyd consensus) | within ARI | restart-split ceiling | co-assoc. r | across ARI | within fid. r Δp | across fid. r Δp | hubness AMI |
+|---|---|---|---|---|---|---|---|
+| base, k = 100, 40 restarts | 0.617 | 0.647 | 0.921 | 0.099 | 0.258 | 0.097 | 0.078 |
+| sparse profiles | 0.649 | 0.682 | 0.917 | 0.106 | 0.260 | 0.103 | 0.076 |
+| 200 restarts | 0.681 | 0.765 | 0.947 | 0.099 | 0.256 | 0.096 | 0.077 |
+| co-association consensus | 0.611 | 0.634 | 0.921 | 0.100 | 0.250 | 0.095 | 0.075 |
+| 200 restarts, co-association | 0.637 | 0.745 | 0.947 | 0.099 | 0.251 | 0.094 | 0.075 |
+| k = 50 | 0.682 | 0.700 | 0.926 | 0.110 | 0.223 | 0.080 | 0.072 |
+| k = 200 | 0.552 | 0.551 | 0.912 | 0.088 | 0.283 | 0.110 | 0.082 |
+| polish, raw | 0.490 | 0.521 | (0.921) | 0.082 | 0.373 | 0.178 | 0.371 |
+| polish, double-centred | 0.482 | 0.489 | (0.921) | 0.080 | 0.353 | 0.151 | 0.190 |
+| polish, degree-corrected | 0.400 | 0.449 | (0.921) | 0.072 | 0.329 | 0.132 | 0.139 |
+
+**The consensus polish is not kept.** It raises fidelity in every domain and pair: within-domain r Δp by 0.07-0.12 (4/4) and across-domain by 0.035-0.081 (12/12). But within-domain reliability falls by 0.13-0.22 (0/4), well past the pre-stated limit of 0.05, and across-domain label agreement falls in all 12 pairs. The restart-split ceiling falls with it (0.647 to 0.45-0.52): refining two consensuses of the same data moves them apart, so the block-model optimum is much less identifiable than the k-means one. The raw polish's transfer gain also comes with a hubness AMI of 0.37, where the base has 0.08. Pairing the polish with sparse profiles, the co-association consensus, k = 50 or k = 200 behaves the same way (0/4 or 1/4 on within-domain reliability).
+
+**The co-association consensus is not kept.** Against the Hungarian consensus of the same restarts, reliability falls by 0.006 (1/4) and the ceiling by 0.014 (2/4); across-domain fidelity is unchanged. The rule needed both to rise. The feared singleton collapse did not happen: the entropy count is 81-84 of 100, above the k/2 threshold, against 91.5 for the Hungarian consensus. At 200 restarts it is again below the Hungarian consensus (0.637 against 0.681).
+
+**200 restarts are kept.** The ceiling rises by 0.118 (4/4) and split-half reliability by 0.064 (4/4). Co-association reliability rises from 0.921 to 0.947, and every fidelity is unchanged (differences of 0.001 or less). By the pre-stated rule both reliabilities rose, so the number of restarts was limiting at 40.
+
+**The yardstick says the consensus, not the data, limits hard-label reliability.** Steering Lloyd on one half from the other half's PCA-100 consensus lands at an ARI of 0.782, against 0.617 for the independent consensuses. The steered partitions are at least as good k-means solutions of their half as its own consensus (inertia ratio 0.995), so 0.78 is attainable, not forced. Full-profile Lloyd gives 0.738 against 0.611; Ward gives 0.325 against 0.236. Every null partition steers to about 0.01. By the pre-stated rule (well above 0.62) the bottleneck is the consensus. 200 restarts close 0.064 of the 0.165 gap, so about 0.10 of headroom remains.
+
+**Sparse profiles are kept.** Their gains are small but present in every domain and pair, at no extra cost: within-domain reliability +0.032 (4/4), ceiling +0.035 (4/4), across-domain ARI +0.007 (12/12), across-domain fidelity Δp +0.006 (11/12).
+
+**k is not settled by its rule, and stays at 100 as a judgement.** Across-domain fidelity Δp gains 0.017 from k = 50 to 100 and 0.013 from 100 to 200. Both exceed the 0.01 per doubling that would stop the search, so the fidelity rule points to k ≥ 200. Each doubling also costs 0.065 of within-domain reliability (0/4) and 0.011 of across-domain ARI (0/12); co-association reliability is flat (0.926, 0.921, 0.912). k = 100 is kept as the balance between the two, and the choice is to be revisited on the second model.
+
+**Pooled estimation passes its rule.** Values in the table are prose means.
+
+| comparison (no shared data) | pairs | across fid. r | null | Δp | uncompressed ceiling r | across ARI |
+|---|---|---|---|---|---|---|
+| single domain → domain | 12 | 0.275 | 0.178 | 0.097 | 0.512 | 0.099 |
+| pool of 3 → held-out domain | 4 | 0.326 | 0.208 | 0.118 | 0.607 | 0.126 |
+| held-out domain → pool of 3 | 4 | 0.309 | 0.177 | 0.132 | 0.607 | 0.127 |
+| 2 domains → the other 2 | 6 | 0.346 | 0.198 | 0.148 | 0.666 | 0.165 |
+
+Leave-one-out transfer beats the mean of the three single domains into every held-out domain. The gain in fidelity Δp is +0.033 for wikitext, +0.014 for bookcorpus, +0.014 for agnews and +0.022 for tldr17, a mean of +0.021 against the 0.02 threshold. Label agreement rises in all four domains (0.145 against 0.106, 0.111 against 0.094, 0.113 against 0.097, 0.136 against 0.101). The same holds for the co-association arm (+0.020) and the degree polish (+0.026). Within-pool split-half reliability also rises with pooling: 0.617 for one domain, 0.663 for two-domain pools, 0.656 for three-domain pools, and 0.686 for all four. **The gain is what more data buys, not a change in kind.** Fidelity Δp as a fraction of the uncompressed ceiling is 0.19 for single domains, 0.19 for leave-one-out and 0.22 for complementary pairs, because the ceiling rises with the tokens on the fitting side. Pooling is still the right estimator for a domain-general partition: it uses all the data, and its complementary-split agreement (ARI 0.165, fidelity Δp 0.148) is the domain-general reliability to report.
+
+**The final pipeline.**
+1. MLP post-GELU neurons as units.
+2. |r| connectome, Fisher-transformed with a zero diagonal, profiles z-scored per unit.
+3. Each profile sparsified to its top 10% and re-standardized.
+4. PCA to 100 components without whitening.
+5. Lloyd k-means, 200 restarts, Hungarian consensus, k = 100.
+6. Estimated on the Fisher-mean connectome pooled over all domains.
+7. Reported with split-half ARI and co-association r for reliability, and the complementary-domain split for generality.
+
+No block-model polish, no co-association consensus. Cost is about 2.5 min per matrix on 8 cores (the 200-restart arm took 56 min for 24 matrices). Expected performance, from the tested components: within-domain ARI about 0.68-0.71, co-association r about 0.95, complementary-split ARI about 0.17, within-domain fidelity r Δp about 0.26, across-domain fidelity Δp 0.10-0.15. Recorded in [plots/final_candidates.svg](../plots/final_candidates.svg), [plots/pooled_estimation.svg](../plots/pooled_estimation.svg) and [plots/yardstick.svg](../plots/yardstick.svg).
+
+**Caveats.**
+- **Untested combination.** Sparse profiles, 200 restarts and pooling have not been run together. Each was tested against the same base, and they act on different stages (features, restarts, data), so their gains are expected to add; a single confirmation arm (about 1-2 h) would show it.
+- **Low across-domain agreement.** No feature, optimizer, consensus or estimator tried raises across-domain label agreement past 0.17, and within-domain reliability of about 0.7 is short of excellent. The yardstick puts the attainable within-domain ARI near 0.78 at this k.
+- **Fidelity trade.** If fidelity rather than reliability is the priority, the raw polish is the best arm tested: transfer Δp 0.178 against 0.097. It costs 0.13 of reliability and brings in hubness structure.
+- **Second model.** Every choice here is stage 0 on GPT-2 and is to be replicated on a second model.
+
 ## Decisions made
 
+- 2026-09-15 (final pipeline): **MLP neurons, standardized Fisher profiles sparsified to the top 10% per unit, PCA-100 unwhitened, Lloyd k-means with 200 restarts and Hungarian consensus, k = 100, estimated on the connectome pooled over domains.** Each rule stated in Iteration 19 was applied as written.
+  - **Block-model polish:** dropped. It raised fidelity in every domain but cut within-domain reliability by 0.13-0.22, past the 0.05 limit, and lowered across-domain agreement in all 12 pairs.
+  - **Co-association consensus:** dropped. Neither the ceiling nor the reliability rose.
+  - **200 restarts:** kept. Ceiling +0.118 and reliability +0.064, both 4/4, with fidelity unchanged; the yardstick at 0.78 confirmed the consensus was the bottleneck.
+  - **Sparse profiles:** kept. Consistent small gains at no cost.
+  - **Pooling:** kept. Leave-one-out gain +0.021, positive in 4/4 domains.
+  - **k:** not settled by its rule (fidelity still gains over 0.01 per doubling at 200), so k = 100 was kept as a judgement that balances fidelity against 0.065 of reliability lost per doubling. To be revisited on the second model.
+
+  The exact combination is untested; a confirmation arm is proposed and not submitted. Iteration 20.
 - 2026-09-14 (last round): **the remaining tests run as one round: the candidate pipeline (PCA-100 Lloyd consensus with a consensus-level block-model polish), T3 and T4; the second-model replication follows it.** The polish refines the consensus once rather than every restart (40x cheaper, and the consensus is the reported object). The co-association consensus is cut by average linkage with `cut_tree`, whose cut is exact, not `fcluster`, which ties would under-fill. The Hungarian consensus's dependence on last-bit inertia ties (label naming only, pre-existing) is documented, not changed, so earlier arms stay reproducible. t-SNE and UMAP were advised against for the features, because PCA already solves speed and they break the link between the clustering objective and the scored fidelity. Iteration 19.
 - 2026-09-14 (unit and algorithm): **MLP neurons are the unit, and Lloyd consensus is preferred over Ward.** On the residual stream Ward's reliability and transfer rise with k together with its AMI with the dimension index; on MLP units, which have no chains, Ward's transfer lead over Lloyd vanishes (across-domain fidelity Δp 0.100 against 0.101 at k = 100) and its reliability is far lower (0.24 against 0.61). The Iteration 17 recommendation of Ward is withdrawn. The block-model polish is kept as the fidelity lever; which centring to use is open, because on MLP units the hubness it adds also transfers. Iteration 18.
 - 2026-09-13 (final tests): **T1, T2 and T5 run first; T3 and T4 wait; a second model replicates the choice before it is called final.** Andrea approved the three tests that need at most a flag each (Iteration 17). T5 runs one arm beyond the approved design, the `degree` (modularity) centring next to the approved `double` centring, because double-centring leaves a rank-1 residue of a multiplicative per-unit effect that a block model fits by grouping strong units again (shown on a planted generator); flagged to Andrea with the launch. Rejected for now: re-normalizing rows after PCA (amplifies the noise of units with little shared structure), sparsifying magnitudes before standardizing (lets a unit's baseline back into the shape of its profile), and reading Ward labels from `vmf_ward100`'s files in the T5 arms (a cross-job dependency to save about 3 CPU-hours per arm).
@@ -731,6 +799,10 @@ Every code change to the repo, newest last. Format: date — files — what and 
   | 17433376-78 | the 3 `pooled_mlp` arms | afterok on 17433375 |
   | 17433379 | `pooled_mlp` score | afterok on 17433376-78 |
   | 17433380 | yardstick | none |
+- 2026-09-15 -- all 21 last-round jobs COMPLETED with exit 0. Pulled [figures/scores_last_mlp.csv](../figures/scores_last_mlp.csv), [figures/scores_pooled_mlp.csv](../figures/scores_pooled_mlp.csv) and [figures/yardstick_final_mlp.csv](../figures/yardstick_final_mlp.csv). Results and the final pipeline are in Iteration 20.
+- 2026-09-15 -- [figures/make_figures.py](../figures/make_figures.py), [plots/](../plots/) -- **figures rebuilt with the last round.**
+  - The arm-axis figures gain two groups, "MLP Lloyd consensus" and "MLP consensus polish" (54 arms), and widen in proportion. The last round's base arm and its duplicate ceiling rows are skipped, since they are identical to `final_mlp`'s. The exception is the base arm's co-association reliability, which only the rerun has, because it needs stored restart labels. Rows in the last-round panels use their group's dark colour. "MLP block polish" is renamed "MLP Ward polish".
+  - Three new figures: `final_candidates` has every change to the base MLP pipeline, one row per arm, on the four measures and co-association r, with the kept changes in bold. `pooled_estimation` shows transfer and label agreement by comparison type with ceilings, plus the leave-one-out gain per held-out domain. `yardstick` shows consensus reliability at 40 and 200 restarts against the steered agreement and its null.
 
 ## Cluster
 

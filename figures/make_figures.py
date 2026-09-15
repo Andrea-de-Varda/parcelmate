@@ -1,8 +1,9 @@
-"""Publication figures across every arm of every run (LOG.md Iterations 13-18).
+"""Publication figures across every arm of every run (LOG.md Iterations 13-20).
 
     python figures/make_figures.py      ->  plots/*.svg + *.png
 
-Combines six score files into one comparison of 41 arms:
+Combines seven score files into one comparison of 54 arms, plus the pooled-estimation scores
+and the yardstick for the last round (scores_pooled_mlp.csv, yardstick_final_mlp.csv):
 
     scores_ladder.csv       the six-arm ladder, MiniBatch k-means, residual stream (Iter. 13)
     scores_yolo.csv         converged optimizer, Ward, block-model objective, k = 100 (Iter. 16)
@@ -10,6 +11,7 @@ Combines six score files into one comparison of 41 arms:
     scores_yolo_mlp.csv     the same pipeline on MLP neurons instead of the residual stream
     scores_final_resid.csv  residual Ward at k = 150, 200 (final test T1, Iter. 18)
     scores_final_mlp.csv    final tests T1, T2, T5 on MLP neurons (Iter. 18)
+    scores_last_mlp.csv     the last round: consensus polish, co-association, restarts, k (Iter. 20)
 
 Every number is a per-domain measurement averaged over the four prose domains; whitespace,
 codeparrot and random are excluded because a block model fits their degenerate connectivity
@@ -35,6 +37,11 @@ Figures:
                           on MLP neurons the block polish breaks that relation
   3. within_vs_across  -- like-for-like (r against r): no arm transfers as well as it fits
   4. maps_vs_labels    -- ICA judged on the object it produces, not only on its labels
+  5. final_candidates  -- every change to the base MLP pipeline, one row per arm, on the four
+                          measures; the two changes kept are in bold
+  6. pooled_estimation -- transfer and label agreement by what is fit and what is held out
+  7. yardstick         -- consensus reliability against what steering from the other half
+                          reaches: the headroom that belongs to the consensus
 """
 
 import csv
@@ -65,7 +72,17 @@ SOURCES = {
     'scores_yolo_mlp.csv': 'mlp:',  # prefixed: same arm names, different units
     'scores_final_resid.csv': '',
     'scores_final_mlp.csv': 'mlp:',
+    'scores_last_mlp.csv': 'mlp:',   # the last round (Iterations 19-20)
 }
+# Rows not to load from a file. The last round's base arm reruns final_mlp's
+# `vmf_pca100_lloyd100` with the same seeds and gives identical scores (Iteration 20), and
+# both files carry the same MLP ceilings; loading them twice would double the per-domain dots.
+# The one exception is the metric only the rerun has: co-association reliability needs the
+# restart labels, which final_mlp did not store.
+SKIP = {'scores_last_mlp.csv': {'vmf_pca100_lloyd100', '(ceiling)'}}
+SKIP_EXCEPT_METRICS = {'reliability_within_coassoc'}
+POOLED_FILE = 'scores_pooled_mlp.csv'
+YARDSTICK_FILE = 'yardstick_final_mlp.csv'
 
 # Groups, in plot order. One hue per group, light -> dark within it, so the family is
 # readable from colour alone and the bracket names it. The order inside a group is the
@@ -124,10 +141,29 @@ GROUPS = [
         ('mlp:vmf_sparse_ward100', 'sparse Ward'),
         ('mlp:vmf_sparse_lloyd100', 'sparse Lloyd'),
     ]),
-    ('MLP block polish', '#f1b6da', '#8e0152', [
+    ('MLP Ward polish', '#f1b6da', '#8e0152', [
         ('mlp:vmf_ward100_bm', 'raw'),
         ('mlp:vmf_ward100_bm_double', 'double-centred'),
         ('mlp:vmf_ward100_bm_degree', 'degree-corrected'),
+    ]),
+    # The last round: variations on PCA-100 Lloyd consensus (the base arm is 'PCA100 Lloyd'
+    # in MLP denoised), then the same with the block-model polish applied to the consensus.
+    ('MLP Lloyd consensus', '#e3ea9f', '#4d5c0d', [
+        ('mlp:vmf_sparse_pca100_lloyd100', 'sparse PCA100'),
+        ('mlp:vmf_pca100_lloyd50', 'PCA100 k50'),
+        ('mlp:vmf_pca100_lloyd200', 'PCA100 k200'),
+        ('mlp:vmf_pca100_lloyd100_n200', '200 restarts'),
+        ('mlp:vmf_pca100_lloyd100_coassoc', 'co-association'),
+        ('mlp:vmf_pca100_lloyd100_n200_coassoc', '200 r., co-assoc.'),
+    ]),
+    ('MLP consensus polish', '#dcc3a8', '#5a3417', [
+        ('mlp:vmf_pca100_lloyd100_bm_raw', 'raw'),
+        ('mlp:vmf_pca100_lloyd100_bm_double', 'double-centred'),
+        ('mlp:vmf_pca100_lloyd100_bm_degree', 'degree-corrected'),
+        ('mlp:vmf_sparse_pca100_lloyd100_bm_degree', 'sparse, degree'),
+        ('mlp:vmf_pca100_lloyd50_bm_degree', 'k50, degree'),
+        ('mlp:vmf_pca100_lloyd200_bm_degree', 'k200, degree'),
+        ('mlp:vmf_pca100_lloyd100_coassoc_bm_degree', 'co-assoc., degree'),
     ]),
 ]
 
@@ -138,7 +174,10 @@ def load():
         path = os.path.join(HERE, fname)
         if not os.path.exists(path):
             continue
+        skip = SKIP.get(fname, set())
         for r in csv.DictReader(open(path)):
+            if r['variant'] in skip and r['metric'] not in SKIP_EXCEPT_METRICS:
+                continue
             r['value'] = float(r['value'])
             r['variant'] = prefix + r['variant']
             rows.append(r)
@@ -162,10 +201,11 @@ def _ramp(c0, c1, n):
     return [mpl.colors.to_hex(a + (b - a) * i / (n - 1)) for i in range(n)]
 
 
-ARM_COLORS, ARM_LABELS, ARM_GROUP = {}, {}, {}
+ARM_COLORS, ARM_LABELS, ARM_GROUP, GROUP_DARK = {}, {}, {}, {}
 for gname, c0, c1, arms in GROUPS:
     for (arm, label), colour in zip(arms, _ramp(c0, c1, len(arms))):
         ARM_COLORS[arm], ARM_LABELS[arm], ARM_GROUP[arm] = colour, label, gname
+        GROUP_DARK[arm] = c1
 
 def is_mlp(arm):
     return arm.startswith('mlp:')
@@ -549,7 +589,8 @@ def fig_within_vs_across():
     # two inside the crowded middle get a thin leader from a free spot below the cloud.
     labels = (
         ('vmf_ward200', 'Standardized\nWard k200', (9, -8), 'left', False),
-        ('mlp:vmf_ward100_bm', 'MLP block\npolish, raw', (9, -8), 'left', False),
+        # The Ward polish and the consensus polish, both raw, land on the same spot.
+        ('mlp:vmf_ward100_bm', 'MLP raw polish\n(Ward, consensus)', (9, -8), 'left', False),
         ('ica', 'Spatial ICA k50', (0, -15), 'center', False),
         ('blockmodel100', 'Block-model k100', (0.30, 0.035), 'center', True),
     )
@@ -622,6 +663,244 @@ def fig_maps_vs_labels():
     save_fig(fig, 'maps_vs_labels')
 
 
+# ---------------------------------------------------------------------------------------
+# Figures 5-7 -- the last round and the decision (LOG.md Iteration 20). All on MLP neurons.
+# ---------------------------------------------------------------------------------------
+KEPT = ('mlp:vmf_sparse_pca100_lloyd100', 'mlp:vmf_pca100_lloyd100_n200')
+BASE = 'mlp:vmf_pca100_lloyd100'
+# Blocks of rows, top to bottom: algorithm, the two changes kept, the two not kept, k, polish.
+FINAL_ROWS = [
+    [('mlp:vmf_ward100', 'Ward, full profiles'),
+     ('mlp:vmf_lloyd100', 'Lloyd, full profiles'),
+     (BASE, 'Lloyd, PCA-100 (base)')],
+    [('mlp:vmf_sparse_pca100_lloyd100', '+ sparse profiles'),
+     ('mlp:vmf_pca100_lloyd100_n200', '+ 200 restarts')],
+    [('mlp:vmf_pca100_lloyd100_coassoc', '+ co-association consensus'),
+     ('mlp:vmf_pca100_lloyd100_n200_coassoc', '+ 200 restarts, co-association')],
+    [('mlp:vmf_pca100_lloyd50', 'k = 50'),
+     ('mlp:vmf_pca100_lloyd200', 'k = 200')],
+    [('mlp:vmf_pca100_lloyd100_bm_raw', '+ polish, raw'),
+     ('mlp:vmf_pca100_lloyd100_bm_double', '+ polish, double-centred'),
+     ('mlp:vmf_pca100_lloyd100_bm_degree', '+ polish, degree-corrected')],
+]
+FINAL_PANELS = [
+    ('reliability_within', False, 'Within-domain\nreliability (ARI)'),
+    ('reliability_within_coassoc', False, 'Within-domain\nco-association r'),
+    ('reliability_across_halves', False, 'Across-domain\nreliability (ARI)'),
+    ('fidelity_within_r', True, 'Within-domain fidelity\nr, real $-$ null'),
+    ('fidelity_across_halves', True, 'Across-domain fidelity\nr, real $-$ null'),
+]
+
+
+def fig_final_candidates():
+    """Every change to the base pipeline on the four measures, one row per arm.
+
+    Reliabilities are raw (their null references sit at 0.01-0.03); fidelities are real minus
+    the null partition, paired by domain. The dashed line is the base arm, so a point right of
+    it is a gain. Bold rows are the two changes kept.
+    """
+    rows, ys, y = [], [], 0.0
+    for block in FINAL_ROWS:
+        for arm, label in block:
+            if arm in PRESENT:
+                rows.append((arm, label))
+                ys.append(y)
+                y += 1.0
+        y += 0.6
+    if BASE not in PRESENT or len(rows) < 3:
+        return
+    fig, axes = plt.subplots(1, len(FINAL_PANELS), figsize=(13.2 * 0.8, 4.9 * 0.8), dpi=300,
+                             sharey=True)
+    for ax, (metric, is_delta, title) in zip(axes, FINAL_PANELS):
+        def values(arm):
+            return paired_deltas(metric, arm) if is_delta else np.array(vals(metric, 'real', arm))
+        base_v = values(BASE)
+        if len(base_v):
+            ax.axvline(base_v.mean(), color='0.45', lw=1.0, ls='--', zorder=1)
+        for (arm, label), yy in zip(rows, ys):
+            v = values(arm)
+            if not len(v):
+                continue
+            # The dark end of the arm's group: one row per arm needs no within-group ramp, and
+            # the light end of a ramp is unreadable on white.
+            c = GROUP_DARK.get(arm, '0.3')
+            ax.scatter(v, np.full(len(v), yy) + np.linspace(-0.18, 0.18, len(v)), s=8, color=c,
+                       alpha=0.35, edgecolors='none', zorder=2)
+            ax.scatter(v.mean(), yy, s=46, color=c, edgecolors='black', linewidths=0.5, zorder=3)
+        ax.set_title(title, fontsize=9, fontweight='bold')
+        ax.grid(axis='x', linestyle='--', alpha=0.5, zorder=0)
+        style_spines(ax, drop_top_right=True)
+        ax.tick_params(axis='both', which='major', labelsize=8)
+    axes[0].set_yticks(ys)
+    axes[0].set_yticklabels([label for _, label in rows], fontsize=8.5)
+    for tick, (arm, _) in zip(axes[0].get_yticklabels(), rows):
+        if arm in KEPT:
+            tick.set_fontweight('bold')
+    axes[0].set_ylim(ys[-1] + 0.8, -0.8)
+    fig.tight_layout(w_pad=0.8)
+    save_fig(fig, 'final_candidates')
+
+
+def load_plain(fname):
+    path = os.path.join(HERE, fname)
+    if not os.path.exists(path):
+        return None
+    out = list(csv.DictReader(open(path)))
+    for r in out:
+        r['value'] = float(r['value'])
+    return out
+
+
+POOL_TYPES = [
+    ('domain\nto domain', lambda f, e: f in PROSE and e in PROSE),
+    ('pool of 3\nto held-out', lambda f, e: f.startswith('lodo_') and e in PROSE),
+    ('held-out\nto pool of 3', lambda f, e: f in PROSE and e.startswith('lodo_')),
+    ('pair to\nother pair', lambda f, e: f.startswith('pair_')),
+]
+POOL_ARMS = [
+    ('vmf_pca100_lloyd100', 'Lloyd PCA-100 consensus'),
+    ('vmf_pca100_lloyd100_coassoc', 'co-association consensus'),
+    ('vmf_pca100_lloyd100_bm_degree', 'degree-corrected polish'),
+]
+
+
+def fig_pooled_estimation():
+    """Pooled estimation (T4): transfer and label agreement by what is fit and what is held out.
+
+    Every comparison shares no data between the fitting and the evaluated connectome. The
+    ceiling under each group is the uncompressed across-domain r for that comparison, which
+    rises with the tokens on the fitting side; the last panel shows the leave-one-domain-out
+    gain held-out domain by held-out domain.
+    """
+    rows = load_plain(POOLED_FILE)
+    if rows is None:
+        return
+    idx = {}
+    for r in rows:
+        idx.setdefault((r['metric'], r['tree'], r['variant']), {})[(r['fit'], r['eval'])] = r['value']
+
+    def pairs_of(metric, tree, variant, test):
+        return {k: v for k, v in idx.get((metric, tree, variant), {}).items() if test(*k)}
+
+    def deltas(metric, variant, test):
+        real, ref = pairs_of(metric, 'real', variant, test), pairs_of(metric, 'pnull', variant, test)
+        return np.array([real[k] - ref[k] for k in sorted(set(real) & set(ref))])
+
+    fig, axes = plt.subplots(1, 3, figsize=(13.2 * 0.82, 3.8 * 0.82), dpi=300,
+                             gridspec_kw=dict(width_ratios=[1.35, 1.35, 0.8]))
+    offsets = np.linspace(-0.24, 0.24, len(POOL_ARMS))
+    for ax, metric, is_delta, ylabel in (
+            (axes[0], 'fidelity_across_halves', True, 'Across-domain fidelity r, real $-$ null'),
+            (axes[1], 'reliability_across_halves', False, 'Across-domain reliability (ARI)')):
+        for (variant, _), off in zip(POOL_ARMS, offsets):
+            c = ARM_COLORS.get('mlp:' + variant, '0.3')
+            for t, (_, test) in enumerate(POOL_TYPES):
+                v = deltas(metric, variant, test) if is_delta else \
+                    np.array(list(pairs_of(metric, 'real', variant, test).values()))
+                if not len(v):
+                    continue
+                ax.scatter(np.full(len(v), t + off), v, s=8, color=c, alpha=0.35,
+                           edgecolors='none', zorder=2)
+                ax.scatter(t + off, v.mean(), s=44, color=c, edgecolors='black',
+                           linewidths=0.5, zorder=3)
+        labels = []
+        for name, test in POOL_TYPES:
+            ceil = pairs_of('fidelity_across_halves', 'real', '(ceiling)', test)
+            labels.append('%s\nceiling %.2f' % (name, np.mean(list(ceil.values()))) if ceil else name)
+        ax.set_xticks(range(len(POOL_TYPES)))
+        ax.set_xticklabels(labels, fontsize=7.5)
+        ax.set_ylabel(ylabel, fontsize=9)
+        ax.set_xlim(-0.6, len(POOL_TYPES) - 0.4)
+        ax.grid(axis='y', linestyle='--', alpha=0.5, zorder=0)
+        style_spines(ax, drop_top_right=True)
+        ax.tick_params(axis='y', labelsize=8.5)
+
+    ax = axes[2]
+    variant = POOL_ARMS[0][0]
+    c = ARM_COLORS.get('mlp:' + variant, '0.3')
+    for d in PROSE:
+        single = deltas('fidelity_across_halves', variant, lambda f, e, d=d: f in PROSE and e == d)
+        lodo = deltas('fidelity_across_halves', variant, lambda f, e, d=d: f == 'lodo_' + d and e == d)
+        if not (len(single) and len(lodo)):
+            continue
+        ax.plot([0, 1], [single.mean(), lodo.mean()], color=c, lw=1.2, zorder=2)
+        ax.scatter([0, 1], [single.mean(), lodo.mean()], s=34, color=c, edgecolors='black',
+                   linewidths=0.5, zorder=3)
+        ax.text(1.08, lodo.mean(), d, fontsize=7, va='center', color='0.25')
+    ax.set_xticks([0, 1])
+    ax.set_xticklabels(['mean of the\n3 single domains', 'pool of the\n3 domains'], fontsize=7.5)
+    ax.set_xlim(-0.35, 1.75)
+    ax.set_ylabel('Fidelity r into the held-out domain,\nreal $-$ null', fontsize=9)
+    ax.grid(axis='y', linestyle='--', alpha=0.5, zorder=0)
+    style_spines(ax, drop_top_right=True)
+    ax.tick_params(axis='y', labelsize=8.5)
+
+    fig.legend(handles=[Line2D([0], [0], marker='o', color='none',
+                               markerfacecolor=ARM_COLORS.get('mlp:' + v, '0.3'),
+                               markeredgecolor='black', markersize=6, label=lab)
+                        for v, lab in POOL_ARMS],
+               loc='lower center', bbox_to_anchor=(0.5, -0.09), ncol=3, frameon=False, fontsize=8)
+    fig.tight_layout(w_pad=1.2)
+    save_fig(fig, 'pooled_estimation')
+
+
+YARDSTICK_ARMS = [('vmf_ward100', 'Ward'), ('vmf_lloyd100', 'Lloyd,\nfull profiles'),
+                  ('vmf_pca100_lloyd100', 'Lloyd,\nPCA-100')]
+
+
+def fig_yardstick():
+    """How far hard-label reliability is from what the data allow (T3).
+
+    Circle: split-half ARI of the consensus (40 restarts). Diamond: the yardstick, Lloyd on
+    one half started from the other half's partition. Square: 200 restarts, where run. Cross:
+    the yardstick started from the null partition. The gap from circle to diamond is headroom
+    that belongs to the consensus, not to the data.
+    """
+    rows = load_plain(YARDSTICK_FILE)
+    if rows is None:
+        return
+    fig, ax = plt.subplots(figsize=(4.6 * 0.9, 3.4 * 0.9), dpi=300)
+    for i, (variant, _) in enumerate(YARDSTICK_ARMS):
+        c = ARM_COLORS.get('mlp:' + variant, '0.3')
+
+        def pick(tree, metric):
+            return np.array([r['value'] for r in rows if r['variant'] == variant
+                             and r['tree'] == tree and r['metric'] == metric])
+        rel, yard, null_yard = pick('real', 'reliability_ari'), pick('real', 'yardstick_ari'), \
+            pick('pnull', 'yardstick_ari')
+        if not len(yard):
+            continue
+        ax.vlines(i, rel.mean(), yard.mean(), color=c, alpha=0.45, lw=3.2, zorder=2)
+        ax.scatter(np.full(len(yard), i + 0.12), yard, s=8, color=c, alpha=0.4, edgecolors='none', zorder=2)
+        ax.scatter(i, rel.mean(), s=46, color=c, edgecolors='black', linewidths=0.5, zorder=3)
+        ax.scatter(i, yard.mean(), s=46, marker='D', color=c, edgecolors='black', linewidths=0.5, zorder=3)
+        ax.scatter(i, null_yard.mean(), s=40, marker='x', color='0.45', linewidths=1.2, zorder=3)
+        more = 'mlp:%s_n200' % variant
+        if more in PRESENT:
+            ax.scatter(i, mean('reliability_within', 'real', more), s=42, marker='s', color=c,
+                       edgecolors='black', linewidths=0.5, zorder=3.5)
+    ax.set_xticks(range(len(YARDSTICK_ARMS)))
+    ax.set_xticklabels([lab for _, lab in YARDSTICK_ARMS], fontsize=8.5)
+    ax.set_xlim(-0.5, len(YARDSTICK_ARMS) - 0.5)
+    ax.set_ylim(-0.03, 1.0)
+    ax.set_ylabel('Agreement between halves (ARI), k = 100', fontsize=9)
+    ax.grid(axis='y', linestyle='--', alpha=0.5, zorder=1)
+    style_spines(ax, drop_top_right=True)
+    ax.tick_params(axis='both', which='major', labelsize=8.5)
+    ax.legend(handles=[
+        Line2D([0], [0], marker='D', color='none', markerfacecolor='0.3', markeredgecolor='black',
+               markersize=6, label='steered from the other half'),
+        Line2D([0], [0], marker='s', color='none', markerfacecolor='0.3', markeredgecolor='black',
+               markersize=6, label='consensus, 200 restarts'),
+        Line2D([0], [0], marker='o', color='none', markerfacecolor='0.3', markeredgecolor='black',
+               markersize=6, label='consensus, 40 restarts'),
+        Line2D([0], [0], marker='x', color='0.45', linestyle='none', markersize=6,
+               label='steered, null partition'),
+    ], loc='upper left', frameon=False, fontsize=7.5)
+    fig.tight_layout()
+    save_fig(fig, 'yardstick')
+
+
 if __name__ == '__main__':
     os.makedirs('plots', exist_ok=True)
     fig_references()
@@ -629,6 +908,9 @@ if __name__ == '__main__':
     fig_hubness_tradeoff()
     fig_within_vs_across()
     fig_maps_vs_labels()
+    fig_final_candidates()
+    fig_pooled_estimation()
+    fig_yardstick()
     print('wrote plots/{arms_references,arms_deltas,hubness_tradeoff,within_vs_across,'
-          'maps_vs_labels}'
+          'maps_vs_labels,final_candidates,pooled_estimation,yardstick}'
           '.{svg,png} from %d arms' % len(ARMS))
