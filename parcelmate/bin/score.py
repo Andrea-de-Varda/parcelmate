@@ -56,6 +56,7 @@ from parcelmate.constants import (
     CONNECTIVITY_NAME, EXTENSION, HALF_NAMES, OUTPUT_DIR, PARCELLATION_NAME,
 )
 from parcelmate.metrics import (
+    coassociation_correlation, coassociation_counts, coassociation_reliability,
     domain_average, fidelity, fidelity_ceiling, fidelity_insample, map_reliability,
     reliability, reliability_ceiling, summarize, triviality,
 )
@@ -132,7 +133,17 @@ def random_partition(n_units, n_networks, seed):
     return np.eye(int(n_networks))[rng.randint(0, int(n_networks), size=n_units)]
 
 
-def score_tree(root, tree, variants, domains, rows, missing, cross_domain=True, verbose=True):
+def wants_across(pairs, fit_domain, eval_domain=None):
+    """Whether an across-domain comparison is requested. `pairs` None means every ordered pair."""
+    if pairs is None:
+        return True
+    if eval_domain is None:
+        return any(f == fit_domain for f, _ in pairs)
+    return (fit_domain, eval_domain) in pairs
+
+
+def score_tree(root, tree, variants, domains, rows, missing, cross_domain=True, verbose=True,
+               pairs=None):
     """Score one tree on its own data. Appends result rows and any absent inputs.
 
     Nothing is skipped silently: every input that should exist and does not is recorded, so
@@ -177,6 +188,11 @@ def score_tree(root, tree, variants, domains, rows, missing, cross_domain=True, 
                 rows.append(dict(tree=tree, variant=variant, metric='reliability_within_maps',
                                  fit=domain, eval=domain,
                                  value=map_reliability(da['ica_maps'], db['ica_maps'])))
+            if 'samples' in da and 'samples' in db:
+                # The restart ensembles judged without label matching (Iteration 19, T3).
+                rows.append(dict(tree=tree, variant=variant,
+                                 metric='reliability_within_coassoc', fit=domain, eval=domain,
+                                 value=coassociation_reliability(da['samples'], db['samples'])))
             for metric_name, measure in WITHIN_MEASURES:
                 rows.append(dict(tree=tree, variant=variant, metric=metric_name,
                                  fit=domain, eval=domain,
@@ -222,14 +238,21 @@ def score_tree(root, tree, variants, domains, rows, missing, cross_domain=True, 
     for fit_key, eval_key, suffix in (('avg', 'avg', ''),
                                       (HALF_NAMES[0], HALF_NAMES[1], '_halves')):
         score_across(root, tree, variants, domains, rows, missing,
-                     fit_key, eval_key, suffix, verbose=verbose)
+                     fit_key, eval_key, suffix, verbose=verbose, pairs=pairs)
 
 
 def score_across(root, tree, variants, domains, rows, missing,
-                 fit_key, eval_key, suffix, verbose=True):
-    """Fit a parcellation on one domain and evaluate it on another, within one tree."""
+                 fit_key, eval_key, suffix, verbose=True, pairs=None):
+    """Fit a parcellation on one domain and evaluate it on another, within one tree.
+
+    `pairs`, a set of (fit, eval) domain names, restricts the comparisons; None scores
+    every ordered pair (LOG.md Iteration 19: pooled pseudo-domains make most pairs
+    meaningless, since a pool shares data with most other domains).
+    """
     cache = MatrixCache()
     for fit_domain in domains:
+        if not wants_across(pairs, fit_domain):
+            continue
         p_fit = conn_path(root, fit_domain, fit_key)
         if not os.path.exists(p_fit):
             missing.append('%s/%s: %s connectivity' % (tree, fit_domain, fit_key))
@@ -245,7 +268,7 @@ def score_across(root, tree, variants, domains, rows, missing,
                                % (tree, variant, fit_domain, fit_key))
         modes = sorted({m for _, m in parcs.values()}, key=str)
         for eval_domain in domains:
-            if eval_domain == fit_domain:
+            if eval_domain == fit_domain or not wants_across(pairs, fit_domain, eval_domain):
                 continue
             p_eval = conn_path(root, eval_domain, eval_key)
             if not os.path.exists(p_eval):
@@ -283,7 +306,7 @@ def score_across(root, tree, variants, domains, rows, missing,
 
 
 def score_partition_nulls(root, null_root, variants, domains, rows, missing, seed,
-                          cross_domain=True, verbose=True):
+                          cross_domain=True, verbose=True, pairs=None):
     """Trees `pnull` and `rand`: reference partitions evaluated on the REAL data.
 
     The real metric fits P on half A and predicts half B. Here the partition comes from
@@ -314,11 +337,21 @@ def score_partition_nulls(root, null_root, variants, domains, rows, missing, see
                 continue
             normalize = variant_normalize(root, variant, domain, HALF_NAMES[0])
             R_a, R_b = cache.get(pa, normalize), cache.get(pb, normalize)
-            db = load_h5_data(fb, verbose=False)
-            P_a = load_h5_data(fa, verbose=False)['parcellation']
-            P_b = db['parcellation']
-            P_null_a = load_h5_data(fn_a, verbose=False)['parcellation']
-            P_null_b = load_h5_data(fn_b, verbose=False)['parcellation']
+            da, db = load_h5_data(fa, verbose=False), load_h5_data(fb, verbose=False)
+            dna, dnb = load_h5_data(fn_a, verbose=False), load_h5_data(fn_b, verbose=False)
+            P_a, P_b = da['parcellation'], db['parcellation']
+            P_null_a, P_null_b = dna['parcellation'], dnb['parcellation']
+            if all('samples' in d for d in (da, db, dna, dnb)):
+                # Co-association reliability against the null ensembles, both orientations
+                # averaged as for the ARI reference below.
+                C_a, C_b = coassociation_counts(da['samples']), coassociation_counts(db['samples'])
+                rows.append(dict(
+                    tree='pnull', variant=variant, metric='reliability_within_coassoc',
+                    fit=domain, eval=domain,
+                    value=(coassociation_correlation(coassociation_counts(dna['samples']), C_b)
+                           + coassociation_correlation(C_a, coassociation_counts(dnb['samples'])))
+                    / 2.0))
+                del C_a, C_b
             k = int(read_attrs(fb).get('n_networks', P_b.shape[1]))
             n_units = P_b.shape[0]
 
@@ -370,6 +403,8 @@ def score_partition_nulls(root, null_root, variants, domains, rows, missing, see
     # its agreement with the real parcellation of that other domain's half B.
     fit_key, eval_key = HALF_NAMES
     for fit_domain in domains:
+        if not wants_across(pairs, fit_domain):
+            continue
         p_fit = conn_path(root, fit_domain, fit_key)
         if not os.path.exists(p_fit):
             continue
@@ -389,7 +424,7 @@ def score_partition_nulls(root, null_root, variants, domains, rows, missing, see
                                                      fit_domain, 'a')),
             }, k)
         for eval_domain in domains:
-            if eval_domain == fit_domain:
+            if eval_domain == fit_domain or not wants_across(pairs, fit_domain, eval_domain):
                 continue
             p_eval = conn_path(root, eval_domain, eval_key)
             if not os.path.exists(p_eval):
@@ -446,21 +481,32 @@ def score_config(cfg, out=None, cross_domain=True, allow_partial=False, verbose=
         variants = sorted(variants)
     else:
         variants = all_variants
-    domains = list(cfg.get('connectivity', {}).get('domains') or [])
+    # An optional `score` section overrides the domains (so pooled pseudo-domains can be
+    # scored, LOG.md Iteration 19) and restricts the across-domain pairs.
+    score_cfg = cfg.get('score') or {}
+    domains = list(score_cfg.get('domains') or cfg.get('connectivity', {}).get('domains') or [])
     seed = cfg.get('seed', 0) or 0
     assert domains, 'No domains in the config; nothing to score'
+    pairs = None
+    if score_cfg.get('across_pairs') is not None:
+        pairs = set()
+        for p in score_cfg['across_pairs']:
+            assert len(p) == 2 and p[0] != p[1] and p[0] in domains and p[1] in domains, (
+                'across pair %r must name two different domains from %s' % (p, domains))
+            pairs.add((str(p[0]), str(p[1])))
 
-    stderr('Scoring %d variant(s) over %d domain(s)\n' % (len(variants), len(domains)))
+    stderr('Scoring %d variant(s) over %d domain(s), %s across-domain pairs\n' % (
+        len(variants), len(domains), 'all' if pairs is None else len(pairs)))
     rows, missing = [], []
     for tree, tree_root in (('real', root), ('null', null_root)):
         if not os.path.isdir(tree_root):
             missing.append('%s tree absent at %s' % (tree, tree_root))
             continue
         score_tree(tree_root, tree, variants, domains, rows, missing,
-                   cross_domain=cross_domain, verbose=verbose)
+                   cross_domain=cross_domain, verbose=verbose, pairs=pairs)
     if os.path.isdir(root) and os.path.isdir(null_root):
         score_partition_nulls(root, null_root, variants, domains, rows, missing, seed,
-                              cross_domain=cross_domain, verbose=verbose)
+                              cross_domain=cross_domain, verbose=verbose, pairs=pairs)
 
     # Refuse to publish a results file that merely looks complete. The realistic failure is
     # a parcellation job hitting its wall clock part way through; without this the scoring
@@ -495,7 +541,8 @@ def score_config(cfg, out=None, cross_domain=True, allow_partial=False, verbose=
     print('\n%-14s %-26s %7s %7s %7s %7s %10s %10s' % (
         'variant', 'metric', 'real', 'null', 'pnull', 'rand', 'real-pnull', 'real-rand'))
     print('-' * 96)
-    for metric in ('reliability_within', 'reliability_within_maps', 'reliability_ceiling',
+    for metric in ('reliability_within', 'reliability_within_maps', 'reliability_within_coassoc',
+                   'reliability_ceiling',
                    'reliability_across', 'reliability_across_halves',
                    'fidelity_within', 'fidelity_within_insample', 'fidelity_within_r',
                    'fidelity_across', 'fidelity_across_halves',

@@ -28,9 +28,12 @@ CONDA_ENV=${CONDA_ENV:-parcelmate}
 MODE=${1:-}
 
 case "$MODE" in
-    generate|submit|resume|generate4|submit4|generate_final|submit_final) ;;
+    generate|submit|resume|generate4|submit4|generate_final|submit_final|generate_last|submit_last) ;;
     *)
-        echo "usage: $0 {generate|submit|resume|generate4|submit4|generate_final|submit_final}" >&2
+        echo "usage: $0 {generate|submit|resume|generate4|submit4|generate_final|submit_final|generate_last|submit_last}" >&2
+        echo "  generate_last   the last round (configs/last_mlp.yml, pooled_mlp.yml, the yardstick):" >&2
+        echo "                  link connectivity from results/yolo_mlp, write jobs (run on scdt)" >&2
+        echo "  submit_last     sbatch the pool job, 17 arms, two score jobs and the yardstick (run on sc)" >&2
         echo "  generate_final  final tests T1, T2, T5 (configs/final_mlp.yml, final_resid.yml):" >&2
         echo "                  link connectivity from results/yolo_mlp and results/yolo, write" >&2
         echo "                  jobs/final_*.pbs (run on scdt)" >&2
@@ -304,6 +307,110 @@ submit_final() {
     squeue -u "$USER" -o "%.9i %.50j %.9T %.10M %R"
 }
 
+# The last round (LOG.md Iteration 19). Lists grouped by cost; a test checks they are exactly
+# the arms of the two configs.
+LAST_MLP_FAST="vmf_pca100_lloyd100 vmf_pca100_lloyd100_bm_raw vmf_pca100_lloyd100_bm_double vmf_pca100_lloyd100_bm_degree vmf_sparse_pca100_lloyd100 vmf_sparse_pca100_lloyd100_bm_degree vmf_pca100_lloyd50 vmf_pca100_lloyd50_bm_degree vmf_pca100_lloyd100_coassoc vmf_pca100_lloyd100_coassoc_bm_degree"
+LAST_MLP_K200="vmf_pca100_lloyd200 vmf_pca100_lloyd200_bm_degree"
+LAST_MLP_N200="vmf_pca100_lloyd100_n200 vmf_pca100_lloyd100_n200_coassoc"
+POOLED_MLP="vmf_pca100_lloyd100 vmf_pca100_lloyd100_bm_degree vmf_pca100_lloyd100_coassoc"
+YARDSTICK_VARIANTS="vmf_lloyd100 vmf_pca100_lloyd100 vmf_ward100"
+
+generate_last() {
+    if [ -f "$CONDA_SH" ]; then
+        source "$CONDA_SH"
+        conda activate "$CONDA_ENV"
+    fi
+    mkdir -p jobs logs
+    local dst t f a
+    for dst in last_mlp pooled_mlp; do
+        for t in "" _null; do
+            mkdir -p results/$dst$t/connectivity
+            for f in results/yolo_mlp$t/connectivity/connectivity_*.h5; do
+                ln -f "$f" results/$dst$t/connectivity/
+            done
+            echo "results/$dst$t/connectivity: $(ls results/$dst$t/connectivity | wc -l) files"
+        done
+    done
+    local M="python -m parcelmate.bin.make_jobs"
+    local CPU=configs/cluster/sc-cpu.yml
+    # Anchors: PCA-100 Lloyd, 40 restarts, 24 matrices took 19 min (job 17417207) at 3.7 GB;
+    # the Ward polishes added ~15 min per arm for one refinement per matrix, and a consensus
+    # polish refines three labelings per matrix. Co-association and average linkage take
+    # seconds per matrix. 200 restarts are 5x the Lloyd time; k = 200 about 2x.
+    for a in $LAST_MLP_FAST; do
+        $M configs/last_mlp.yml -c $CPU -s parcellation -V $a -t 3 -m 16 -n 8 -o jobs/
+    done
+    for a in $LAST_MLP_K200; do
+        $M configs/last_mlp.yml -c $CPU -s parcellation -V $a -t 4 -m 16 -n 8 -o jobs/
+    done
+    for a in $LAST_MLP_N200; do
+        $M configs/last_mlp.yml -c $CPU -s parcellation -V $a -t 6 -m 16 -n 8 -o jobs/
+    done
+    # 14 arms, 12 pairs: the 15-arm final_mlp score took 2 h 28.
+    $M configs/last_mlp.yml -c $CPU -s score -t 8 -m 16 -n 4 -o jobs/
+    # Pools: 11 pools x 3 keys x 2 trees, each a Fisher mean of 2-4 matrices of 400 MB.
+    $M configs/pooled_mlp.yml -c $CPU -s pool_domains -t 2 -m 16 -n 4 -o jobs/
+    # 15 domains x 3 keys x 2 trees = 90 matrices per arm, 3.75x the single-domain count.
+    for a in $POOLED_MLP; do
+        $M configs/pooled_mlp.yml -c $CPU -s parcellation -V $a -t 8 -m 16 -n 8 -o jobs/
+    done
+    $M configs/pooled_mlp.yml -c $CPU -s score -t 8 -m 16 -n 4 -o jobs/
+
+    # The yardstick is a plain script, so make_jobs cannot render it; same profile values.
+    cat > jobs/final_mlp.yardstick.pbs <<EOF
+#!/bin/bash
+#
+#SBATCH --job-name=final_mlp.yardstick
+#SBATCH --output=$WORK/logs/final_mlp.yardstick-%N-%j.out
+#SBATCH --error=$WORK/logs/final_mlp.yardstick-%N-%j.err
+#SBATCH --time=3:00:00
+#SBATCH --mem=16gb
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=8
+#SBATCH --account=nlp
+#SBATCH --partition=john
+
+set -e
+
+mkdir -p $WORK/logs
+cd $WORK
+source $CONDA_SH
+conda activate $CONDA_ENV
+export OMP_NUM_THREADS=\$SLURM_CPUS_PER_TASK
+export MKL_NUM_THREADS=\$SLURM_CPUS_PER_TASK
+export OPENBLAS_NUM_THREADS=\$SLURM_CPUS_PER_TASK
+
+PYTHONPATH=. python analysis/yardstick.py --root results/final_mlp --variants $YARDSTICK_VARIANTS
+EOF
+    ls -1 jobs/last_mlp.*.pbs jobs/pooled_mlp.*.pbs jobs/final_mlp.yardstick.pbs
+}
+
+submit_last() {
+    mkdir -p logs
+    echo "code at $(git log --oneline | head -1)"
+    local a id ids="" pids="" pool
+    for a in $LAST_MLP_FAST $LAST_MLP_K200 $LAST_MLP_N200; do
+        id=$(sbatch --parsable jobs/last_mlp.parcellation.$a.pbs)
+        echo "last_mlp $a -> $id"
+        ids="$ids:$id"
+    done
+    id=$(sbatch --parsable --dependency=afterok${ids} jobs/last_mlp.score.pbs)
+    echo "last_mlp score -> $id"
+    pool=$(sbatch --parsable jobs/pooled_mlp.pool_domains.pbs)
+    echo "pooled_mlp pool_domains -> $pool"
+    for a in $POOLED_MLP; do
+        id=$(sbatch --parsable --dependency=afterok:$pool jobs/pooled_mlp.parcellation.$a.pbs)
+        echo "pooled_mlp $a -> $id"
+        pids="$pids:$id"
+    done
+    id=$(sbatch --parsable --dependency=afterok${pids} jobs/pooled_mlp.score.pbs)
+    echo "pooled_mlp score -> $id"
+    id=$(sbatch --parsable jobs/final_mlp.yardstick.pbs)
+    echo "final_mlp yardstick -> $id"
+    echo
+    squeue -u "$USER" -o "%.9i %.50j %.9T %.10M %R"
+}
+
 case "$MODE" in
     generate)  generate ;;
     submit)    submit ;;
@@ -312,4 +419,6 @@ case "$MODE" in
     submit4)   submit4 ;;
     generate_final) generate_final ;;
     submit_final)   submit_final ;;
+    generate_last)  generate_last ;;
+    submit_last)    submit_last ;;
 esac

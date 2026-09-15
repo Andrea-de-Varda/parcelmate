@@ -1,0 +1,127 @@
+# The last round, part 1 (LOG.md Iteration 19): the candidate pipeline and T3, on MLP units.
+# GPT-2 post-GELU neurons, 12 x 832 = 9,984 units, prose domains. Connectivity hard-linked
+# from results/yolo_mlp{,_null} (`scripts/launch_yolo.sh generate_last`), so the
+# `connectivity` section must stay identical to configs/yolo_mlp.yml (under test).
+#
+# Every arm: standardized Fisher profiles, PCA to 100 components without whitening, Lloyd
+# k-means with 40 restarts, restart labels stored (`store_samples`). The first arm repeats
+# `vmf_pca100_lloyd100` of configs/final_mlp.yml exactly (same seeds, so the same partitions)
+# and differs from it only in storing the restart labels.
+#
+# Candidate pipeline. Iteration 18 found the block-model polish to be the largest fidelity
+# lever, but ran it only from Ward, the least reliable start on MLP units. Here the polish
+# refines the finished Lloyd consensus once (`blockmodel_refine_stage: consensus`), raw and
+# with the per-unit level removed additively (`double`) or multiplicatively (`degree`).
+# Sparse profiles + PCA-100, and the candidate at k = 50 and 200, complete it.
+#
+# T3, a consensus robust to non-unique optima. `consensus: coassociation` cuts the
+# co-association matrix of the restarts by average linkage instead of aligning labels, and
+# 200-restart arms ask whether the restart-split ceiling (0.65 at 40 restarts) is limited by
+# the number of restarts. Every arm is also scored on `reliability_within_coassoc`, the
+# split-half correlation of the restart co-association matrices. The cross-fit yardstick runs
+# on configs/final_mlp.yml's arms (analysis/yardstick.py).
+#
+# Outputs:
+#   results/last_mlp/<variant>/parcellation/
+#   results/last_mlp_null/...                 circshift null, same arms
+#   results/last_mlp/metrics/scores.csv
+
+output_dir: results/last_mlp
+
+seed: 42
+
+connectivity:
+  model_name: gpt2
+  unit_type: mlp
+  units_per_layer: 832
+  n_samples: 4
+  domains:
+    - wikitext
+    - bookcorpus
+    - agnews
+    - tldr17
+  seq_len: 1024
+  n_tokens: null
+  split: train
+  take: 100000
+  wrap: true
+  shuffle: true
+  batch_size: 8
+  highpass: null
+  lowpass: null
+  step: 0.2
+  timecourse_pca_components: null
+  timecourse_ica_components: null
+  eps: 1.0e-3
+  null_model: circshift
+  n_surrogates: 0
+
+parcellation:
+  n_networks: 100
+  n_samples: 40
+  clustering: kmeans
+  binarize_connectivity: false
+  fisher_transform: true
+  standardize_profiles: true
+  connectivity_pca_components: 100
+  pca_whiten: false
+  store_samples: true
+  clustering_kwargs: null
+  n_alignments: null
+  weight_samples: false
+  parcellate_samples: false
+
+parcellation_variants:
+
+  # ---- the candidate, unpolished and polished once
+  vmf_pca100_lloyd100: {}
+  vmf_pca100_lloyd100_bm_raw:
+    blockmodel_refine_labels: true
+    blockmodel_refine_stage: consensus
+  vmf_pca100_lloyd100_bm_double:
+    blockmodel_refine_labels: true
+    blockmodel_refine_stage: consensus
+    blockmodel_center: double
+  vmf_pca100_lloyd100_bm_degree:
+    blockmodel_refine_labels: true
+    blockmodel_refine_stage: consensus
+    blockmodel_center: degree
+
+  # ---- sparse standardized profiles, then PCA-100
+  vmf_sparse_pca100_lloyd100:
+    sparsify_profiles: true
+  vmf_sparse_pca100_lloyd100_bm_degree:
+    sparsify_profiles: true
+    blockmodel_refine_labels: true
+    blockmodel_refine_stage: consensus
+    blockmodel_center: degree
+
+  # ---- k
+  vmf_pca100_lloyd50:
+    n_networks: 50
+  vmf_pca100_lloyd50_bm_degree:
+    n_networks: 50
+    blockmodel_refine_labels: true
+    blockmodel_refine_stage: consensus
+    blockmodel_center: degree
+  vmf_pca100_lloyd200:
+    n_networks: 200
+  vmf_pca100_lloyd200_bm_degree:
+    n_networks: 200
+    blockmodel_refine_labels: true
+    blockmodel_refine_stage: consensus
+    blockmodel_center: degree
+
+  # ---- T3: co-association consensus and more restarts
+  vmf_pca100_lloyd100_coassoc:
+    consensus: coassociation
+  vmf_pca100_lloyd100_coassoc_bm_degree:
+    consensus: coassociation
+    blockmodel_refine_labels: true
+    blockmodel_refine_stage: consensus
+    blockmodel_center: degree
+  vmf_pca100_lloyd100_n200:
+    n_samples: 200
+  vmf_pca100_lloyd100_n200_coassoc:
+    n_samples: 200
+    consensus: coassociation

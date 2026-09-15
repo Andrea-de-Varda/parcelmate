@@ -1,0 +1,143 @@
+# The last round, part 2 (LOG.md Iteration 19): T4, pooled estimation, on MLP units.
+# Connectivity hard-linked from results/yolo_mlp{,_null}; the `pool_domains` step then writes
+# pooled connectomes as pseudo-domains in both trees, and the ordinary parcellation and score
+# steps treat them as domains. The `connectivity` section must stay identical to
+# configs/yolo_mlp.yml, and every arm must resolve to the same settings as its namesake in
+# configs/last_mlp.yml (both under test), so single-domain and pooled results are the same
+# pipeline.
+#
+# Pools (Fisher mean of the members, per key, halves kept disjoint):
+#   lodo_<d>   the other three prose domains. Fit on lodo_<d>, evaluate on <d>: leave-one-
+#              domain-out fidelity and label agreement, with no data shared between the two.
+#   pair_*     two prose domains; the three complementary splits give a domain split-half
+#              agreement (a partition from two domains against one from the other two).
+#   pool_all   all four: the domain-general partition itself, whose within-pool split-half
+#              reliability is the reliability of the object the project would report.
+# A pool of m domains has m times one domain's tokens; that is part of what pooling buys, and
+# comparisons with single domains carry it.
+#
+# Scoring is restricted (`score.across_pairs`) to the 12 prose pairs (the single-domain
+# baseline), the 8 leave-one-out pairs in both directions, and the 6 complementary pairs: most
+# other pairs share data between fit and evaluation.
+#
+# Outputs:
+#   results/pooled_mlp/connectivity/connectivity_{lodo_*,pair_*,pool_all}_{avg,halfA,halfB}.h5
+#   results/pooled_mlp/<variant>/parcellation/
+#   results/pooled_mlp_null/...
+#   results/pooled_mlp/metrics/scores.csv
+
+output_dir: results/pooled_mlp
+
+seed: 42
+
+connectivity:
+  model_name: gpt2
+  unit_type: mlp
+  units_per_layer: 832
+  n_samples: 4
+  domains:
+    - wikitext
+    - bookcorpus
+    - agnews
+    - tldr17
+  seq_len: 1024
+  n_tokens: null
+  split: train
+  take: 100000
+  wrap: true
+  shuffle: true
+  batch_size: 8
+  highpass: null
+  lowpass: null
+  step: 0.2
+  timecourse_pca_components: null
+  timecourse_ica_components: null
+  eps: 1.0e-3
+  null_model: circshift
+  n_surrogates: 0
+
+pool_domains:
+  pools:
+    lodo_wikitext: [bookcorpus, agnews, tldr17]
+    lodo_bookcorpus: [wikitext, agnews, tldr17]
+    lodo_agnews: [wikitext, bookcorpus, tldr17]
+    lodo_tldr17: [wikitext, bookcorpus, agnews]
+    pair_wikitext_bookcorpus: [wikitext, bookcorpus]
+    pair_agnews_tldr17: [agnews, tldr17]
+    pair_wikitext_agnews: [wikitext, agnews]
+    pair_bookcorpus_tldr17: [bookcorpus, tldr17]
+    pair_wikitext_tldr17: [wikitext, tldr17]
+    pair_bookcorpus_agnews: [bookcorpus, agnews]
+    pool_all: [wikitext, bookcorpus, agnews, tldr17]
+
+score:
+  domains:
+    - wikitext
+    - bookcorpus
+    - agnews
+    - tldr17
+    - lodo_wikitext
+    - lodo_bookcorpus
+    - lodo_agnews
+    - lodo_tldr17
+    - pair_wikitext_bookcorpus
+    - pair_agnews_tldr17
+    - pair_wikitext_agnews
+    - pair_bookcorpus_tldr17
+    - pair_wikitext_tldr17
+    - pair_bookcorpus_agnews
+    - pool_all
+  across_pairs:
+    # single-domain baseline: the 12 ordered prose pairs
+    - [wikitext, bookcorpus]
+    - [wikitext, agnews]
+    - [wikitext, tldr17]
+    - [bookcorpus, wikitext]
+    - [bookcorpus, agnews]
+    - [bookcorpus, tldr17]
+    - [agnews, wikitext]
+    - [agnews, bookcorpus]
+    - [agnews, tldr17]
+    - [tldr17, wikitext]
+    - [tldr17, bookcorpus]
+    - [tldr17, agnews]
+    # leave one domain out, both directions
+    - [lodo_wikitext, wikitext]
+    - [lodo_bookcorpus, bookcorpus]
+    - [lodo_agnews, agnews]
+    - [lodo_tldr17, tldr17]
+    - [wikitext, lodo_wikitext]
+    - [bookcorpus, lodo_bookcorpus]
+    - [agnews, lodo_agnews]
+    - [tldr17, lodo_tldr17]
+    # complementary domain pairs, both directions
+    - [pair_wikitext_bookcorpus, pair_agnews_tldr17]
+    - [pair_agnews_tldr17, pair_wikitext_bookcorpus]
+    - [pair_wikitext_agnews, pair_bookcorpus_tldr17]
+    - [pair_bookcorpus_tldr17, pair_wikitext_agnews]
+    - [pair_wikitext_tldr17, pair_bookcorpus_agnews]
+    - [pair_bookcorpus_agnews, pair_wikitext_tldr17]
+
+parcellation:
+  n_networks: 100
+  n_samples: 40
+  clustering: kmeans
+  binarize_connectivity: false
+  fisher_transform: true
+  standardize_profiles: true
+  connectivity_pca_components: 100
+  pca_whiten: false
+  store_samples: true
+  clustering_kwargs: null
+  n_alignments: null
+  weight_samples: false
+  parcellate_samples: false
+
+parcellation_variants:
+  vmf_pca100_lloyd100: {}
+  vmf_pca100_lloyd100_bm_degree:
+    blockmodel_refine_labels: true
+    blockmodel_refine_stage: consensus
+    blockmodel_center: degree
+  vmf_pca100_lloyd100_coassoc:
+    consensus: coassociation

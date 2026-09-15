@@ -290,6 +290,13 @@ def triviality(parcellation, coordinates, connectivity=None, noise_scale=None, n
         out['ami_noise_scale'] = float(adjusted_mutual_info_score(
             (ranks * n_bins // len(ranks)), labels))
     out['n_effective_networks'] = int(len(np.unique(labels)))
+    # exp(entropy of the size distribution): k for equal sizes, near 1 when one network
+    # holds almost every unit. Counting non-empty networks cannot see a partition of one
+    # giant network plus singletons, which average linkage on a co-association matrix can
+    # produce (LOG.md Iteration 19).
+    p = np.bincount(np.asarray(labels).astype(int)) / float(len(labels))
+    p = p[p > 0]
+    out['entropy_effective_networks'] = float(np.exp(-(p * np.log(p)).sum()))
     # Peakedness of the soft memberships. Reported because argmax is only meaningful when
     # the membership vector is actually peaked; a median max of 0.20 at k=20 (uniform is
     # 0.05) means the label is the top of a nearly flat noisy vector.
@@ -447,6 +454,122 @@ def center_connectivity(R, mode):
         for s in range(0, n, step):
             out[s:s + step] -= np.outer(r[s:s + step], r) / total
     np.fill_diagonal(out, 0.0)
+
+    return out
+
+
+def coassociation_counts(samples):
+    """How many restarts put each pair of units in the same cluster (n_units x n_units, uint16).
+
+    The co-association matrix of evidence accumulation clustering (Fred & Jain 2005, IEEE
+    TPAMI 27:835-850), kept as integer counts. Built one cluster of one restart at a time,
+    so no n x n float temporary is made; the diagonal is the number of restarts. Label
+    values are arbitrary: only which units share a label counts.
+    """
+    samples = np.asarray(samples)
+    if samples.ndim == 1:
+        samples = samples[None, :]
+    n_samples, n = samples.shape
+    assert n_samples < 2 ** 16, 'uint16 counts hold at most 65535 restarts'
+    C = np.zeros((n, n), dtype=np.uint16)
+    for s in samples:
+        s = np.asarray(s).astype(np.int64)
+        order = np.argsort(s, kind='stable')
+        for idx in np.split(order, np.flatnonzero(np.diff(s[order])) + 1):
+            C[np.ix_(idx, idx)] += 1
+
+    return C
+
+
+def coassociation_correlation(A, B, block=1024):
+    """Pearson correlation between two co-association matrices over unit pairs i != j.
+
+    Computed from running moments in row blocks, so neither matrix is ever copied whole to
+    float. Both triangles are used; for symmetric matrices that weights every pair twice and
+    gives the same correlation as the upper triangle alone.
+    """
+    assert A.shape == B.shape and A.shape[0] == A.shape[1], 'co-association shapes differ'
+    n = A.shape[0]
+    sa = sb = saa = sbb = sab = 0.0
+    for s in range(0, n, block):
+        e = min(s + block, n)
+        a = A[s:e].astype(np.float64)
+        b = B[s:e].astype(np.float64)
+        rows = np.arange(e - s)
+        a[rows, rows + s] = 0.0
+        b[rows, rows + s] = 0.0
+        sa += a.sum()
+        sb += b.sum()
+        saa += np.einsum('ij,ij->', a, a)
+        sbb += np.einsum('ij,ij->', b, b)
+        sab += np.einsum('ij,ij->', a, b)
+    m = float(n * n - n)
+    cov = sab / m - (sa / m) * (sb / m)
+    va, vb = saa / m - (sa / m) ** 2, sbb / m - (sb / m) ** 2
+    if va <= 0 or vb <= 0:
+        return float('nan')
+
+    return float(cov / np.sqrt(va * vb))
+
+
+def coassociation_reliability(samples_a, samples_b):
+    """Split-half reliability of a restart ensemble, judged on its co-association matrix.
+
+    The soft counterpart of `reliability` for any restart-based arm (LOG.md Iteration 19,
+    T3): the correlation, over unit pairs, between how often the restarts on half A and the
+    restarts on half B put each pair together. No label matching is involved, so a k-means
+    landscape with many comparable optima is not penalised for spreading its restarts over
+    them, only for spreading them differently on the two halves. It judges the ensemble,
+    not the consensus partition built from it.
+    """
+    return coassociation_correlation(coassociation_counts(samples_a),
+                                     coassociation_counts(samples_b))
+
+
+def partition_inertia(X, labels):
+    """Within-cluster sum of squares of a hard partition, from cluster sums (no n x n work)."""
+    X = np.asarray(X)
+    labels = np.asarray(labels).astype(int)
+    present, inverse = np.unique(labels, return_inverse=True)
+    onehot = np.zeros((len(labels), len(present)), dtype=np.float64)
+    onehot[np.arange(len(labels)), inverse] = 1.0
+    sums = onehot.T @ X.astype(np.float64)
+    counts = onehot.sum(axis=0)
+    total = float(np.einsum('ij,ij->', X, X, dtype=np.float64))
+
+    return total - float(((sums ** 2).sum(axis=1) / counts).sum())
+
+
+def crossfit_yardstick(X_fit, X_eval, labels_fit, labels_eval=None, max_iter=300):
+    """Lloyd k-means on one half, started from the other half's partition (LOG.md Iteration 19).
+
+    The centroids of `labels_fit` on `X_fit` initialise Lloyd on `X_eval`, which then moves
+    to the nearest k-means local optimum of the second half. `ari` is the agreement between
+    the starting partition and where Lloyd lands: how close a converged partition of the
+    second half can stay to the first when steered as close to it as the data allow. An
+    upper reference for hard-label split-half reliability at this k. With `labels_eval`
+    (the second half's own consensus) it also returns `reliability`, the ordinary ARI, and
+    `inertia_ratio`, the steered partition's inertia over the consensus partition's on the
+    second half: at or below 1 the steered partition is at least as good a solution there,
+    so the reference is attainable rather than a forced fit.
+
+    Labels need not be contiguous; only the clusters present are used.
+    """
+    from sklearn.cluster import KMeans
+    labels_fit = np.asarray(labels_fit).astype(int)
+    present, inverse = np.unique(labels_fit, return_inverse=True)
+    onehot = np.zeros((len(labels_fit), len(present)), dtype=np.float64)
+    onehot[np.arange(len(labels_fit)), inverse] = 1.0
+    centers = (onehot.T @ np.asarray(X_fit, dtype=np.float64)) / onehot.sum(axis=0)[:, None]
+    X_eval = np.asarray(X_eval)
+    km = KMeans(n_clusters=len(present), init=centers.astype(X_eval.dtype), n_init=1,
+                max_iter=max_iter, algorithm='lloyd', random_state=0)
+    landed = km.fit_predict(X_eval)
+    out = dict(ari=float(adjusted_rand_score(labels_fit, landed)), n_iter=int(km.n_iter_),
+               n_clusters=int(len(present)), inertia=partition_inertia(X_eval, landed))
+    if labels_eval is not None:
+        out['reliability'] = float(adjusted_rand_score(labels_fit, labels_eval))
+        out['inertia_ratio'] = out['inertia'] / partition_inertia(X_eval, labels_eval)
 
     return out
 

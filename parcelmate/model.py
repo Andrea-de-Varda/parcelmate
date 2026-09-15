@@ -5,6 +5,8 @@ import copy
 import numpy as np
 import time
 from scipy import optimize, linalg as scipy_linalg
+from scipy.cluster import hierarchy as scipy_hierarchy
+from scipy.spatial.distance import squareform
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA, FastICA
@@ -15,7 +17,9 @@ from transformers import AutoModel, AutoTokenizer
 from parcelmate.constants import *
 from parcelmate.data import *
 from parcelmate.util import *
-from parcelmate.metrics import blockmodel_refine, block_sse, center_connectivity
+from parcelmate.metrics import (
+    blockmodel_refine, block_sse, center_connectivity, coassociation_counts, hard_labels,
+)
 from parcelmate.plot import *
 
 
@@ -691,6 +695,66 @@ def sample_parcellations(
     )
 
 
+def coassociation_consensus(samples, n_networks, block=1024):
+    """Consensus of a restart ensemble by evidence accumulation (LOG.md Iteration 19, T3).
+
+    The co-association matrix (the fraction of restarts putting each pair of units
+    together; Fred & Jain 2005, IEEE TPAMI 27:835-850) is turned into a distance, 1 minus
+    that fraction, and cut into exactly `n_networks` clusters by average linkage. Unlike the
+    Hungarian consensus it matches no labels across restarts, so restarts that sit in
+    different local optima (one splitting a network another keeps whole) are combined by
+    what they agree on rather than forced into one labelling. Deterministic given the
+    restarts.
+
+    Returns `labels`, `parcellation` (one-hot, n_units x n_networks) and `membership`: each
+    unit's mean co-association with the other members of every cluster, a soft companion
+    to the hard cut. Its argmax need not equal the cut label, which is why the one-hot cut
+    is the parcellation that gets scored.
+    """
+    samples = np.asarray(samples)
+    assert samples.ndim == 2 and samples.shape[0] >= 2, \
+        'the co-association consensus needs at least 2 restarts, got shape %s' % (samples.shape,)
+    n_samples, n = samples.shape
+    k = int(n_networks)
+    assert 1 <= k <= n, 'cannot cut %d units into %d clusters' % (n, k)
+    C = coassociation_counts(samples)
+    D = 1.0 - C.astype(np.float32) / n_samples
+    np.fill_diagonal(D, 0.0)
+    y = squareform(D, checks=False)
+    del D
+    # cut_tree cuts after exactly n - k merges. It is exact for monotone linkages such as
+    # average; fcluster(maxclust) would return fewer clusters wherever distances tie, and a
+    # co-association distance takes only n_samples + 1 values.
+    Z = scipy_hierarchy.linkage(y, method='average')
+    del y
+    labels = scipy_hierarchy.cut_tree(Z, n_clusters=k).ravel().astype(int)
+    parcellation = np.zeros((n, k), dtype=np.float32)
+    parcellation[np.arange(n), labels] = 1.0
+    sums = np.empty((n, k), dtype=np.float64)
+    for s in range(0, n, block):
+        sums[s:s + block] = (C[s:s + block].astype(np.float32) @ parcellation) / n_samples
+    sums[np.arange(n), labels] -= 1.0                  # drop each unit's own co-association
+    others = parcellation.sum(axis=0)[None, :] - parcellation
+    membership = np.where(others > 0, sums / np.maximum(others, 1.0), 0.0).astype(np.float32)
+
+    return dict(labels=labels, parcellation=parcellation, membership=membership)
+
+
+def polish_partition(target, parcellation, n_networks, max_iter=50):
+    """Block-model refinement of a finished consensus (LOG.md Iteration 19).
+
+    The hard labels of `parcellation` start `metrics.blockmodel_refine` on `target` (raw |r|
+    or a centred copy). Returns the refined partition one-hot, in the parcellation's dtype,
+    and its block SSE on `target`.
+    """
+    labels, sse = blockmodel_refine(target, hard_labels(parcellation), n_networks,
+                                    max_iter=max_iter)
+    out = np.zeros((len(labels), int(n_networks)), dtype=np.asarray(parcellation).dtype)
+    out[np.arange(len(labels)), labels] = 1.0
+
+    return out, sse
+
+
 def sparsify_standardized(Z, q=0.9):
     """Keep each standardized profile's entries above its q-quantile, zero the rest, and
     re-standardize (LOG.md Iteration 17, T2).
@@ -1272,6 +1336,9 @@ def run_parcellation(
         sparsify_fisher=False,
         sparsify_profiles=False,
         blockmodel_center=None,
+        blockmodel_refine_stage='restarts',
+        consensus='hungarian',
+        store_samples=True,
         ica_max_iter=1000,
         ica_tol=1e-4,
         n_alignments=None,
@@ -1292,7 +1359,35 @@ def run_parcellation(
     the connectivity file meant each arm silently overwrote the last. Every file records
     the settings that produced it, the code commit, and a fingerprint of its source matrix,
     so a stale parcellation is detectable rather than silently mismatched.
+
+    Three settings act after the restarts (LOG.md Iteration 19). `consensus` combines them:
+    'hungarian' aligns labels and averages (the default), 'coassociation' cuts the
+    co-association matrix by average linkage (`coassociation_consensus`), and the soft
+    memberships go to `coassoc_membership`. `blockmodel_refine_stage` says where the
+    block-model refinement acts when `blockmodel_refine_labels` is on: 'restarts' refines
+    every restart before the consensus (the Iteration 14 and 17 arms), 'consensus' refines
+    the finished consensus and both restart-split consensuses once each, on the centred
+    target if `blockmodel_center` is set, and keeps the unrefined consensus as
+    `parcellation_unpolished`. `store_samples` writes the restart labels as `samples`
+    (int16), which the co-association reliability is computed from.
     """
+    assert consensus in ('hungarian', 'coassociation'), \
+        'consensus must be hungarian or coassociation, got %r' % (consensus,)
+    assert blockmodel_refine_stage in ('restarts', 'consensus'), \
+        'blockmodel_refine_stage must be restarts or consensus, got %r' % (blockmodel_refine_stage,)
+    assert not (blockmodel_refine_stage == 'consensus' and not blockmodel_refine_labels), \
+        'blockmodel_refine_stage: consensus polishes the consensus, so it needs blockmodel_refine_labels: true'
+    assert not (consensus == 'coassociation' and weight_samples), \
+        'the co-association consensus counts every restart once; weight_samples must be false'
+    assert int(n_networks) < 2 ** 15, 'restart labels are stored as int16'
+    if blockmodel_center in ('none', 'None', False):
+        blockmodel_center = None
+    assert blockmodel_center in (None, 'double', 'degree'), \
+        'blockmodel_center must be null, double or degree, got %r' % (blockmodel_center,)
+    assert not (blockmodel_center and not blockmodel_refine_labels), \
+        'blockmodel_center sets the refinement target, so it needs blockmodel_refine_labels: true'
+    polish_consensus = bool(blockmodel_refine_labels) and blockmodel_refine_stage == 'consensus'
+    refine_restarts = bool(blockmodel_refine_labels) and not polish_consensus
     connectivity_dir = os.path.join(output_dir, CONNECTIVITY_NAME)
     assert variant not in RESERVED_VARIANT_NAMES, \
         'variant name %r collides with a shared run directory; reserved: %s' % (
@@ -1353,12 +1448,12 @@ def run_parcellation(
             standardize_profiles=standardize_profiles,
             clustering=clustering,
             pca_whiten=pca_whiten,
-            blockmodel_refine_labels=blockmodel_refine_labels,
+            blockmodel_refine_labels=refine_restarts,
             blockmodel_max_iter=blockmodel_max_iter,
             binarize_scope=binarize_scope,
             sparsify_fisher=sparsify_fisher,
             sparsify_profiles=sparsify_profiles,
-            blockmodel_center=blockmodel_center,
+            blockmodel_center=blockmodel_center if refine_restarts else None,
             # ICA needs the sign structure; every other path sees |r| (or |z|).
             signed_connectivity=(np.nan_to_num(data['connectivity']) if clustering == 'ica' else None),
             ica_max_iter=ica_max_iter,
@@ -1367,16 +1462,27 @@ def run_parcellation(
             verbose=verbose,
             indent=indent + 2
         )
-        parcellation = align_samples(
-            sample['samples'],
-            sample['scores'],
-            n_alignments=n_alignments,
-            weight_samples=weight_samples,
-            seed=derive_seed(seed, 'alignment', path),
-            verbose=verbose,
-            indent=indent + 2
-        )
         extra = {}
+        samples_all = np.asarray(sample['samples'])
+        if consensus == 'coassociation':
+            # Two restart-split consensuses are built the same way below, so each needs at
+            # least two restarts of its own.
+            assert len(samples_all) >= 4, (
+                'consensus: coassociation needs at least 4 restarts (got %d); a deterministic '
+                'clustering has nothing to combine' % len(samples_all))
+            coassoc = coassociation_consensus(samples_all, n_networks)
+            parcellation = coassoc['parcellation']
+            extra['coassoc_membership'] = coassoc['membership']
+        else:
+            parcellation = align_samples(
+                sample['samples'],
+                sample['scores'],
+                n_alignments=n_alignments,
+                weight_samples=weight_samples,
+                seed=derive_seed(seed, 'alignment', path),
+                verbose=verbose,
+                indent=indent + 2
+            )
         if 'maps' in sample:
             # The soft object ICA actually produces: per-restart z-scored maps, aligned by
             # the same Hungarian matching and averaged. Scored by `map_reliability`.
@@ -1397,6 +1503,9 @@ def run_parcellation(
             # and the ceiling is 1 by construction, which is the honest statement for an
             # algorithm with no restart variance.
             splits = [parcellation, parcellation]
+        elif consensus == 'coassociation':
+            splits = [coassociation_consensus(samples_all[sl], n_networks)['parcellation']
+                      for sl in (slice(None, mid), slice(mid, None))]
         else:
             splits = [
                 align_samples(
@@ -1410,6 +1519,24 @@ def run_parcellation(
                 )
                 for half_ix, sl in enumerate((slice(None, mid), slice(mid, None)))
             ]
+        if polish_consensus:
+            # One refinement per consensus, the split consensuses included, so the
+            # restart-split ceiling still compares like with like. The target is the |r| the
+            # scorer uses, centred if asked; the same target serves all three.
+            target = np.asarray(R, dtype=np.float64)
+            if blockmodel_center:
+                target = center_connectivity(target, blockmodel_center)
+            extra['parcellation_unpolished'] = parcellation
+            parcellation, _ = polish_partition(target, parcellation, n_networks,
+                                               max_iter=blockmodel_max_iter)
+            if mid == 0:
+                splits = [parcellation, parcellation]
+            else:
+                splits = [polish_partition(target, p, n_networks,
+                                           max_iter=blockmodel_max_iter)[0] for p in splits]
+            del target
+        if store_samples:
+            extra['samples'] = samples_all.astype(np.int16)
         save_h5_data(
             dict(parcellation=parcellation, coordinates=data['coordinates'],
                  parcellation_split1=splits[0], parcellation_split2=splits[1], **extra),
@@ -1428,6 +1555,9 @@ def run_parcellation(
                 sparsify_fisher=bool(sparsify_fisher),
                 sparsify_profiles=bool(sparsify_profiles),
                 blockmodel_center=str(blockmodel_center),
+                blockmodel_refine_stage=str(blockmodel_refine_stage),
+                consensus=str(consensus),
+                store_samples=bool(store_samples),
                 ica_max_iter=int(ica_max_iter),
                 ica_tol=float(ica_tol),
                 binarize_connectivity=bool(binarize_connectivity),
@@ -1544,6 +1674,105 @@ def run_split_halves(
                     key=name,
                     sources=', '.join(group),
                     n_obs=int(sum(counts)),
+                    git_commit=git_commit(),
+                    created=time.strftime('%Y-%m-%dT%H:%M:%S'),
+                ),
+                verbose=verbose,
+                indent=indent
+            )
+
+
+def run_pool_domains(
+        output_dir=OUTPUT_DIR,
+        pools=None,
+        keys=None,
+        eps=1e-3,
+        overwrite=False,
+        verbose=True,
+        indent=0
+):
+    """Write pooled connectomes as pseudo-domains (LOG.md Iteration 19, T4).
+
+    `pools` maps a pooled-domain name to its member domains. For every key (the
+    sample-average and both split halves by default) the members' matrices are
+    Fisher-averaged with the same `fisher_average` the split halves use, and written as
+    `connectivity_<name>_<key>.h5`, so the parcellation and scoring steps treat a pool
+    exactly like a domain. A pool's half A is the average of its members' halves A, so its
+    two halves still come from disjoint tokens. Members are weighted equally, and a pool of
+    m domains carries m times the tokens of one domain, which is part of what pooling buys
+    and has to be kept in mind when a pool is compared with a single domain.
+
+    Refuses to overwrite a file that is not itself a pool, to pool a pool, or to reuse a
+    pool name with different members. Unit means and standard deviations are pooled when
+    every member carries them; surrogate variances are not propagated, so pools support
+    |r| arms only.
+    """
+    assert pools, 'pool_domains needs `pools`: a mapping of pooled-domain name -> member domains'
+    keys = tuple(keys) if keys else ('avg',) + HALF_NAMES
+    assert all(k in ('avg',) + HALF_NAMES for k in keys), 'pool keys must be avg, halfA or halfB'
+    connectivity_dir = os.path.join(output_dir, CONNECTIVITY_NAME)
+    if verbose:
+        stderr('%sPooling domains in %s\n' % (' ' * indent, connectivity_dir))
+    indent += 2
+
+    def conn_file(domain, key):
+        return os.path.join(connectivity_dir, '%s_%s_%s%s' % (CONNECTIVITY_NAME, domain, key, EXTENSION))
+
+    for name, members in pools.items():
+        members = [str(m) for m in members]
+        assert len(members) >= 2, 'pool %s needs at least 2 members, got %s' % (name, members)
+        assert len(set(members)) == len(members), 'pool %s lists a member twice: %s' % (name, members)
+        assert name not in members, 'pool %s lists itself as a member' % name
+        pooled_from = ', '.join(members)
+        for key in keys:
+            outpath = conn_file(name, key)
+            if os.path.exists(outpath):
+                existing = read_attrs(outpath).get('pooled_from')
+                assert existing, (
+                    '%s exists and is not a pooled file; a pool may not take the name of a '
+                    'domain' % outpath)
+                if not overwrite:
+                    assert existing == pooled_from, (
+                        '%s was pooled from [%s], not [%s]; remove it or pass overwrite'
+                        % (outpath, existing, pooled_from))
+                    if verbose:
+                        stderr('%sSkipping %s (exists)\n' % (' ' * indent, os.path.basename(outpath)))
+                    continue
+            mats, means, stds, counts, fingerprints = [], [], [], [], []
+            coordinates = None
+            for member in members:
+                src = conn_file(member, key)
+                assert os.path.exists(src), 'pool %s: missing %s' % (name, src)
+                assert not read_attrs(src).get('pooled_from'), \
+                    'pool %s: member %s is itself a pool' % (name, member)
+                d = load_h5_data(src, verbose=False)
+                if coordinates is None:
+                    coordinates = d['coordinates']
+                else:
+                    assert np.array_equal(coordinates, d['coordinates']), (
+                        'pool %s: %s has different units from %s' % (name, member, members[0]))
+                fingerprints.append(array_fingerprint(d['connectivity']))  # before fisher() edits it
+                mats.append(d['connectivity'])
+                if 'unit_means' in d and 'unit_stds' in d and 'n_obs' in d:
+                    means.append(d['unit_means'])
+                    stds.append(d['unit_stds'])
+                    counts.append(int(np.asarray(d['n_obs']).item()))
+            out = dict(connectivity=fisher_average(*mats, eps=eps), coordinates=coordinates)
+            del mats
+            if len(means) == len(members):
+                out['unit_means'], out['unit_stds'] = pool_unit_stats(means, stds, counts)
+                out['n_obs'] = np.asarray(sum(counts))
+            save_h5_data(
+                out,
+                outpath,
+                attrs=dict(
+                    domain=name,
+                    key=key,
+                    pooled_from=pooled_from,
+                    sources=', '.join(os.path.basename(conn_file(m, key)) for m in members),
+                    source_fingerprints=', '.join(fingerprints),
+                    eps=float(eps),
+                    n_obs=int(sum(counts)) if len(counts) == len(members) else -1,
                     git_commit=git_commit(),
                     created=time.strftime('%Y-%m-%dT%H:%M:%S'),
                 ),

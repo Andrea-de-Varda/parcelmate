@@ -63,6 +63,18 @@ if __name__ == '__main__':
             if os.path.isdir(os.path.join(out_dir, CONNECTIVITY_NAME)):
                 run_split_halves(output_dir=out_dir, overwrite=overwrite)
 
+    if ('all' in steps and cfg.get('pool_domains')) or 'pool_domains' in steps:
+        # After split_halves, before parcellation: pooled connectomes become pseudo-domains
+        # that the parcellation step picks up like any other (LOG.md Iteration 19, T4). Both
+        # trees, so every pooled arm has its matched null partition.
+        pool_kwargs = dict(cfg.get('pool_domains') or {})
+        assert pool_kwargs.get('pools'), '-s pool_domains needs a `pool_domains: {pools: ...}` section'
+        for out_dir in [cfg.get('output_dir', OUTPUT_DIR)] + (
+                [cfg.get('output_dir', OUTPUT_DIR).rstrip('/') + '_null']
+                if cfg.get('connectivity', {}).get('null_model') else []):
+            if os.path.isdir(os.path.join(out_dir, CONNECTIVITY_NAME)):
+                run_pool_domains(output_dir=out_dir, overwrite=overwrite, **pool_kwargs)
+
     # Parcellation variants. `parcellation` holds settings common to every arm;
     # `parcellation_variants` maps a variant name to the settings that differ. With no
     # variants block there is a single arm named 'default', so a plain config behaves as
