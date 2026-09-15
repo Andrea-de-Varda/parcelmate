@@ -125,3 +125,9 @@ parcellation_variants:
   vmf_pca100_lloyd100_n200_coassoc:
     n_samples: 200
     consensus: coassociation
+
+  # ---- confirmation (LOG.md Iteration 21): the two changes kept in Iteration 20 together.
+  # The final pipeline as chosen; neither change had been run with the other.
+  vmf_sparse_pca100_lloyd100_n200:
+    sparsify_profiles: true
+    n_samples: 200

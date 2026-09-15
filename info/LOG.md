@@ -627,8 +627,23 @@ No block-model polish, no co-association consensus. Cost is about 2.5 min per ma
 - **Fidelity trade.** If fidelity rather than reliability is the priority, the raw polish is the best arm tested: transfer Δp 0.178 against 0.097. It costs 0.13 of reliability and brings in hubness structure.
 - **Second model.** Every choice here is stage 0 on GPT-2 and is to be replicated on a second model.
 
+## Iteration 21 -- confirmation run of the chosen pipeline (2026-09-15)
+
+Andrea asked whether the final pipeline had been tested. It had not. Sparse profiles and 200 restarts were each tested against the same base arm in Iteration 20, but never together, and "strongest" was an inference that their gains add. They may not: both raise reliability by stabilising the consensus. Sparse profiles alone already raise the restart-split ceiling from 0.647 to 0.682, which leaves 200 restarts less room, and the yardstick puts attainable agreement near 0.78. Andrea asked for the confirmation run.
+
+**The arm.** `vmf_sparse_pca100_lloyd100_n200` in [configs/last_mlp.yml](../configs/last_mlp.yml). It is `vmf_pca100_lloyd100_n200` with sparse profiles, and equally `vmf_sparse_pca100_lloyd100` with 200 restarts (both under test). It lives in the same tree, with the same seeds, connectivity and null tree as the arms it is read against. The score is restricted to this arm, so it writes `scores_vmf_sparse_pca100_lloyd100_n200.csv` and leaves the 14-arm table untouched.
+
+**How it will be read, stated before the result exists.** The combination is kept as the final pipeline if both conditions hold on prose means:
+- within-domain split-half ARI is at least 0.68;
+- none of the three fidelities is lower than the base arm's by more than 0.005. The base values are within-domain R2 Δp 0.173, within-domain r Δp 0.258 and across-domain r Δp 0.097.
+
+Otherwise the sparse step is dropped and the final pipeline is 200 restarts alone. **The tolerance is new, and was added here before the run.** The rule given to Andrea said "no fidelity below the base". Taken strictly, it would also fail 200 restarts alone, which was lower than the base by 0.001-0.002 with mixed signs across domains (1/4 and 5/12). That is noise. Expected: within-domain ARI 0.68-0.71, across-domain ARI about 0.10, fidelities as the base.
+
+**What this run cannot settle.** The arm was chosen by looking at about 55 arms on the same four domains. That inflates the margins of the winner, the small ones most, such as sparse profiles' +0.007 in across-domain agreement. Only data not used for selection can check it, and the second model is that data.
+
 ## Decisions made
 
+- 2026-09-15 (confirmation rule): **the combination of sparse profiles and 200 restarts is final if its within-domain ARI is at least 0.68 and no fidelity falls more than 0.005 below the base arm; otherwise the final pipeline is 200 restarts without sparse profiles.** The 0.005 tolerance was added before the run, because a strict "no fidelity below the base" would also fail 200 restarts alone on noise-sized differences. Iteration 21.
 - 2026-09-15 (Andrea, design constraint): **all clustering is obtained within a single domain.** No connectome is pooled across domains, for any partition, at any stage. Domain generality is assessed only by fitting on one domain and evaluating on another. This removes pooled estimation from the final pipeline decided the same day; the pooled-estimation results (T4, Iteration 20) and `plots/pooled_estimation` stay as a record only. The `pool_domains` step and `configs/pooled_mlp.yml` remain in the code but are not part of the final design.
 - 2026-09-15 (final pipeline): **MLP neurons, standardized Fisher profiles sparsified to the top 10% per unit, PCA-100 unwhitened, Lloyd k-means with 200 restarts and Hungarian consensus, k = 100, fitted within a single domain.** *(As first written: "estimated on the connectome pooled over domains"; corrected by the design constraint above.)* Each rule stated in Iteration 19 was applied as written.
   - **Block-model polish:** dropped. It raised fidelity in every domain but cut within-domain reliability by 0.13-0.22, past the 0.05 limit, and lowered across-domain agreement in all 12 pairs.

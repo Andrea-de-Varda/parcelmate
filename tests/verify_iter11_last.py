@@ -500,7 +500,7 @@ last_cfg, last = resolved('configs/last_mlp.yml')
 pool_cfg, pooled = resolved('configs/pooled_mlp.yml')
 _, final = resolved('configs/final_mlp.yml')
 yolo_mlp_cfg, _ = resolved('configs/yolo_mlp.yml')
-check('last_mlp: 14 arms, all bind to run_parcellation', len(last) == 14 and binds(last))
+check('last_mlp: 15 arms, all bind to run_parcellation', len(last) == 15 and binds(last))
 check('pooled_mlp: 3 arms, all bind to run_parcellation', len(pooled) == 3 and binds(pooled))
 check('both: connectivity identical to configs/yolo_mlp.yml, own trees with a null model',
       last_cfg['connectivity'] == yolo_mlp_cfg['connectivity'] == pool_cfg['connectivity']
@@ -522,6 +522,8 @@ intended = {
     'vmf_pca100_lloyd100_coassoc_bm_degree': ('vmf_pca100_lloyd100_bm_degree', {'consensus'}),
     'vmf_pca100_lloyd100_n200': ('vmf_pca100_lloyd100', {'n_samples'}),
     'vmf_pca100_lloyd100_n200_coassoc': ('vmf_pca100_lloyd100_n200', {'consensus'}),
+    # the confirmation arm (Iteration 21): 200 restarts plus sparse profiles
+    'vmf_sparse_pca100_lloyd100_n200': ('vmf_pca100_lloyd100_n200', {'sparsify_profiles'}),
 }
 bad = [(a_, ref_, diff(last[a_], last[ref_])) for a_, (ref_, keys) in intended.items() if diff(last[a_], last[ref_]) != keys]
 if bad:
@@ -565,7 +567,12 @@ check('pooled_mlp: scored domains are the prose domains and every pool; the 26 p
 text = open('scripts/launch_yolo.sh').read()
 lists = {name: value.split() for name, value in re.findall(r'^([A-Z0-9_]+)="([^"]*)"', text, re.M)}
 check('launcher: the last_mlp lists name every arm exactly once',
-      sorted(lists['LAST_MLP_FAST'] + lists['LAST_MLP_K200'] + lists['LAST_MLP_N200']) == sorted(last))
+      sorted(lists['LAST_MLP_FAST'] + lists['LAST_MLP_K200'] + lists['LAST_MLP_N200']
+             + lists['LAST_MLP_CONFIRM']) == sorted(last))
+check('confirmation arm: exactly the two changes kept in Iteration 20, sparse profiles and 200 restarts',
+      lists['LAST_MLP_CONFIRM'] == ['vmf_sparse_pca100_lloyd100_n200']
+      and diff(last['vmf_sparse_pca100_lloyd100_n200'], last['vmf_pca100_lloyd100']) == {'sparsify_profiles', 'n_samples'}
+      and last['vmf_sparse_pca100_lloyd100_n200'] == dict(last['vmf_sparse_pca100_lloyd100'], n_samples=200))
 check('launcher: the pooled list names every pooled arm', sorted(lists['POOLED_MLP']) == sorted(pooled))
 check('launcher: the k = 200 and 200-restart lists hold exactly those arms',
       all(last[a_]['n_networks'] == 200 for a_ in lists['LAST_MLP_K200'])
@@ -577,7 +584,8 @@ r = subprocess.run(['bash', '-n', 'scripts/launch_yolo.sh'], capture_output=True
 check('launcher: parses', r.returncode == 0)
 r = subprocess.run(['bash', 'scripts/launch_yolo.sh', 'nope'], capture_output=True, text=True)
 check('launcher: usage lists the last-round modes',
-      r.returncode == 2 and 'generate_last' in r.stderr and 'submit_last' in r.stderr)
+      r.returncode == 2 and 'generate_last' in r.stderr and 'submit_last' in r.stderr
+      and 'generate_confirm' in r.stderr and 'submit_confirm' in r.stderr)
 
 print('\n%d check(s), %d failure(s)' % (n_checks[0], len(failures)))
 if failures:

@@ -28,9 +28,12 @@ CONDA_ENV=${CONDA_ENV:-parcelmate}
 MODE=${1:-}
 
 case "$MODE" in
-    generate|submit|resume|generate4|submit4|generate_final|submit_final|generate_last|submit_last) ;;
+    generate|submit|resume|generate4|submit4|generate_final|submit_final|generate_last|submit_last|generate_confirm|submit_confirm) ;;
     *)
-        echo "usage: $0 {generate|submit|resume|generate4|submit4|generate_final|submit_final|generate_last|submit_last}" >&2
+        echo "usage: $0 {generate|submit|resume|generate4|submit4|generate_final|submit_final|generate_last|submit_last|generate_confirm|submit_confirm}" >&2
+        echo "  generate_confirm  the confirmation arm of configs/last_mlp.yml and its restricted" >&2
+        echo "                    score job (run on scdt, after generate_last linked the connectivity)" >&2
+        echo "  submit_confirm    sbatch the arm and its score (run on sc)" >&2
         echo "  generate_last   the last round (configs/last_mlp.yml, pooled_mlp.yml, the yardstick):" >&2
         echo "                  link connectivity from results/yolo_mlp, write jobs (run on scdt)" >&2
         echo "  submit_last     sbatch the pool job, 17 arms, two score jobs and the yardstick (run on sc)" >&2
@@ -312,6 +315,7 @@ submit_final() {
 LAST_MLP_FAST="vmf_pca100_lloyd100 vmf_pca100_lloyd100_bm_raw vmf_pca100_lloyd100_bm_double vmf_pca100_lloyd100_bm_degree vmf_sparse_pca100_lloyd100 vmf_sparse_pca100_lloyd100_bm_degree vmf_pca100_lloyd50 vmf_pca100_lloyd50_bm_degree vmf_pca100_lloyd100_coassoc vmf_pca100_lloyd100_coassoc_bm_degree"
 LAST_MLP_K200="vmf_pca100_lloyd200 vmf_pca100_lloyd200_bm_degree"
 LAST_MLP_N200="vmf_pca100_lloyd100_n200 vmf_pca100_lloyd100_n200_coassoc"
+LAST_MLP_CONFIRM="vmf_sparse_pca100_lloyd100_n200"
 POOLED_MLP="vmf_pca100_lloyd100 vmf_pca100_lloyd100_bm_degree vmf_pca100_lloyd100_coassoc"
 YARDSTICK_VARIANTS="vmf_lloyd100 vmf_pca100_lloyd100 vmf_ward100"
 
@@ -411,8 +415,45 @@ submit_last() {
     squeue -u "$USER" -o "%.9i %.50j %.9T %.10M %R"
 }
 
+# Confirmation of the chosen pipeline (LOG.md Iteration 21). The connectivity links already
+# exist from generate_last; the score is restricted to the one arm, so it writes
+# scores_<arm>.csv and leaves the 14-arm scores.csv untouched.
+generate_confirm() {
+    if [ -f "$CONDA_SH" ]; then
+        source "$CONDA_SH"
+        conda activate "$CONDA_ENV"
+    fi
+    mkdir -p jobs logs
+    local t
+    for t in "" _null; do
+        test "$(ls results/last_mlp$t/connectivity | wc -l)" -ge 28 || {
+            echo "results/last_mlp$t/connectivity is incomplete; run generate_last first" >&2; exit 1; }
+    done
+    local M="python -m parcelmate.bin.make_jobs"
+    local CPU=configs/cluster/sc-cpu.yml
+    # Anchors: 200 restarts took 56 min (17433372), sparse profiles added nothing (16 min
+    # against 21 min at 40 restarts); the one-arm score is a fraction of the 14-arm 2 h 26.
+    $M configs/last_mlp.yml -c $CPU -s parcellation -V $LAST_MLP_CONFIRM -t 3 -m 16 -n 8 -o jobs/
+    $M configs/last_mlp.yml -c $CPU -s score -V $LAST_MLP_CONFIRM -t 3 -m 16 -n 4 -o jobs/
+    ls -1 jobs/last_mlp.*.$LAST_MLP_CONFIRM.pbs
+}
+
+submit_confirm() {
+    mkdir -p logs
+    echo "code at $(git log --oneline | head -1)"
+    local p s
+    p=$(sbatch --parsable jobs/last_mlp.parcellation.$LAST_MLP_CONFIRM.pbs)
+    echo "last_mlp $LAST_MLP_CONFIRM -> $p"
+    s=$(sbatch --parsable --dependency=afterok:$p jobs/last_mlp.score.$LAST_MLP_CONFIRM.pbs)
+    echo "last_mlp score $LAST_MLP_CONFIRM -> $s"
+    echo
+    squeue -u "$USER" -o "%.9i %.50j %.9T %.10M %R"
+}
+
 case "$MODE" in
     generate)  generate ;;
+    generate_confirm) generate_confirm ;;
+    submit_confirm)   submit_confirm ;;
     submit)    submit ;;
     resume)    resume ;;
     generate4) generate4 ;;
