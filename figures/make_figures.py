@@ -39,7 +39,9 @@ Figures:
   4. maps_vs_labels    -- ICA judged on the object it produces, not only on its labels
   5. final_candidates  -- every change to the base MLP pipeline, one row per arm, on the four
                           measures; the two changes kept are in bold
-  6. pooled_estimation -- transfer and label agreement by what is fit and what is held out
+  6. pooled_estimation -- transfer and label agreement by what is fit and what is held out.
+                          A record of T4 only: every clustering in the final design is
+                          fitted within a single domain (Andrea, 2026-09-15)
   7. yardstick         -- consensus reliability against what steering from the other half
                           reaches: the headroom that belongs to the consensus
 """
