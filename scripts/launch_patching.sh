@@ -15,10 +15,15 @@ WORK=${WORK:-/juice6/u/nlp/climblab/devarda/parcelmate}
 CONDA_SH=${CONDA_SH:-/juice6/u/nlp/climblab/devarda/miniforge3/etc/profile.d/conda.sh}
 CONDA_ENV=${CONDA_ENV:-parcelmate}
 MODE=${1:-}
+shift || true
+
+# Model screen (LOG.md Iteration 23, second round): accuracy on all 46 tasks, no
+# attribution, one GPU job per model. Larger models get more time; all run in float32.
+SCREEN_MODELS=${SCREEN_MODELS:-"Qwen/Qwen3-0.6B Qwen/Qwen3-1.7B Qwen/Qwen3-4B Qwen/Qwen3.5-0.8B Qwen/Qwen3.5-2B Qwen/Qwen3.5-4B LiquidAI/LFM2.5-1.2B-Instruct ibm-granite/granite-4.2-3b google/gemma-4-e4b-it"}
 
 case "$MODE" in
-    generate|submit) ;;
-    *) echo "usage: $0 generate | submit" >&2; exit 2 ;;
+    generate|submit|generate_screen|submit_screen) ;;
+    *) echo "usage: $0 generate | submit | generate_screen | submit_screen  (SCREEN_MODELS=... to override)" >&2; exit 2 ;;
 esac
 
 cd "$WORK"
@@ -73,7 +78,34 @@ submit() {
     squeue -u "$USER" -o "%.9i %.40j %.9T %.10M %R" | grep patching
 }
 
+screen_name() { echo "screen.$(echo "$1" | tr '/' '_' | tr '.' '-')"; }
+
+generate_screen() {
+    mkdir -p jobs logs
+    local m
+    local dtype
+    for m in $SCREEN_MODELS; do
+        # Gemma 4 E4B has about 8B raw parameters (per-layer embeddings), which do not fit
+        # an a6000 in float32; everything else runs in the protocol's float32.
+        case "$m" in google/gemma-4*) dtype=bfloat16 ;; *) dtype=float32 ;; esac
+        job "$(screen_name $m)" 6 48 python -m parcelmate.bin.patch_eval --model $m --bos both --dtype $dtype --out results/patching
+    done
+}
+
+submit_screen() {
+    mkdir -p logs
+    echo "code at $(git log --oneline | head -1)"
+    local m id
+    for m in $SCREEN_MODELS; do
+        id=$(sbatch --parsable jobs/$(screen_name $m).pbs)
+        echo "$m -> $id"
+    done
+    squeue -u "$USER" -o "%.9i %.40j %.9T %.10M %R" | grep screen
+}
+
 case "$MODE" in
     generate) generate ;;
     submit)   submit ;;
+    generate_screen) generate_screen ;;
+    submit_screen)   submit_screen ;;
 esac

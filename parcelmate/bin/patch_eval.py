@@ -45,19 +45,23 @@ def main():
     ap.add_argument('--batch-size', type=int, default=16)
     ap.add_argument('--attribution', action='store_true')
     ap.add_argument('--min-both-correct', type=float, default=0.6)
-    ap.add_argument('--min-n-both-correct', type=int, default=300)
+    ap.add_argument('--min-n-both-correct', type=int, default=0,
+                    help='minimum both-correct items for attribution (0: accuracy rule only)')
+    ap.add_argument('--dtype', choices=('float32', 'bfloat16'), default='float32',
+                    help='float32 is the protocol; bfloat16 only where float32 does not fit the GPU')
     ap.add_argument('--overwrite', action='store_true')
     args = ap.parse_args()
 
     kw = {} if args.revision is None else dict(revision=args.revision)
     tokenizer = AutoTokenizer.from_pretrained(args.model, **kw)
-    model = AutoModelForCausalLM.from_pretrained(args.model, **kw).float().eval()
+    model = AutoModelForCausalLM.from_pretrained(args.model, **kw).eval()
+    model = model.float() if args.dtype == 'float32' else model.to(torch.bfloat16)
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     model.to(device)
     for p in model.parameters():
         p.requires_grad_(False)
-    stderr('%s on %s, %.0fM parameters, float32\n' % (
-        args.model, device, sum(p.numel() for p in model.parameters()) / 1e6))
+    stderr('%s on %s, %.0fM parameters, %s\n' % (
+        args.model, device, sum(p.numel() for p in model.parameters()) / 1e6, args.dtype))
 
     root = os.path.join(args.out, short_name(args.model))
     rows = []
@@ -87,7 +91,8 @@ def main():
                     b = evaluate_task(model, tokenizer, data, task_config, bos=bos,
                                       batch_size=args.batch_size)
                     b.update(model=args.model, revision=args.revision or '', task=task,
-                             domain=domain, git_commit=git_commit(), seconds=time.time() - t0)
+                             domain=domain, dtype=args.dtype, git_commit=git_commit(),
+                             seconds=time.time() - t0)
                     with open(path, 'w') as f:
                         json.dump(b, f, indent=1)
                 stderr('    clean %.3f  corrupted %.3f  both %.3f (%d/%d aligned of %d)\n' % (

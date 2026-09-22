@@ -58,12 +58,19 @@ def load_task(domain, task_config, root=DATA_ROOT):
 
 
 def chat_prompt(tokenizer, message):
-    """The original's template: an empty system turn, the user turn, a generation prompt."""
+    """The original's template: an empty system turn, the user turn, a generation prompt.
+
+    `enable_thinking=False` is passed as well (Iteration 23, second round): templates of
+    reasoning models otherwise leave an open `<think>` block in the generation prompt
+    (Granite 4.2) or none at all (Qwen3), and the teacher-forced answer would then be
+    scored inside a thought. With the flag Qwen3 and Granite emit a closed, empty block,
+    Qwen3.5 does so by default, and templates without the variable ignore it.
+    """
     if getattr(tokenizer, 'chat_template', None) is None:
         return message
     return tokenizer.apply_chat_template(
         [{'role': 'system', 'content': ''}, {'role': 'user', 'content': message}],
-        tokenize=False, add_generation_prompt=True)
+        tokenize=False, add_generation_prompt=True, enable_thinking=False)
 
 
 def format_prompts(data, task_config, tokenizer, bos=False):
