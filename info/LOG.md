@@ -714,6 +714,26 @@ Andrea's second stage-1 question: do the networks our connectivity method finds 
 
 Two readings. **BOS decides the language tasks:** without it the raw-text prompts score 0.11-0.44 both-correct, with it 0.29-0.96; LFM2.5 has clearly never seen text that does not start with `<|startoftext|>`. The BOS variant is the one to use for this model (GPT-2, which has no BOS, is unaffected). **Nine tasks pass the provisional rule,** six language, one physical, two social, and no formal-reasoning task; four MD tasks and two others have 300-700 both-correct items at 0.35-0.58 accuracy. Attribution ran on the nine (16 x 4,608 each, 3-13 s). Their top-0.1% neurons sit in the last five layers for the language and physical tasks and in layers 8-11 for the two social tasks, so any comparison with our networks needs a layer-matched null.
 
+**Aborted (Andrea, 2026-09-21): LFM2.5-350M is too weak** (no formal-reasoning task, one physical, two social), and adapting the comparison to it would tune the pipeline to a low-performance model. The 300-item floor on both-correct counts was also dropped: it was mine, not the original's, whose only rule is the accuracy threshold; `--min-n-both-correct` now defaults to 0.
+
+**Second round: screen larger models first, then choose.** Andrea's candidates, checked on the Hub and under the cluster's transformers 5.16 (all load as causal LMs and have chat templates; Ministral 3 does not exist under any of the tried ids and is left out):
+
+| model | layers x MLP width | neurons | note |
+|---|---|---|---|
+| Qwen/Qwen3-0.6B | 28 x 3,072 | 86,016 | |
+| Qwen/Qwen3.5-0.8B | 24 x 3,584 | 86,016 | hybrid full/linear attention |
+| Qwen/Qwen3-1.7B | 28 x 6,144 | 172,032 | |
+| Qwen/Qwen3.5-2B | 24 x 6,144 | 147,456 | |
+| LiquidAI/LFM2.5-1.2B-Instruct | 16 x 12,288 | 196,608 | conv + attention blocks |
+| ibm-granite/granite-4.2-3b | 40 x 8,192 | 327,680 | |
+| Qwen/Qwen3-4B | 36 x 9,728 | 350,208 | |
+| Qwen/Qwen3.5-4B | 32 x 9,216 | 294,912 | |
+| google/gemma-4-e4b-it | 42 x 10,240 | 430,080 | about 8B raw parameters; run in bfloat16 |
+
+The neuron count is the constraint on our side, not theirs. The dense connectome is N^2 x 4 bytes per half: 30 GB at 86k neurons (fits a large-memory node, as planned for the 74k of LFM2.5-350M), 87-155 GB at 147-197k, and 350-740 GB at 295-430k. Above about 100k neurons the current in-memory pipeline needs the out-of-core rewrite deferred in Iteration 22: correlation in row blocks on the GPU with only each row's top 10% kept (which is what the sparsified profiles use anyway), PCA-100 by randomized SVD on that sparse matrix, and fidelity scored from fp16 tiles on disk. The screen is independent of that and runs now on all nine models; the choice of model, and whether the rewrite is worth it, follows from the accuracies.
+
+**Protocol addition for this round:** `enable_thinking=False` is passed to every chat template. Without it Granite 4.2's generation prompt ends in an open `<think>` tag, so the answer would be teacher-forced inside a thought, and Qwen3 has no block at all; with it Qwen3 and Granite emit a closed, empty block, Qwen3.5 does so by default, and the other templates ignore the variable. The empty system turn of the original is kept (Qwen3 and Gemma render it as an empty system block; LFM2.5 and Qwen3.5 drop it). Jobs: `launch_patching.sh generate_screen | submit_screen`, one a6000 job per model, `--bos both`, no attribution. Submitted at commit `c28ce2c`: 17548939 (Qwen3-0.6B), 17548940 (Qwen3-1.7B), 17548941 (Qwen3-4B), 17548942 (Qwen3.5-0.8B), 17548943 (Qwen3.5-2B), 17548944 (Qwen3.5-4B), 17548945 (LFM2.5-1.2B-Instruct), 17548946 (granite-4.2-3b), 17548947 (gemma-4-e4b-it).
+
 ## Decisions made
 
 - 2026-09-21 (stage 1, external validity): **attribution patching re-implemented in plain PyTorch on the vendored LLM_Modularity tasks; LFM2.5-350M screened on all 46 tasks with both BOS conventions on raw-text tasks; GPT-2 rerun as the validation against the original's numbers; inclusion at both-correct ≥ 0.60 and ≥ 300 items, provisional.** Rejected: running the original nnsight code (transformers-4 pin, cannot tokenize for LFM2.5); fp16; subsampling neurons. The comparison design between circuits and networks is deferred until the surviving tasks are known. Iteration 23.
