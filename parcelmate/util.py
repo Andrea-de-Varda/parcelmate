@@ -192,7 +192,7 @@ def read_attrs(path):
     except (OSError, KeyError):
         return {}
 
-def connectivity_matrix(data, normalize=None):
+def connectivity_matrix(data, normalize=None, inplace=False):
     """Form the non-negative connectivity matrix the clusterer and the scorer both consume.
 
     THE ONLY PLACE `|r|` IS FORMED. `run_parcellation` and `score.load_connectivity` both
@@ -214,7 +214,13 @@ def connectivity_matrix(data, normalize=None):
     Earlier this was triggered by the mere presence of `surrogate_var` in the file, which
     forced a second experiment for one design choice. An explicit argument is the cleanup.
     """
-    R = np.nan_to_num(np.asarray(data['connectivity']))
+    R = np.asarray(data['connectivity'])
+    if inplace and normalize is None and isinstance(data['connectivity'], np.ndarray):
+        # |r| written into the loaded array itself (Iteration 24): at 36,864 units each
+        # copy is 5.4 GB, and the caller has no further use for the signed matrix.
+        np.nan_to_num(R, copy=False)
+        return np.abs(R, out=R)
+    R = np.nan_to_num(R)
     if normalize is None:
         return np.abs(R)
     assert normalize == 'surrogate', 'Unknown normalize=%r (None or "surrogate")' % (normalize,)

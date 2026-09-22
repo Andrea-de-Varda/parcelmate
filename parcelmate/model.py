@@ -440,6 +440,7 @@ def sample_parcellations(
         sparsify_fisher=False,
         sparsify_profiles=False,
         blockmodel_center=None,
+        copy_input=True,
         signed_connectivity=None,
         ica_max_iter=1000,
         ica_tol=1e-4,
@@ -507,7 +508,9 @@ def sample_parcellations(
     so the arm optimizes the block-model error that fidelity measures rather than the
     row-profile error k-means minimizes (YOLO 2).
 
-    `sparsify_profiles` keeps the top 10% of each STANDARDIZED profile and re-standardizes
+    `copy_input=False` lets the Fisher and standardization steps transform `connectivity`
+    in place (float32, row blocks; Iteration 24); the default copies, for callers that
+    reuse the array. `sparsify_profiles` keeps the top 10% of each STANDARDIZED profile and re-standardizes
     (`sparsify_standardized`): the sparsity of the row-binarized arms with the row scale of
     the standardized ones (LOG.md Iteration 17, T2). `blockmodel_center` ('double' or
     'degree') centres the refinement target first (`metrics.center_connectivity`), so the
@@ -624,7 +627,12 @@ def sample_parcellations(
             'fisher_transform on a matrix with entries up to %.3g: not a correlation matrix. '
             'If the tree is surrogate-normalized, the Fisher transform is neither needed '
             '(the normalization already stabilizes the variance) nor defined.' % X.max())
-        X = fisher(np.clip(np.array(X, dtype=np.float64, copy=True), -1.0, 1.0))
+        # In place, float32 (Iteration 24): the float64 copies made here and in the
+        # standardization below were six to eight matrices deep, 70 GB at 36,864 units.
+        # asarray copies only when a dtype conversion forces it (numpy 2 raises on copy=False).
+        X = np.array(X, dtype=np.float32) if copy_input else np.asarray(X, dtype=np.float32)
+        np.clip(X, -1.0, 1.0, out=X)
+        X = fisher(X)
         assert np.isfinite(X).all(), 'Fisher transform produced non-finite values'
         # Zero the self-connection. arctanh maps the diagonal (|r| = 1) to 3.80 while a
         # typical off-diagonal is 0.038 -- a hundredfold spike carrying a median 24.7% of
@@ -658,9 +666,13 @@ def sample_parcellations(
         # The tradeoff is real: if hubness carries genuine functional signal, this discards
         # it. `triviality_ami_hubness` and `fidelity_within` together adjudicate -- hubness
         # was nuisance if AMI falls and fidelity holds, signal if fidelity falls with it.
-        X = standardize_array(np.asarray(X, dtype=np.float64), axis=-1)
+        X = standardize_rows_inplace(np.array(X, dtype=np.float32) if (copy_input and X is connectivity)
+                                     else np.asarray(X, dtype=np.float32))
         if sparsify_profiles:
-            X = sparsify_standardized(X)
+            # Same operation as `sparsify_standardized`, in place: threshold each row at
+            # its 90th percentile, zero the rest, re-standardize.
+            sparsify_rows_inplace(X)
+            standardize_rows_inplace(X)
     if connectivity_pca_components:
         n_components = connectivity_pca_components
         if n_components == 'auto':
@@ -801,6 +813,41 @@ def polish_partition(target, parcellation, n_networks, max_iter=50):
     out[np.arange(len(labels)), labels] = 1.0
 
     return out, sse
+
+
+PROFILE_BLOCK = 2048
+
+
+def standardize_rows_inplace(X, block=PROFILE_BLOCK):
+    """z-score every row of `X` in place (float32), statistics accumulated in float64.
+
+    The memory-lean form of `standardize_array(X, axis=-1)` (LOG.md Iteration 24): no
+    temporaries beyond one row block. Rows with zero variance or non-finite statistics are
+    set to 0, as `standardize_array` leaves them.
+    """
+    n = X.shape[0]
+    for s in range(0, n, block):
+        e = min(s + block, n)
+        rows = X[s:e]
+        mean = rows.mean(axis=1, dtype=np.float64, keepdims=True)
+        std = rows.std(axis=1, dtype=np.float64, keepdims=True)
+        ok = np.isfinite(mean) & np.isfinite(std) & (std > 0)
+        rows -= mean.astype(X.dtype)
+        rows /= np.where(ok, std, 1.0).astype(X.dtype)
+        bad = ~ok[:, 0] | ~np.isfinite(rows).all(axis=1)
+        if bad.any():
+            rows[bad] = 0.0
+    return X
+
+
+def sparsify_rows_inplace(X, q=0.9, block=PROFILE_BLOCK):
+    """Zero every entry at or below its row's q-quantile, in place, one row block at a time."""
+    n = X.shape[0]
+    for s in range(0, n, block):
+        e = min(s + block, n)
+        thr = np.quantile(X[s:e], q, axis=1, keepdims=True).astype(X.dtype)
+        X[s:e][X[s:e] <= thr] = 0.0
+    return X
 
 
 def sparsify_standardized(Z, q=0.9):
@@ -1587,7 +1634,8 @@ def run_parcellation(
         # |r|, or |z| for an arm that asks for it. One implementation, shared with the
         # scorer -- which reads `normalize` back from this file's provenance rather than
         # from any config -- so the two can never disagree about the matrix (LOG.md S10).
-        R = connectivity_matrix(data, normalize)
+        # In place unless the arm also needs the signed matrix (ICA): no second copy.
+        R = connectivity_matrix(data, normalize, inplace=(clustering != 'ica'))
         # A |z| arm receives an effect size that is already variance-stabilized and can
         # exceed 1, so arctanh is both redundant and undefined (S11). The arm keeps its
         # config but the transform is not applied; both facts go in the provenance below.
@@ -1613,6 +1661,7 @@ def run_parcellation(
             sparsify_fisher=sparsify_fisher,
             sparsify_profiles=sparsify_profiles,
             blockmodel_center=blockmodel_center if refine_restarts else None,
+            copy_input=False,   # R is this call's own array; transform it in place
             # ICA needs the sign structure; every other path sees |r| (or |z|).
             signed_connectivity=(np.nan_to_num(data['connectivity']) if clustering == 'ica' else None),
             ica_max_iter=ica_max_iter,

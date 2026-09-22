@@ -32,9 +32,12 @@ STEPS="0 1 4 16 64 256 1000 4000 16000 64000 143000"
 SIZES="70m 160m"
 
 case "$MODE" in
-    generate|submit) ;;
+    generate|submit|resubmit_cpu) ;;
     *)
-        echo "usage: $0 generate | submit {70m|160m}" >&2
+        echo "usage: $0 generate | submit {70m|160m} | resubmit_cpu {70m|160m}" >&2
+        echo "  resubmit_cpu  after a failed parcellation stage: cancel that size's orphaned" >&2
+        echo "                score and checkpoint jobs, then submit parcellation -> score chains" >&2
+        echo "                (connectivity already on disk) and the checkpoints job" >&2
         exit 2
         ;;
 esac
@@ -120,7 +123,36 @@ submit() {
     squeue -u "$USER" -o "%.9i %.50j %.9T %.10M %R"
 }
 
+resubmit_cpu() {
+    local size=$1
+    test -n "$size" || { echo "resubmit_cpu needs a size: 70m or 160m" >&2; exit 2; }
+    mkdir -p logs
+    echo "code at $(git log --oneline | head -1)"
+    local orphans
+    orphans=$(squeue -u "$USER" -h -o "%i %j" | grep -E "pythia-${size}(_step[0-9]+\.score_purge_connectivity|\.checkpoints)$" | awk '{print $1}')
+    if [ -n "$orphans" ]; then
+        echo "cancelling orphaned jobs: $(echo $orphans | tr '\n' ' ')"
+        scancel $orphans
+    fi
+    local step p s ids=""
+    for step in $STEPS; do
+        for t in "" _null; do
+            test "$(ls results/pythia/pythia-${size}/step${step}${t}/connectivity/*.h5 2>/dev/null | wc -l)" -ge 8 || {
+                echo "step${step}${t}: connectivity incomplete; not resubmitting" >&2; exit 1; }
+        done
+        p=$(sbatch --parsable jobs/pythia-${size}_step${step}.parcellation.pbs)
+        s=$(sbatch --parsable --dependency=afterok:$p jobs/pythia-${size}_step${step}.score_purge_connectivity.pbs)
+        echo "pythia-${size} step${step}: parcellation $p -> score $s"
+        ids="$ids:$s"
+    done
+    p=$(sbatch --parsable --dependency=afterok${ids} jobs/pythia-${size}.checkpoints.pbs)
+    echo "pythia-${size} checkpoints -> $p"
+    echo
+    squeue -u "$USER" -o "%.9i %.50j %.9T %.10M %R"
+}
+
 case "$MODE" in
     generate) generate ;;
     submit)   submit "$SIZE" ;;
+    resubmit_cpu) resubmit_cpu "$SIZE" ;;
 esac
