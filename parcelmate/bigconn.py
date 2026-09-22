@@ -139,34 +139,42 @@ def zscored_timecourses(model, input_ids, attention_mask, batch_size=8, verbose=
     captured = {}
     hooks, n_layers = _mlp_hooks(model, captured)
     widths = None
-    # Pass 1: Welford over tokens, per unit, in float64.
+    # Pass 1: Welford over tokens, per unit, in float64, ONE LAYER AT A TIME: a tokens x N
+    # float64 tensor of all layers at once was 9 GB per batch at 147k units (out of memory
+    # on a 48 GB card next to the model); per layer it is tokens x width, under 1 GB.
     count = 0
     mean = m2 = None
+    offsets = None
     t0 = time.time()
+    n_batches = int(np.ceil(input_ids.size(0) / batch_size))
     for i in range(0, input_ids.size(0), batch_size):
         ids = input_ids[i:i + batch_size].to(device)
         mask = attention_mask[i:i + batch_size].to(device)
         with torch.no_grad():
             captured.clear()
             model(input_ids=ids, attention_mask=mask)
-            states = [captured[l][mask.bool()].double() for l in range(n_layers)]   # tokens x width
-        if widths is None:
-            widths = [int(s.shape[1]) for s in states]
-            N = sum(widths)
-            mean = torch.zeros(N, dtype=torch.float64, device=device)
-            m2 = torch.zeros(N, dtype=torch.float64, device=device)
-        x = torch.cat(states, dim=1)                # tokens x N
-        n_b = x.shape[0]
-        b_mean = x.mean(0)
-        b_m2 = ((x - b_mean) ** 2).sum(0)
-        delta = b_mean - mean
-        tot = count + n_b
-        mean = mean + delta * (n_b / tot)
-        m2 = m2 + b_m2 + delta ** 2 * (count * n_b / tot)
-        count = tot
+            m = mask.bool()
+            if widths is None:
+                widths = [int(captured[l].shape[-1]) for l in range(n_layers)]
+                N = sum(widths)
+                offsets = np.concatenate([[0], np.cumsum(widths)])
+                mean = torch.zeros(N, dtype=torch.float64, device=device)
+                m2 = torch.zeros(N, dtype=torch.float64, device=device)
+            n_b = int(m.sum())
+            tot = count + n_b
+            for l in range(n_layers):
+                x = captured[l][m].double()          # tokens x width
+                sl = slice(int(offsets[l]), int(offsets[l + 1]))
+                b_mean = x.mean(0)
+                b_m2 = ((x - b_mean) ** 2).sum(0)
+                delta = b_mean - mean[sl]
+                mean[sl] += delta * (n_b / tot)
+                m2[sl] += b_m2 + delta ** 2 * (count * n_b / tot)
+                del x, b_mean, b_m2, delta
+            count = tot
+            captured.clear()
         if verbose:
-            stderr('\r%sstats batch %d/%d' % (' ' * indent, i // batch_size + 1,
-                                            int(np.ceil(input_ids.size(0) / batch_size))))
+            stderr('\r%sstats batch %d/%d' % (' ' * indent, i // batch_size + 1, n_batches))
     # Population variance, so the stored diagonal is exactly 1 as in the dense path
     # (`correlate` normalises by the row norm). A unit whose spread is below 1e-6 of its
     # mean, or below 1e-6 absolutely, is constant to float precision: its z-scores are set
@@ -178,7 +186,7 @@ def zscored_timecourses(model, input_ids, attention_mask, batch_size=8, verbose=
     std = torch.where(ok, std, torch.zeros_like(std))
     if verbose:
         stderr('  (%.0f s)\n' % (time.time() - t0))
-    # Pass 2: z-scores as float16 into host memory.
+    # Pass 2: z-scores as float16 into host memory, again layer by layer.
     Z = np.empty((N, T), dtype=np.float16)
     t = 0
     t0 = time.time()
@@ -188,13 +196,17 @@ def zscored_timecourses(model, input_ids, attention_mask, batch_size=8, verbose=
         with torch.no_grad():
             captured.clear()
             model(input_ids=ids, attention_mask=mask)
-            x = torch.cat([captured[l][mask.bool()] for l in range(n_layers)], dim=1).double()
-            z = ((x - mean) * inv).T.to(torch.float16).cpu().numpy()   # N x tokens
-        Z[:, t:t + z.shape[1]] = z
-        t += z.shape[1]
+            m = mask.bool()
+            n_b = int(m.sum())
+            for l in range(n_layers):
+                sl = slice(int(offsets[l]), int(offsets[l + 1]))
+                z = ((captured[l][m].double() - mean[sl]) * inv[sl]).T.to(torch.float16).cpu().numpy()
+                Z[sl, t:t + n_b] = z
+                del z
+            captured.clear()
+        t += n_b
         if verbose:
-            stderr('\r%sz-score batch %d/%d' % (' ' * indent, i // batch_size + 1,
-                                              int(np.ceil(input_ids.size(0) / batch_size))))
+            stderr('\r%sz-score batch %d/%d' % (' ' * indent, i // batch_size + 1, n_batches))
     assert t == T, 'wrote %d of %d tokens' % (t, T)
     if verbose:
         stderr('  (%.0f s)\n' % (time.time() - t0))
