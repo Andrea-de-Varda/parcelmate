@@ -35,10 +35,9 @@ esac
 cd "$WORK"
 
 domains_of() {
-    python - "$1" <<'EOF'
-import sys, yaml
-print(' '.join(yaml.safe_load(open('configs/qwen35/%s.yml' % sys.argv[1]))['connectivity']['domains']))
-EOF
+    # The head node has no python: read the generated YAML's `domains:` list with awk.
+    awk '/^  domains:/{f=1; next} f && /^  - /{sub(/^  - /, ""); printf "%s ", $0; next} f{exit}' \
+        "configs/qwen35/$1.yml"
 }
 
 generate() {
