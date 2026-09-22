@@ -45,8 +45,9 @@ def main():
     ap.add_argument('--batch-size', type=int, default=16)
     ap.add_argument('--attribution', action='store_true')
     ap.add_argument('--min-both-correct', type=float, default=0.6)
-    ap.add_argument('--min-n-both-correct', type=int, default=0,
-                    help='minimum both-correct items for attribution (0: accuracy rule only)')
+    ap.add_argument('--min-n-both-correct', type=int, default=300,
+                    help='minimum both-correct items for attribution, on top of the accuracy '
+                         'rule; not in the original, whose 1,000-item tasks made it implicit')
     ap.add_argument('--dtype', choices=('float32', 'bfloat16'), default='float32',
                     help='float32 is the protocol; bfloat16 only where float32 does not fit the GPU')
     ap.add_argument('--overwrite', action='store_true')
