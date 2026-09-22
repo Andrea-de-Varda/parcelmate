@@ -74,13 +74,13 @@ def block_means(R, labels, n_networks=None, block=PAIR_BLOCK):
     Accumulated over row blocks in float64, so the matrix is never copied whole: with all
     MLP neurons as units (LOG.md Iteration 22) a full float64 copy is 11 GB.
     """
-    R = np.asarray(R)
     labels = np.asarray(labels)
     n = len(labels)
     k = int(n_networks or labels.max() + 1)
     onehot = np.zeros((n, k), dtype=np.float64)
     onehot[np.arange(n), labels] = 1.0
     sizes = onehot.sum(axis=0)
+    # `R` may be a lazy row-block reader (bigconn.TiledMatrix); only R[s:e] is used.
 
     # The self-pairs R[i, i] are excluded, to match `variance_explained`, which scores the
     # strict upper triangle. Leaving them in would pull every within-block mean toward 1.
@@ -140,8 +140,7 @@ def pair_agreement(R_eval, predict_rows, measure='r2', block=PAIR_BLOCK):
     statistic as `agreement` (same pairs, float64 sums); verified equal to 1e-12 in the
     tests.
     """
-    R_eval = np.asarray(R_eval)
-    n = R_eval.shape[0]
+    n = R_eval.shape[0]   # R_eval may be a lazy row-block reader; only R_eval[s:e] is used
     m = 0
     sy = syy = sp = spp = syp = 0.0
     for s in range(0, n, block):
@@ -240,7 +239,6 @@ def fidelity_ceiling(R_fit, R_eval, measure='r2'):
     richer than any 50-block summary, expect the reference to sit comfortably above every
     variant; a variant that exceeds it would be a substantive finding, not a bug.
     """
-    R_fit = np.asarray(R_fit)
     return pair_agreement(R_eval, lambda s, e: R_fit[s:e], measure=measure)
 
 
@@ -295,7 +293,8 @@ def reliability_ceiling(parcellation_split1, parcellation_split2):
     return reliability(parcellation_split1, parcellation_split2)
 
 
-def triviality(parcellation, coordinates, connectivity=None, noise_scale=None, n_bins=10):
+def triviality(parcellation, coordinates, connectivity=None, noise_scale=None, n_bins=10,
+               strength=None):
     """How much of a parcellation is explained by properties that are not connectivity.
 
     Directly targets the "a dumb algorithm could score well" objection. If a parcellation
@@ -329,8 +328,11 @@ def triviality(parcellation, coordinates, connectivity=None, noise_scale=None, n
     # apart. For MLP units the index is the neuron index and no chain exists, so this
     # should sit near zero there (LOG.md Iteration 14).
     out['ami_dimension'] = float(adjusted_mutual_info_score(coordinates[:, 1], labels))
-    if connectivity is not None:
+    if connectivity is not None and strength is None:
         strength = np.abs(np.nan_to_num(connectivity)).sum(axis=1)
+    if strength is not None:
+        # `strength` may be given directly (the row sums a tiled half stores, bigconn).
+        strength = np.asarray(strength, dtype=np.float64)
         # Rank-based bins, so the measure does not depend on the scale of |r|.
         ranks = np.argsort(np.argsort(strength))
         out['ami_hubness'] = float(adjusted_mutual_info_score(
@@ -678,3 +680,77 @@ def domain_average(summary, metric, variant, field='delta'):
             and r[field] is not None and np.isfinite(r[field])]
 
     return float(np.mean(vals)) if vals else float('nan')
+
+
+def stream_block_means(R_fit, partitions, block=PAIR_BLOCK):
+    """Block means of `R_fit` for several partitions in ONE pass over its rows.
+
+    `partitions` maps a name to soft memberships or hard labels; returns {name: (M, labels)}
+    with M the k x k block means (self-pairs excluded, as `block_means`). Equal to calling
+    `block_means` per partition; one read of the matrix instead of one per partition, which
+    is what makes scoring a 175 GB half affordable (LOG.md Iteration 25).
+    """
+    n = R_fit.shape[0]
+    spec = {}
+    for name, P in partitions.items():
+        labels = hard_labels(P) if np.ndim(P) == 2 else np.asarray(P)
+        k = int(P.shape[1]) if np.ndim(P) == 2 else int(labels.max() + 1)
+        onehot = np.zeros((n, k), dtype=np.float64)
+        onehot[np.arange(n), labels] = 1.0
+        spec[name] = (labels, onehot, np.zeros((k, k), dtype=np.float64))
+    for s in range(0, n, block):
+        e = min(s + block, n)
+        rows = np.array(R_fit[s:e], dtype=np.float64)
+        rows[np.arange(e - s), np.arange(s, e)] = 0.0
+        for labels, onehot, sums in spec.values():
+            sums += onehot[s:e].T @ (rows @ onehot)
+    out = {}
+    for name, (labels, onehot, sums) in spec.items():
+        sizes = onehot.sum(axis=0)
+        counts = np.outer(sizes, sizes) - np.diag(sizes)
+        with np.errstate(invalid='ignore', divide='ignore'):
+            M = np.where(counts > 0, sums / np.maximum(counts, 1.0), 0.0)
+        out[name] = (M, labels)
+    return out
+
+
+def stream_agreements(R_eval, predictions, ceiling=None, block=PAIR_BLOCK):
+    """R2 and r of several block-model predictions against `R_eval`, one pass.
+
+    `predictions` maps a name to (M, labels) from `stream_block_means`; `ceiling`, if
+    given, is a row-block reader (the fitting matrix) scored as the uncompressed predictor.
+    Returns {name: {'r2': ..., 'r': ...}} with the ceiling under the key '(ceiling)'. The
+    same statistic as `pair_agreement`, for every prediction at once.
+    """
+    n = R_eval.shape[0]
+    names = list(predictions) + (['(ceiling)'] if ceiling is not None else [])
+    acc = {name: np.zeros(4) for name in names}   # sp, spp, syp, (unused)
+    m = 0
+    sy = syy = 0.0
+    for s in range(0, n, block):
+        e = min(s + block, n)
+        y = np.asarray(R_eval[s:e], dtype=np.float64)
+        keep = np.arange(n)[None, :] > np.arange(s, e)[:, None]
+        yk = y[keep]
+        m += yk.size
+        sy += yk.sum()
+        syy += (yk * yk).sum()
+        for name in names:
+            if name == '(ceiling)':
+                p = np.asarray(ceiling[s:e], dtype=np.float64)[keep]
+            else:
+                M, labels = predictions[name]
+                p = (M[labels[s:e]][:, labels])[keep]
+            a = acc[name]
+            a[0] += p.sum()
+            a[1] += (p * p).sum()
+            a[2] += (yk * p).sum()
+    ss_tot = syy - sy * sy / m
+    out = {}
+    for name, (sp, spp, syp, _) in acc.items():
+        ss_pred = spp - sp * sp / m
+        cov = syp - sy * sp / m
+        r = float(cov / np.sqrt(ss_tot * ss_pred)) if ss_tot > 0 and ss_pred > 0 else float('nan')
+        r2 = float(1.0 - (syy - 2.0 * syp + spp) / ss_tot) if ss_tot > 0 else float('nan')
+        out[name] = {'r2': r2, 'r': r}
+    return out

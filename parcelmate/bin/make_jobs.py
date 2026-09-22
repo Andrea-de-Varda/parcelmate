@@ -50,13 +50,15 @@ def resolve(cli, profile):
     return settings
 
 
-def get_job(config_path, settings, steps=None, overwrite=False, seed=None, variants=None):
+def get_job(config_path, settings, steps=None, overwrite=False, seed=None, variants=None, domains=None):
     """Render a single SLURM batch script as a string."""
     job_name = os.path.splitext(os.path.basename(config_path))[0]
     if steps:
         job_name = '%s.%s' % (job_name, '_'.join(steps))
     if variants:
         job_name = '%s.%s' % (job_name, variants_tag(variants))
+    if domains:
+        job_name = '%s.%s' % (job_name, '_'.join(domains))
     log_dir = settings['log_dir']
     if settings['workdir'] and not os.path.isabs(log_dir):
         log_dir = os.path.join(settings['workdir'], log_dir)
@@ -115,6 +117,8 @@ def get_job(config_path, settings, steps=None, overwrite=False, seed=None, varia
         cmd += ' --seed %d' % int(seed)
     if variants:
         cmd += ' -V %s' % ' '.join(variants)
+    if domains:
+        cmd += ' -D %s' % ' '.join(domains)
     out.append(cmd)
     out.append('')
 
@@ -156,6 +160,8 @@ if __name__ == '__main__':
     argparser.add_argument('-V', '--variants', nargs='+', default=None,
                            help='Pass -V to main.py: run only these parcellation variants. '
                                 'One job per arm lets the arms of a config run in parallel.')
+    argparser.add_argument('-D', '--domains', nargs='+', default=None,
+                           help='Pass -D to main.py: run only these domains (appended to the job name).')
     args = argparser.parse_args()
 
     cli = {key: getattr(args, key) for key in (
@@ -173,8 +179,10 @@ if __name__ == '__main__':
             job_name = '%s.%s' % (job_name, '_'.join(args.steps))
         if args.variants:
             job_name = '%s.%s' % (job_name, variants_tag(args.variants))
+        if args.domains:
+            job_name = '%s.%s' % (job_name, '_'.join(args.domains))
         filename = os.path.join(outdir, job_name + '.pbs')
         with open(filename, 'w') as f:
             f.write(get_job(path, settings, steps=args.steps, overwrite=args.overwrite, seed=args.seed,
-                            variants=args.variants))
+                            variants=args.variants, domains=args.domains))
         print(filename)

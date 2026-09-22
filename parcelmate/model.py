@@ -164,6 +164,8 @@ MLP_PROJECTIONS = {
     'GPT2Model': ('h', 'mlp.c_proj'),                    # gpt2: c_fc -> gelu -> c_proj
     'GPTNeoXModel': ('layers', 'mlp.dense_4h_to_h'),     # pythia: dense_h_to_4h -> gelu -> dense_4h_to_h
     'Lfm2Model': ('layers', 'feed_forward.w2'),          # LFM2/2.5: silu(w1 x) * w3 x -> w2
+    'Qwen3_5TextModel': ('layers', 'mlp.down_proj'),     # Qwen3.5: silu(gate x) * up x -> down (every block)
+    'Qwen3Model': ('layers', 'mlp.down_proj'),
 }
 
 
@@ -182,6 +184,8 @@ def mlp_projections(model):
     """
     if type(model).__name__ not in MLP_PROJECTIONS and hasattr(model, 'base_model'):
         model = model.base_model
+    if type(model).__name__ not in MLP_PROJECTIONS and hasattr(model, 'language_model'):
+        model = model.language_model   # a multimodal wrapper around the text model
     name = type(model).__name__
     assert name in MLP_PROJECTIONS, (
         'unit_type=mlp knows %s; got %s. Add its (blocks, output projection) attribute '
@@ -212,7 +216,18 @@ def get_model_and_tokenizer(
     `step1000`); None is the default branch. The model is always cast to float32, so the
     connectome does not depend on the dtype a checkpoint happens to be stored in."""
     kwargs = {} if revision is None else dict(revision=str(revision))
-    model = AutoModel.from_pretrained(model_name, **kwargs).float()
+    try:
+        model = AutoModel.from_pretrained(model_name, **kwargs).float()
+    except Exception:
+        model = None
+    if model is None or hasattr(model, 'language_model'):
+        # A multimodal checkpoint (Qwen3.5) maps to a vision-language wrapper under
+        # AutoModel; the text-only causal LM's base model is the text stack alone, which is
+        # what every earlier model gave us and what the MLP hooks expect.
+        from transformers import AutoModelForCausalLM
+        lm = AutoModelForCausalLM.from_pretrained(model_name, **kwargs).float()
+        model = lm.base_model
+        model.config = lm.config
     if knockout_probs is not None:
         assert coordinates is not None, 'coordinates must be provided if knockout_probs is not None'
         assert network is not None, 'network must be provided if knockout_probs is not None'
@@ -696,12 +711,6 @@ def sample_parcellations(
         X = m.fit_transform(X)
         stderr(' (%0.2fs)\n' % (time.time() - t1))
 
-    if verbose:
-        stderr('%sDrawing samples\n' % (' ' * indent))
-    indent += 2
-    n_units = X.shape[0]
-    samples = np.zeros((n_samples, n_units))
-    scores = np.zeros(n_samples)
     R_target = None
     if blockmodel_refine_labels:
         # The scorer's target is |r| itself (util.connectivity_matrix), not the Fisher or
@@ -711,10 +720,30 @@ def sample_parcellations(
             # Fidelity is still scored on raw |r|; only what the refinement may fit changes.
             # Uncentred, the refinement bought within-domain fit with hubness (Iteration 16).
             R_target = center_connectivity(R_target, blockmodel_center)
+    return cluster_restarts(X, n_networks, n_samples, clustering, clustering_kwargs, rng,
+                            blockmodel_refine_labels=blockmodel_refine_labels,
+                            blockmodel_max_iter=blockmodel_max_iter, R_target=R_target,
+                            verbose=verbose, indent=indent)
+
+
+def cluster_restarts(X, n_networks, n_samples, clustering, clustering_kwargs, rng,
+                     blockmodel_refine_labels=False, blockmodel_max_iter=50, R_target=None,
+                     verbose=True, indent=0):
+    """The restart loop of `sample_parcellations` on ready-made features `X` (n_units x d).
+
+    Split out (LOG.md Iteration 25) so the out-of-core path, which builds its PCA features
+    by streaming, runs exactly the same restarts. Returns dict(samples, scores).
+    """
+    if verbose:
+        stderr('%sDrawing samples\n' % (' ' * indent))
+    indent += 2
+    n_units = X.shape[0]
+    samples = np.zeros((n_samples, n_units))
+    scores = np.zeros(n_samples)
     for i in range(n_samples):
         if verbose and n_samples > 1:
             stderr('\r%sSample %d/%d' % (' ' * indent, i + 1, n_samples))
-        _clustering_kwargs = dict(clustering_kwargs)
+        _clustering_kwargs = dict(clustering_kwargs or {})
         if clustering == 'ward':
             m = AgglomerativeClustering(n_clusters=n_networks, linkage='ward', **_clustering_kwargs)
             _sample = m.fit_predict(X)
@@ -1022,6 +1051,7 @@ def run_connectivity(
         null_output_dir=None,
         n_surrogates=0,
         outputs=('samples', 'avg'),
+        storage='dense',
         seed=None,
         overwrite=False,
         verbose=True,
@@ -1031,6 +1061,11 @@ def run_connectivity(
 
     `revision` selects a Hub checkpoint of `model_name` (Pythia: `step1000`); None is the
     default branch. It is recorded in the provenance of every file this step writes.
+
+    `storage='tiled_fp16'` (LOG.md Iteration 25) writes the halves out of core through
+    `bigconn.write_tiled_domain`: float16 row tiles, GPU-tiled correlation, the null shifted
+    on the fly. Requires `outputs: [halves]`, MLP units, no filtering and no surrogates;
+    every later step detects the format from the file. 'dense' is the path below.
 
     `outputs` says which files to write per domain (LOG.md Iteration 22):
       'samples'  one file per sample (the cache the `split_halves` step reads);
@@ -1101,6 +1136,14 @@ def run_connectivity(
         assert n_samples >= 2 and n_samples % 2 == 0, \
             'outputs: halves needs an even n_samples >= 2, got %d' % n_samples
         assert not n_surrogates, 'outputs: halves does not support surrogates'
+    assert storage in ('dense', 'tiled_fp16'), 'storage must be dense or tiled_fp16, got %r' % (storage,)
+    tiled = storage == 'tiled_fp16'
+    if tiled:
+        assert outputs == ('halves',), 'storage: tiled_fp16 needs outputs: [halves]'
+        assert unit_type == 'mlp' and not units_per_layer, 'storage: tiled_fp16 is for all MLP units'
+        assert highpass is None and lowpass is None, 'storage: tiled_fp16 does not filter timecourses'
+        assert timecourse_pca_components is None and timecourse_ica_components is None
+        assert knockout_filepath is None, 'storage: tiled_fp16 does not support knockout'
     assert write_samples or write_halves or n_samples == 1 or write_avg, 'nothing to write'
     knockout_sel = None
     if knockout_probs is not None:
@@ -1221,6 +1264,17 @@ def run_connectivity(
 
         if not os.path.exists(connectivity_dir):
             os.makedirs(connectivity_dir)
+
+        if tiled:
+            from parcelmate.bigconn import write_tiled_domain
+            write_tiled_domain(
+                model.to('cuda:0' if torch.cuda.is_available() else 'cpu'), input_ids, attention_mask,
+                n_samples, domain, connectivity_dir, null_connectivity_dir if null_model else None,
+                seed, null_model=null_model, batch_size=batch_size, eps=eps,
+                provenance=dict(provenance, seq_len=int(seq_len), n_samples=int(n_samples)),
+                verbose=verbose, indent=indent)
+            indent -= 2
+            continue
 
         if verbose:
             stderr('%sQuerying model\n' % (' ' * indent))
@@ -1551,6 +1605,7 @@ def run_parcellation(
         weight_samples=False,
         parcellate_samples=False,
         parcellate_keys=None,
+        domains=None,
         seed=None,
         variant='default',
         overwrite=False,
@@ -1558,6 +1613,7 @@ def run_parcellation(
         indent=0
 ):
     """Cluster each connectivity matrix, writing one parcellation file per source matrix.
+    `domains`, if given, restricts the run to those domains' files (LOG.md Iteration 25).
 
     Output goes to `<output_dir>/<variant>/parcellation/`, NOT back into the connectivity
     file. Connectivity is expensive and shared; parcellations are cheap and there are many
@@ -1620,6 +1676,8 @@ def run_parcellation(
             )
         if match.group(3) not in keys:
             continue
+        if domains and match.group(2) not in domains:
+            continue
         inpath = os.path.join(connectivity_dir, path)
         outpath = os.path.join(
             parcellation_dir,
@@ -1628,6 +1686,25 @@ def run_parcellation(
         if os.path.exists(outpath) and not overwrite:
             if verbose:
                 stderr('%sSkipping %s (exists)\n' % (' ' * indent, os.path.basename(outpath)))
+            continue
+        if read_attrs(inpath).get('storage', '') == 'tiled_fp16':
+            # Out of core (LOG.md Iteration 25): the confirmed arm's settings only.
+            assert (fisher_transform and standardize_profiles and sparsify_profiles
+                    and not binarize_connectivity and not pca_whiten and normalize is None
+                    and clustering == 'kmeans' and consensus == 'hungarian'
+                    and not blockmodel_refine_labels and connectivity_pca_components
+                    and connectivity_pca_components != 'auto'
+                    and not connectivity_ica_components and not weight_samples), (
+                'a tiled half supports only the confirmed pipeline: Fisher, standardized, '
+                'sparsified profiles, unwhitened PCA, Lloyd restarts, Hungarian consensus')
+            parcellate_tiled(inpath, outpath, output_dir, variant, match.group(2), match.group(3),
+                             n_networks=n_networks, n_samples=n_samples,
+                             n_components=int(connectivity_pca_components),
+                             clustering_kwargs=clustering_kwargs, n_alignments=n_alignments,
+                             store_samples=store_samples, seed=seed, path=path,
+                             verbose=verbose, indent=indent)
+            if verbose:
+                stderr('%sElapsed time: %.2f s\n' % (' ' * (indent + 2), time.time() - t0))
             continue
         data = load_h5_data(inpath, verbose=verbose, indent=indent)
 
@@ -1794,6 +1871,57 @@ def run_parcellation(
 
         if verbose:
             stderr('%sElapsed time: %.2f s\n' % (' ' * (indent + 2), time.time() - t0))
+
+
+def parcellate_tiled(inpath, outpath, output_dir, variant, domain, key, n_networks, n_samples,
+                     n_components, clustering_kwargs, n_alignments, store_samples, seed, path,
+                     verbose=True, indent=0):
+    """The confirmed pipeline on a tiled half (LOG.md Iteration 25): streamed profiles and
+    randomized PCA (`bigconn`), then the same restarts, consensus and provenance as the
+    dense path. The source fingerprint is over `unit_strength`, since the matrix itself is
+    never resident."""
+    from parcelmate.bigconn import TiledMatrix, randomized_pca_features
+    tiled = TiledMatrix(inpath)
+    rng = np.random.RandomState(derive_seed(seed, 'parcellation', path) % (2 ** 32))
+    if verbose:
+        stderr('%sTiled half %s: %d units\n' % (' ' * indent, os.path.basename(inpath), tiled.shape[0]))
+    X, singular = randomized_pca_features(tiled, n_components=n_components, seed=rng.randint(2 ** 31),
+                                          verbose=verbose, indent=indent + 2)
+    sample = cluster_restarts(X, n_networks, n_samples, 'kmeans', clustering_kwargs, rng,
+                              verbose=verbose, indent=indent + 2)
+    parcellation = align_samples(sample['samples'], sample['scores'], n_alignments=n_alignments,
+                                 weight_samples=False, seed=derive_seed(seed, 'alignment', path),
+                                 verbose=verbose, indent=indent + 2)
+    mid = len(sample['samples']) // 2
+    splits = [align_samples(sample['samples'][sl], sample['scores'][sl], n_alignments=n_alignments,
+                            weight_samples=False, seed=derive_seed(seed, 'alignment_split', path, h),
+                            verbose=False, indent=indent + 2)
+              for h, sl in enumerate((slice(None, mid), slice(mid, None)))]
+    extra = {}
+    if store_samples:
+        extra['samples'] = np.asarray(sample['samples']).astype(np.int16)
+    save_h5_data(
+        dict(parcellation=parcellation, coordinates=tiled.coordinates,
+             parcellation_split1=splits[0], parcellation_split2=splits[1], **extra),
+        outpath,
+        attrs=dict(
+            variant=variant, domain=domain, key=key, n_networks=int(n_networks),
+            n_samples=int(len(sample['samples'])), clustering='kmeans', pca_whiten=False,
+            blockmodel_refine_labels=False, binarize_scope='row', sparsify_fisher=False,
+            sparsify_profiles=True, blockmodel_center='None', blockmodel_refine_stage='restarts',
+            consensus='hungarian', store_samples=bool(store_samples),
+            binarize_connectivity=False, legacy_binarize=False, fisher_transform=True,
+            fisher_transform_applied=True, normalize='None', input_normalized=False,
+            standardize_profiles=True, connectivity_pca_components=str(n_components),
+            connectivity_ica_components='None', weight_samples=False, n_alignments=str(n_alignments),
+            seed=str(seed), out_of_core=True, pca_method='randomized_q1_oversample100',
+            pca_singular_values=', '.join('%.3f' % v for v in singular[:5]),
+            source_path=os.path.relpath(inpath, output_dir),
+            source_fingerprint=array_fingerprint(tiled.strength),
+            git_commit=git_commit(), created=time.strftime('%Y-%m-%dT%H:%M:%S'),
+        ),
+        verbose=verbose, indent=indent + 2)
+    tiled.close()
 
 
 def run_split_halves(

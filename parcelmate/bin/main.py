@@ -7,6 +7,9 @@ from parcelmate.cfg import get_cfg
 from parcelmate.model import *
 from parcelmate.plot import *
 
+# Lab-share rule (info/CLUSTER.md): everything written is group readable and writable.
+os.umask(0o002)
+
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser('''Main executable for parcelmate package.''')
     argparser.add_argument('config_path', nargs='?', default=None, help='Path to config file.')
@@ -17,6 +20,10 @@ if __name__ == '__main__':
                            help='Recompute all outputs, even if they already exist.')
     argparser.add_argument('--seed', type=int, default=None,
                            help='Master random seed, overriding any `seed` in the config.')
+    argparser.add_argument('-D', '--domains', nargs='+', default=None,
+                           help='Restrict the connectivity, parcellation and purge_null_connectivity '
+                                'steps to these domains, so domains of one config can run as '
+                                'separate jobs (LOG.md Iteration 25). Scoring always covers all.')
     argparser.add_argument('-V', '--variants', nargs='+', default=None,
                            help='Restrict the parcellation-level steps (and scoring) to these '
                                 'variants, so arms of one config can run as parallel jobs. A '
@@ -42,6 +49,10 @@ if __name__ == '__main__':
 
     if 'all' in steps or 'connectivity' in steps:
         connectivity_kwargs = stepcfg('connectivity')
+        if args.domains:
+            unknown = [d for d in args.domains if d not in connectivity_kwargs.get('domains', [])]
+            assert not unknown, 'unknown domain(s) %s; config has %s' % (unknown, connectivity_kwargs.get('domains'))
+            connectivity_kwargs['domains'] = list(args.domains)
         # `null_output_dir` defaults to a sibling of output_dir, so a config need only say
         # `null_model: circshift`. Filenames match the real tree exactly, so every later
         # step (parcellation, metrics) runs on either tree unchanged by pointing at it.
@@ -106,11 +117,41 @@ if __name__ == '__main__':
     if 'all' in steps or 'parcellation' in steps:
         for tree in trees():
             for name in variants:
+                kw = variant_cfg(name)
+                if args.domains:
+                    kw['domains'] = list(args.domains)
                 run_parcellation(
                     output_dir=tree,
                     overwrite=overwrite,
-                    **variant_cfg(name)
+                    **kw
                 )
+
+    if 'purge_null_connectivity' in steps:
+        # Never part of `all`. The null tree's connectivity exists only to fit the null
+        # partition (the pnull reference is evaluated on REAL data), so once both halves
+        # of a domain are parcellated in the null tree it can go (LOG.md Iteration 25).
+        # Restricted to -D domains if given. Leaves a manifest like purge_connectivity.
+        assert cfg.get('purge_connectivity') is True, \
+            '-s purge_null_connectivity needs `purge_connectivity: true` in the config'
+        null_tree = cfg.get('output_dir', OUTPUT_DIR).rstrip('/') + '_null'
+        conn_dir = os.path.join(null_tree, CONNECTIVITY_NAME)
+        domains = args.domains or cfg.get('connectivity', {}).get('domains', [])
+        manifest = os.path.join(null_tree, CONNECTIVITY_NAME + '_purged.txt')
+        for domain in domains:
+            parcs = [os.path.join(null_tree, name, PARCELLATION_NAME,
+                                  '%s_%s_%s%s' % (PARCELLATION_NAME, domain, h, EXTENSION))
+                     for name in variants for h in HALF_NAMES]
+            missing_p = [p for p in parcs if not os.path.exists(p)]
+            assert not missing_p, 'refusing to purge %s: null parcellations missing: %s' % (domain, missing_p)
+            files = [f for f in sorted(os.listdir(conn_dir)) if f.startswith('%s_%s_' % (CONNECTIVITY_NAME, domain))] \
+                if os.path.isdir(conn_dir) else []
+            with open(manifest, 'a') as f:
+                for name in files:
+                    size = os.path.getsize(os.path.join(conn_dir, name))
+                    f.write('%s\t%d bytes\tpurged %s after null parcellation\n' % (
+                        name, size, time.strftime('%Y-%m-%dT%H:%M:%S')))
+                    os.remove(os.path.join(conn_dir, name))
+            print('purged %d null connectivity file(s) of %s' % (len(files), domain))
 
     if 'all' in steps or 'subnetwork_extraction' in steps:
         for name in variants:
@@ -142,9 +183,13 @@ if __name__ == '__main__':
         # table, so a truncated parcellation job fails here loudly instead of producing a
         # scores.csv that looks complete.
         from parcelmate.bin.score import score_config
+        from parcelmate.bin.score_big import score_config_big, tree_is_tiled
         # -V restricts scoring too, writing scores_<arms>.csv so the arms that finished can
         # be read before the slow ones do, without ever overwriting the full table.
-        score_config(cfg, variants=args.variants)
+        if tree_is_tiled(cfg):
+            score_config_big(cfg, variants=args.variants)
+        else:
+            score_config(cfg, variants=args.variants)
 
     if 'purge_connectivity' in steps:
         # Never part of `all`. Deletes the connectivity of both trees once the score file
