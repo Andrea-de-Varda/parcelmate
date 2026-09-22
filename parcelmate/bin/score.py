@@ -235,8 +235,15 @@ def score_tree(root, tree, variants, domains, rows, missing, cross_domain=True, 
     #            fit/evaluate structure of the within-domain metrics.
     #
     # Only the halves version licenses the comparison "within X vs across Y".
+    # A tree written with `outputs: [halves]` (LOG.md Iteration 22) has no avg files at
+    # all; then only the halves version is scored, and nothing is recorded as missing.
+    has_avg = any(os.path.exists(conn_path(root, d, 'avg')) for d in domains)
+    if not has_avg and verbose:
+        stderr('  %-5s no avg connectivity in this tree; across-domain scored on halves only\n' % tree)
     for fit_key, eval_key, suffix in (('avg', 'avg', ''),
                                       (HALF_NAMES[0], HALF_NAMES[1], '_halves')):
+        if fit_key == 'avg' and not has_avg:
+            continue
         score_across(root, tree, variants, domains, rows, missing,
                      fit_key, eval_key, suffix, verbose=verbose, pairs=pairs)
 

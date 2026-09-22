@@ -154,15 +154,52 @@ def select_network_units(parcellation, network, knockout_thresh=0.5):
     return parcellation[:, network] >= knockout_thresh
 
 
+# Where each architecture keeps its transformer blocks and the MLP's output projection,
+# whose INPUT is the post-nonlinearity neuron activation (LOG.md Iteration 22). The hook
+# is a forward pre-hook on that projection, so it is independent of how a transformers
+# version returns activations. Unknown architectures fail loudly rather than guessing.
+MLP_PROJECTIONS = {
+    'GPT2Model': ('h', 'c_proj'),                    # gpt2: c_fc -> gelu -> c_proj
+    'GPTNeoXModel': ('layers', 'dense_4h_to_h'),     # pythia: dense_h_to_4h -> gelu -> dense_4h_to_h
+}
+
+
+def mlp_projections(model):
+    """The per-block MLP output projections of `model`, in layer order.
+
+    Returns a list of (layer, module). The input of each module is the post-activation MLP
+    state of that block, which is what `unit_type='mlp'` treats as the units.
+    """
+    name = type(model).__name__
+    assert name in MLP_PROJECTIONS, (
+        'unit_type=mlp knows %s; got %s. Add its (blocks, output projection) attribute '
+        'names to MLP_PROJECTIONS after checking that the projection input is the '
+        'post-nonlinearity activation.' % (sorted(MLP_PROJECTIONS), name))
+    blocks_attr, proj_attr = MLP_PROJECTIONS[name]
+    blocks = getattr(model, blocks_attr, None)
+    assert blocks is not None and len(blocks), '%s has no %r blocks' % (name, blocks_attr)
+    out = []
+    for layer, block in enumerate(blocks):
+        assert hasattr(block, 'mlp') and hasattr(block.mlp, proj_attr), (
+            '%s block %d has no mlp.%s' % (name, layer, proj_attr))
+        out.append((layer, getattr(block.mlp, proj_attr)))
+    return out
+
+
 def get_model_and_tokenizer(
         model_name,
         knockout_probs=None,
         knockout_thresh=0.5,
         coordinates=None,
         network=None,
-        perturbation_values=None
+        perturbation_values=None,
+        revision=None
 ):
-    model = AutoModel.from_pretrained(model_name)
+    """Load a model and its tokenizer. `revision` selects a Hub checkpoint (e.g. Pythia's
+    `step1000`); None is the default branch. The model is always cast to float32, so the
+    connectome does not depend on the dtype a checkpoint happens to be stored in."""
+    kwargs = {} if revision is None else dict(revision=str(revision))
+    model = AutoModel.from_pretrained(model_name, **kwargs).float()
     if knockout_probs is not None:
         assert coordinates is not None, 'coordinates must be provided if knockout_probs is not None'
         assert network is not None, 'network must be provided if knockout_probs is not None'
@@ -172,7 +209,7 @@ def get_model_and_tokenizer(
             perturbation_coordinates=coordinates[sel],
             perturbation_values=perturbation_values  # None -> zeros (zero-ablation)
         )
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    tokenizer = AutoTokenizer.from_pretrained(model_name, **kwargs)
 
     return model, tokenizer
 
@@ -205,7 +242,8 @@ def get_timecourses(
               dimension d at layer l+1 minus one block's update, so the strongest structure
               in this connectome is 768 chains of 13 units.
       mlp     the post-nonlinearity MLP neurons of each block, captured as the input to the
-              MLP's output projection (`mlp.c_proj`), which is what every transformers
+              MLP's output projection (`mlp.c_proj` for GPT-2, `mlp.dense_4h_to_h` for
+              GPT-NeoX/Pythia; see MLP_PROJECTIONS), which is what every transformers
               version feeds the activation into. GELU breaks rotational symmetry, so these
               units have a privileged basis and no cross-layer chain. GPT-2: 12 x 3072.
 
@@ -222,19 +260,16 @@ def get_timecourses(
         stderr('%sGetting timecourses (unit_type=%s)\n' % (' ' * indent, unit_type))
     hooks, captured = [], {}
     if unit_type == 'mlp':
-        blocks = getattr(model, 'h', None)
-        assert blocks is not None and len(blocks) and hasattr(blocks[0], 'mlp') \
-            and hasattr(blocks[0].mlp, 'c_proj'), (
-            'unit_type=mlp expects a GPT-2 style model with `h[i].mlp.c_proj` (got %s); '
-            'a wrapped/perturbed model is not supported here' % type(model).__name__)
+        assert not isinstance(model, PerturbedModel), \
+            'unit_type=mlp does not support a wrapped/perturbed model'
 
         def make_hook(layer):
             def hook(module, inputs):
                 captured[layer] = inputs[0]
             return hook
 
-        for layer, block in enumerate(blocks):
-            hooks.append(block.mlp.c_proj.register_forward_pre_hook(make_hook(layer)))
+        for layer, projection in mlp_projections(model):
+            hooks.append(projection.register_forward_pre_hook(make_hook(layer)))
     unit_index = None  # per layer: which columns are kept
     timecourses = None
     coordinates = None
@@ -897,6 +932,7 @@ def align_samples(
 
 def run_connectivity(
         model_name='gpt2',
+        revision=None,
         output_dir=OUTPUT_DIR,
         n_samples=N_SAMPLES,
         domains=('wikitext', 'bookcorpus', 'agnews', 'tldr17', 'codeparrot', 'random', 'whitespace'),
@@ -925,12 +961,28 @@ def run_connectivity(
         null_model=None,
         null_output_dir=None,
         n_surrogates=0,
+        outputs=('samples', 'avg'),
         seed=None,
         overwrite=False,
         verbose=True,
         indent=0
 ):
     """Estimate unit-by-unit connectivity, optionally alongside a null.
+
+    `revision` selects a Hub checkpoint of `model_name` (Pythia: `step1000`); None is the
+    default branch. It is recorded in the provenance of every file this step writes.
+
+    `outputs` says which files to write per domain (LOG.md Iteration 22):
+      'samples'  one file per sample (the cache the `split_halves` step reads);
+      'avg'      the Fisher mean of all samples;
+      'halves'   the two split halves directly, Fisher-averaged as they accumulate, so no
+                 per-sample matrix is held or written. With all MLP neurons as units a
+                 GPT-2-sized matrix is 5.4 GB, and the default layout keeps 4 samples plus
+                 the average in memory and on disk; `outputs: [halves]` holds one half at a
+                 time and writes 2 files per tree instead of 7. The halves are exactly what
+                 `run_split_halves` would have built (samples 1..n/2 and n/2+1..n), with the
+                 same provenance, so every later step is unchanged. Needs an even
+                 `n_samples` and no surrogates.
 
     `null_model='circshift'` additionally computes connectivity from independently circularly
     shifted timecourses and writes it to `null_output_dir`, using identical filenames so
@@ -978,6 +1030,18 @@ def run_connectivity(
         knockout_coordinates = data['coordinates']
 
     assert ablation in ('mean', 'zero'), 'ablation must be "mean" or "zero", got %s' % ablation
+    if isinstance(outputs, str):
+        outputs = (outputs,)
+    outputs = tuple(outputs)
+    unknown = [o for o in outputs if o not in ('samples', 'avg', 'halves')]
+    assert outputs and not unknown, \
+        'outputs must be a non-empty subset of samples, avg, halves; got %r' % (outputs,)
+    write_samples, write_avg, write_halves = [o in outputs for o in ('samples', 'avg', 'halves')]
+    if write_halves:
+        assert n_samples >= 2 and n_samples % 2 == 0, \
+            'outputs: halves needs an even n_samples >= 2, got %d' % n_samples
+        assert not n_surrogates, 'outputs: halves does not support surrogates'
+    assert write_samples or write_halves or n_samples == 1 or write_avg, 'nothing to write'
     knockout_sel = None
     if knockout_probs is not None:
         knockout_sel = select_network_units(knockout_probs, knockout_network, knockout_thresh=knockout_thresh)
@@ -992,8 +1056,11 @@ def run_connectivity(
         knockout_probs=knockout_probs,
         coordinates=knockout_coordinates,
         knockout_thresh=knockout_thresh,
-        network=knockout_network
+        network=knockout_network,
+        revision=revision
     )
+    provenance = dict(model_name=model_name, revision='' if revision is None else str(revision),
+                      unit_type=unit_type)
 
     if isinstance(domains, str):
         domains = (domains,)
@@ -1058,6 +1125,23 @@ def run_connectivity(
             if verbose:
                 stderr('%sMean-ablation values set from %s\n' % (' ' * indent, os.path.basename(stats_path)))
 
+        if not os.path.exists(connectivity_dir):
+            os.makedirs(connectivity_dir)
+        if write_halves and not overwrite:
+            # Both halves in every tree already written: nothing to recompute, and the
+            # dataset need not even be loaded. The check is by key, not by file presence,
+            # so a half truncated by a killed job is recomputed.
+            needed = [os.path.join(d, '%s_%s_%s%s' % (CONNECTIVITY_NAME, domain, h, EXTENSION))
+                      for d in ([connectivity_dir] + ([null_connectivity_dir] if null_model else []))
+                      for h in HALF_NAMES]
+            if all(os.path.exists(f) and all(
+                    k in h5_keys(f) for k in ('connectivity', 'coordinates', 'unit_means',
+                                              'unit_stds', 'n_obs')) for f in needed):
+                if verbose:
+                    stderr('%sSkipping %s (halves exist)\n' % (' ' * indent, domain))
+                indent -= 2
+                continue
+
         # Per-domain seed, so re-running one domain reproduces what the full run produced
         # for it (the HDF5 cache makes single-domain re-runs a normal operation).
         domain_seed = derive_seed(seed, 'data', domain)
@@ -1086,6 +1170,32 @@ def run_connectivity(
         coordinates = None
         sample_means, sample_stds, sample_counts = [], [], []
         surrogate_vars = []
+        # `outputs: halves`: running Fisher sums, one half at a time, per tree.
+        half_sums = {'real': [None, None], 'null': [None, None]}
+        half_stats = [([], [], []), ([], [], [])]   # (means, stds, counts) per half
+        half_sources = [[], []]
+
+        def half_path(tree_dir, name):
+            return os.path.join(tree_dir, '%s_%s_%s%s' % (CONNECTIVITY_NAME, domain, name, EXTENSION))
+
+        def write_half(h):
+            name = HALF_NAMES[h]
+            means, stds, counts = half_stats[h]
+            pooled_means, pooled_stds = pool_unit_stats(means, stds, counts)
+            for tree, tree_dir in (('real', connectivity_dir), ('null', null_connectivity_dir)):
+                if tree == 'null' and not null_model:
+                    continue
+                half = np.tanh(half_sums[tree][h] / float(len(counts)))
+                save_h5_data(
+                    dict(connectivity=half, coordinates=coordinates, unit_means=pooled_means,
+                         unit_stds=pooled_stds, n_obs=np.asarray(sum(counts))),
+                    half_path(tree_dir, name),
+                    attrs=dict(domain=domain, key=name, sources=', '.join(half_sources[h]),
+                               n_obs=int(sum(counts)), git_commit=git_commit(),
+                               created=time.strftime('%Y-%m-%dT%H:%M:%S'),
+                               n_units=int(half.shape[0]), **provenance),
+                    verbose=verbose, indent=indent)
+                del half
         indent += 2
         new = False
         for i in range(0, len(input_ids), n):
@@ -1199,12 +1309,37 @@ def run_connectivity(
                 save = False
             if _surrogate_var is not None:
                 surrogate_vars.append(_surrogate_var)
-            connectivity.append(_connectivity)
-            if null_model:
-                if _null_connectivity is None:  # cached; read it back for the average
-                    _null_connectivity = load_h5_data(null_filepath, verbose=False)['connectivity']
-                null_connectivity.append(_null_connectivity)
-                if n_samples > 1 and save:
+            if null_model and _null_connectivity is None:  # cached; read it back for the average
+                _null_connectivity = load_h5_data(null_filepath, verbose=False)['connectivity']
+            if write_halves:
+                # Fisher sums in place (arctanh of each sample), one half at a time. The
+                # half is written as soon as its last sample is in, and its sums are freed
+                # unless the average is also wanted, so at most one half per tree is held.
+                sample_idx = i // n
+                h = 0 if sample_idx < n_samples // 2 else 1
+                for tree, mat in (('real', _connectivity), ('null', _null_connectivity)):
+                    if mat is None:
+                        continue
+                    mat = fisher(np.asarray(mat, dtype=np.float32), eps=eps)
+                    if half_sums[tree][h] is None:
+                        half_sums[tree][h] = mat
+                    else:
+                        half_sums[tree][h] += mat
+                        del mat
+                half_stats[h][0].append(out['unit_means'])
+                half_stats[h][1].append(out['unit_stds'])
+                half_stats[h][2].append(int(np.asarray(out['n_obs']).item()))
+                half_sources[h].append('%s%d' % (SAMPLE_NAME, sample_idx + 1))
+                del _connectivity, _null_connectivity
+                if sample_idx in (n_samples // 2 - 1, n_samples - 1):
+                    write_half(h)
+                    if not write_avg:
+                        half_sums['real'][h] = half_sums['null'][h] = None
+            else:
+                connectivity.append(_connectivity)
+                if null_model:
+                    null_connectivity.append(_null_connectivity)
+                if null_model and n_samples > 1 and save and write_samples:
                     # Same unit_means/unit_stds as the real data: a circular shift permutes
                     # each unit's timecourse, so its marginal statistics are unchanged.
                     null_data = dict(
@@ -1228,7 +1363,7 @@ def run_connectivity(
             sample_means.append(out['unit_means'])
             sample_stds.append(out['unit_stds'])
             sample_counts.append(int(np.asarray(out['n_obs']).item()))
-            if n_samples > 1 and save:
+            if n_samples > 1 and save and write_samples:
                 out_data = dict(
                     connectivity=_connectivity,
                     coordinates=coordinates,
@@ -1249,7 +1384,18 @@ def run_connectivity(
                 stderr('%sElapsed time: %.2f s\n' % (' ' * indent, time.time() - t0))
             indent -= 2
         indent -= 2
-        if n_samples > 1:
+        if not write_avg:
+            indent -= 2
+            continue
+        if write_halves:
+            # The average is the Fisher mean over both halves' sums; the null likewise.
+            connectivity = np.tanh((half_sums['real'][0] + half_sums['real'][1]) / float(n_samples))
+            half_sums['real'] = [None, None]
+            if null_model:
+                null_connectivity = [np.tanh((half_sums['null'][0] + half_sums['null'][1])
+                                             / float(n_samples))]
+                half_sums['null'] = [None, None]
+        elif n_samples > 1:
             connectivity = fisher_average(*connectivity, eps=eps)
         else:
             connectivity = connectivity[0]
@@ -1263,7 +1409,7 @@ def run_connectivity(
         )
         pooled_means, pooled_stds = pool_unit_stats(sample_means, sample_stds, sample_counts)
         if null_model:
-            null_avg = fisher_average(*null_connectivity, eps=eps) if n_samples > 1 \
+            null_avg = fisher_average(*null_connectivity, eps=eps) if len(null_connectivity) > 1 \
                 else null_connectivity[0]
             null_avg_data = dict(
                 connectivity=null_avg,

@@ -1,5 +1,7 @@
 import argparse
 import os
+import shutil
+import time
 
 from parcelmate.cfg import get_cfg
 from parcelmate.model import *
@@ -143,6 +145,33 @@ if __name__ == '__main__':
         # -V restricts scoring too, writing scores_<arms>.csv so the arms that finished can
         # be read before the slow ones do, without ever overwriting the full table.
         score_config(cfg, variants=args.variants)
+
+    if 'purge_connectivity' in steps:
+        # Never part of `all`. Deletes the connectivity of both trees once the score file
+        # exists, for runs whose connectomes are too large to keep (LOG.md Iteration 22:
+        # every Pythia checkpoint at all MLP neurons is 86 GB). The parcellations keep a
+        # fingerprint of the matrix they came from, and a manifest of what was deleted is
+        # left in place of the directory, so the record survives the data.
+        assert cfg.get('purge_connectivity') is True, \
+            '-s purge_connectivity needs `purge_connectivity: true` in the config'
+        score_path = os.path.join(cfg.get('output_dir', OUTPUT_DIR), 'metrics', 'scores.csv')
+        assert os.path.exists(score_path), \
+            'refusing to purge: %s does not exist, so this run is not scored yet' % score_path
+        for tree in trees():
+            conn_dir = os.path.join(tree, CONNECTIVITY_NAME)
+            if not os.path.isdir(conn_dir):
+                continue
+            files = sorted(os.listdir(conn_dir))
+            sizes = {f: os.path.getsize(os.path.join(conn_dir, f)) for f in files}
+            manifest = os.path.join(tree, CONNECTIVITY_NAME + '_purged.txt')
+            with open(manifest, 'w') as f:
+                f.write('purged %s after %s existed\n' % (time.strftime('%Y-%m-%dT%H:%M:%S'),
+                                                        score_path))
+                for name in files:
+                    f.write('%s\t%d bytes\n' % (name, sizes[name]))
+            shutil.rmtree(conn_dir)
+            print('purged %s (%d files, %.1f GB); manifest at %s' % (
+                conn_dir, len(files), sum(sizes.values()) / 1e9, manifest))
 
     if 'all' in steps or 'subnetwork_knockout' in steps:
         # Reads its own `subnetwork_knockout` section (S3). It previously received

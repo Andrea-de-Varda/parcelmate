@@ -2,7 +2,7 @@
 
     python figures/make_figures.py      ->  plots/*.svg + *.png
 
-Combines seven score files into one comparison of 54 arms, plus the pooled-estimation scores
+Combines eight score files into one comparison of 55 arms, plus the pooled-estimation scores
 and the yardstick for the last round (scores_pooled_mlp.csv, yardstick_final_mlp.csv):
 
     scores_ladder.csv       the six-arm ladder, MiniBatch k-means, residual stream (Iter. 13)
@@ -12,6 +12,8 @@ and the yardstick for the last round (scores_pooled_mlp.csv, yardstick_final_mlp
     scores_final_resid.csv  residual Ward at k = 150, 200 (final test T1, Iter. 18)
     scores_final_mlp.csv    final tests T1, T2, T5 on MLP neurons (Iter. 18)
     scores_last_mlp.csv     the last round: consensus polish, co-association, restarts, k (Iter. 20)
+    scores_vmf_sparse_pca100_lloyd100_n200.csv
+                            the confirmation arm: sparse profiles + 200 restarts (Iter. 21)
 
 Every number is a per-domain measurement averaged over the four prose domains; whitespace,
 codeparrot and random are excluded because a block model fits their degenerate connectivity
@@ -75,13 +77,15 @@ SOURCES = {
     'scores_final_resid.csv': '',
     'scores_final_mlp.csv': 'mlp:',
     'scores_last_mlp.csv': 'mlp:',   # the last round (Iterations 19-20)
+    'scores_vmf_sparse_pca100_lloyd100_n200.csv': 'mlp:',  # the confirmation arm (Iteration 21)
 }
 # Rows not to load from a file. The last round's base arm reruns final_mlp's
 # `vmf_pca100_lloyd100` with the same seeds and gives identical scores (Iteration 20), and
 # both files carry the same MLP ceilings; loading them twice would double the per-domain dots.
 # The one exception is the metric only the rerun has: co-association reliability needs the
 # restart labels, which final_mlp did not store.
-SKIP = {'scores_last_mlp.csv': {'vmf_pca100_lloyd100', '(ceiling)'}}
+SKIP = {'scores_last_mlp.csv': {'vmf_pca100_lloyd100', '(ceiling)'},
+        'scores_vmf_sparse_pca100_lloyd100_n200.csv': {'(ceiling)'}}
 SKIP_EXCEPT_METRICS = {'reliability_within_coassoc'}
 POOLED_FILE = 'scores_pooled_mlp.csv'
 YARDSTICK_FILE = 'yardstick_final_mlp.csv'
@@ -157,6 +161,7 @@ GROUPS = [
         ('mlp:vmf_pca100_lloyd100_n200', '200 restarts'),
         ('mlp:vmf_pca100_lloyd100_coassoc', 'co-association'),
         ('mlp:vmf_pca100_lloyd100_n200_coassoc', '200 r., co-assoc.'),
+        ('mlp:vmf_sparse_pca100_lloyd100_n200', 'sparse, 200 r. (final)'),
     ]),
     ('MLP consensus polish', '#dcc3a8', '#5a3417', [
         ('mlp:vmf_pca100_lloyd100_bm_raw', 'raw'),
@@ -668,7 +673,8 @@ def fig_maps_vs_labels():
 # ---------------------------------------------------------------------------------------
 # Figures 5-7 -- the last round and the decision (LOG.md Iteration 20). All on MLP neurons.
 # ---------------------------------------------------------------------------------------
-KEPT = ('mlp:vmf_sparse_pca100_lloyd100', 'mlp:vmf_pca100_lloyd100_n200')
+KEPT = ('mlp:vmf_sparse_pca100_lloyd100', 'mlp:vmf_pca100_lloyd100_n200',
+        'mlp:vmf_sparse_pca100_lloyd100_n200')
 BASE = 'mlp:vmf_pca100_lloyd100'
 # Blocks of rows, top to bottom: algorithm, the two changes kept, the two not kept, k, polish.
 FINAL_ROWS = [
@@ -676,7 +682,8 @@ FINAL_ROWS = [
      ('mlp:vmf_lloyd100', 'Lloyd, full profiles'),
      (BASE, 'Lloyd, PCA-100 (base)')],
     [('mlp:vmf_sparse_pca100_lloyd100', '+ sparse profiles'),
-     ('mlp:vmf_pca100_lloyd100_n200', '+ 200 restarts')],
+     ('mlp:vmf_pca100_lloyd100_n200', '+ 200 restarts'),
+     ('mlp:vmf_sparse_pca100_lloyd100_n200', '+ both (final pipeline)')],
     [('mlp:vmf_pca100_lloyd100_coassoc', '+ co-association consensus'),
      ('mlp:vmf_pca100_lloyd100_n200_coassoc', '+ 200 restarts, co-association')],
     [('mlp:vmf_pca100_lloyd50', 'k = 50'),
@@ -699,7 +706,8 @@ def fig_final_candidates():
 
     Reliabilities are raw (their null references sit at 0.01-0.03); fidelities are real minus
     the null partition, paired by domain. The dashed line is the base arm, so a point right of
-    it is a gain. Bold rows are the two changes kept.
+    it is a gain. Bold rows are the two changes kept and their combination, the final pipeline
+    (confirmation arm, Iteration 21).
     """
     rows, ys, y = [], [], 0.0
     for block in FINAL_ROWS:

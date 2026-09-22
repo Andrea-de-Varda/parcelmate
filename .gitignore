@@ -6,6 +6,8 @@ info/CLUSTER.md
 # Results and caches
 results/
 jobs/
+tests/.tmp/
+tests/.probe.txt
 *.h5
 logs/
 *.out

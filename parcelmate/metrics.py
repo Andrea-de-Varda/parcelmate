@@ -60,24 +60,36 @@ def upper_triangle(R):
     return R[iu]
 
 
-def block_means(R, labels, n_networks=None):
+# Row-block size for the streaming pair statistics below. 2048 rows of a 36,864-unit
+# matrix are 300 MB in float64, against 10.9 GB for the whole matrix.
+PAIR_BLOCK = 2048
+
+
+def block_means(R, labels, n_networks=None, block=PAIR_BLOCK):
     """Mean connectivity within each (network, network) block.
 
     Estimated on the *fitting* matrix and applied unchanged to the held-out one, so both
     the partition and the values it predicts with are out of sample.
+
+    Accumulated over row blocks in float64, so the matrix is never copied whole: with all
+    MLP neurons as units (LOG.md Iteration 22) a full float64 copy is 11 GB.
     """
-    R = np.array(R, dtype=np.float64, copy=True)
+    R = np.asarray(R)
     labels = np.asarray(labels)
+    n = len(labels)
     k = int(n_networks or labels.max() + 1)
-    onehot = np.zeros((len(labels), k), dtype=np.float64)
-    onehot[np.arange(len(labels)), labels] = 1.0
+    onehot = np.zeros((n, k), dtype=np.float64)
+    onehot[np.arange(n), labels] = 1.0
     sizes = onehot.sum(axis=0)
 
     # The self-pairs R[i, i] are excluded, to match `variance_explained`, which scores the
     # strict upper triangle. Leaving them in would pull every within-block mean toward 1.
-    diag = np.diag(R).copy()
-    np.fill_diagonal(R, 0.0)
-    sums = onehot.T @ R @ onehot
+    sums = np.zeros((k, k), dtype=np.float64)
+    for s in range(0, n, block):
+        e = min(s + block, n)
+        rows = np.array(R[s:e], dtype=np.float64)
+        rows[np.arange(e - s), np.arange(s, e)] = 0.0
+        sums += onehot[s:e].T @ (rows @ onehot)
 
     # Pair counts are the OUTER product of the block sizes: block (a, b) contains
     # n_a * n_b ordered pairs. `onehot.T @ onehot` gives diag(n) instead, which zeroed
@@ -85,7 +97,6 @@ def block_means(R, labels, n_networks=None):
     counts = np.outer(sizes, sizes) - np.diag(sizes)  # drop the n_a self-pairs on a == b
     with np.errstate(invalid='ignore', divide='ignore'):
         M = np.where(counts > 0, sums / np.maximum(counts, 1.0), 0.0)
-    np.fill_diagonal(R, diag)  # leave the caller's view of R untouched in spirit
 
     return M
 
@@ -120,6 +131,46 @@ def agreement(R_eval, prediction, measure='r2'):
     return float(1.0 - np.sum((y - yhat) ** 2) / ss_tot)
 
 
+def pair_agreement(R_eval, predict_rows, measure='r2', block=PAIR_BLOCK):
+    """`agreement` over the strict upper triangle, streamed in row blocks.
+
+    `predict_rows(s, e)` returns the predicted rows s..e-1 (a (e - s) x n array). Only the
+    running moments of target and prediction are kept, so neither the n x n prediction nor
+    a float64 copy of the target is ever materialised. Numerically it is the same
+    statistic as `agreement` (same pairs, float64 sums); verified equal to 1e-12 in the
+    tests.
+    """
+    R_eval = np.asarray(R_eval)
+    n = R_eval.shape[0]
+    m = 0
+    sy = syy = sp = spp = syp = 0.0
+    for s in range(0, n, block):
+        e = min(s + block, n)
+        y = np.asarray(R_eval[s:e], dtype=np.float64)
+        p = np.asarray(predict_rows(s, e), dtype=np.float64)
+        keep = np.arange(n)[None, :] > np.arange(s, e)[:, None]   # strict upper triangle
+        y, p = y[keep], p[keep]
+        m += y.size
+        sy += y.sum()
+        syy += (y * y).sum()
+        sp += p.sum()
+        spp += (p * p).sum()
+        syp += (y * p).sum()
+    ss_tot = syy - sy * sy / m
+    ss_pred = spp - sp * sp / m
+    cov = syp - sy * sp / m
+    if measure == 'r':
+        if ss_tot <= 0 or ss_pred <= 0:
+            return float('nan')
+        return float(cov / np.sqrt(ss_tot * ss_pred))
+    assert measure == 'r2', 'measure must be "r2" or "r", got %r' % measure
+    if ss_tot == 0:
+        return float('nan')
+    ss_res = syy - 2.0 * syp + spp
+
+    return float(1.0 - ss_res / ss_tot)
+
+
 def variance_explained(R_eval, prediction):
     """Backwards-compatible alias for `agreement(..., measure='r2')`."""
     return agreement(R_eval, prediction, measure='r2')
@@ -146,8 +197,9 @@ def fidelity(R_fit, R_eval, parcellation_fit, measure='r2'):
     P = np.asarray(parcellation_fit, dtype=np.float64)
     labels = hard_labels(P)
     M = block_means(R_fit, labels, n_networks=P.shape[1])
+    rows = M[labels]   # n x k: unit i's block means against every network
 
-    return agreement(R_eval, M[labels][:, labels], measure=measure)
+    return pair_agreement(R_eval, lambda s, e: rows[s:e][:, labels], measure=measure)
 
 
 def fidelity_insample(R_fit, parcellation_fit, measure='r2'):
@@ -188,7 +240,8 @@ def fidelity_ceiling(R_fit, R_eval, measure='r2'):
     richer than any 50-block summary, expect the reference to sit comfortably above every
     variant; a variant that exceeds it would be a substantive finding, not a bug.
     """
-    return agreement(R_eval, R_fit, measure=measure)
+    R_fit = np.asarray(R_fit)
+    return pair_agreement(R_eval, lambda s, e: R_fit[s:e], measure=measure)
 
 
 def reliability(parcellation_a, parcellation_b):
