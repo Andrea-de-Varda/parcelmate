@@ -21,6 +21,7 @@
 # two |r| halves and the co-association counts: 64 GB. 70m (12,288 units) is a tenth of
 # all of that.
 set -e
+umask 002
 
 WORK=${WORK:-/juice6/u/nlp/climblab/devarda/parcelmate}
 CONDA_SH=${CONDA_SH:-/juice6/u/nlp/climblab/devarda/miniforge3/etc/profile.d/conda.sh}
@@ -87,6 +88,7 @@ generate() {
 #SBATCH --partition=john
 
 set -e
+umask 002
 
 mkdir -p $WORK/logs
 cd $WORK

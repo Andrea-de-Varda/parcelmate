@@ -21,6 +21,7 @@
 # took 5.5 h for six arms serially, so one Lloyd arm at 40 restarts is ~6 h, Ward far less,
 # k=100 up to 10 h.
 set -e
+umask 002
 
 WORK=${WORK:-/juice6/u/nlp/climblab/devarda/parcelmate}
 CONDA_SH=${CONDA_SH:-/juice6/u/nlp/climblab/devarda/miniforge3/etc/profile.d/conda.sh}
@@ -102,6 +103,7 @@ generate() {
 #SBATCH --partition=john
 
 set -e
+umask 002
 
 mkdir -p $WORK/logs
 cd $WORK
@@ -375,6 +377,7 @@ generate_last() {
 #SBATCH --partition=john
 
 set -e
+umask 002
 
 mkdir -p $WORK/logs
 cd $WORK

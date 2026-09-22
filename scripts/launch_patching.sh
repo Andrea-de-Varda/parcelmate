@@ -10,6 +10,7 @@
 # BOS off as in the original) and LFM2.5-350M (BOS both ways on the raw-text tasks). About
 # 50,000 items x 4 short forward passes each; well under an hour per model on an a6000.
 set -e
+umask 002
 
 WORK=${WORK:-/juice6/u/nlp/climblab/devarda/parcelmate}
 CONDA_SH=${CONDA_SH:-/juice6/u/nlp/climblab/devarda/miniforge3/etc/profile.d/conda.sh}
@@ -46,6 +47,7 @@ job() {
 #SBATCH --gres=gpu:a6000:1
 
 set -e
+umask 002
 
 mkdir -p $WORK/logs
 cd $WORK

@@ -91,6 +91,9 @@ def get_job(config_path, settings, steps=None, overwrite=False, seed=None, varia
 
     out.append('')
     out.append('set -e')
+    # Lab-share etiquette (Cory Shain, 2026-09-22): everything written under the shared
+    # store must be group-readable and group-writable.
+    out.append('umask 002')
     out.append('')
     out.append('mkdir -p %s' % log_dir)
     if settings['workdir']:
