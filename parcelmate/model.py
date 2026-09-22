@@ -158,31 +158,44 @@ def select_network_units(parcellation, network, knockout_thresh=0.5):
 # whose INPUT is the post-nonlinearity neuron activation (LOG.md Iteration 22). The hook
 # is a forward pre-hook on that projection, so it is independent of how a transformers
 # version returns activations. Unknown architectures fail loudly rather than guessing.
+# For gated MLPs (LFM2, Llama-style) the projection input is act(w1 x) * w3 x, the same
+# quantity LLM_Modularity hooks as `mlp.down_proj.input` (Iteration 23).
 MLP_PROJECTIONS = {
-    'GPT2Model': ('h', 'c_proj'),                    # gpt2: c_fc -> gelu -> c_proj
-    'GPTNeoXModel': ('layers', 'dense_4h_to_h'),     # pythia: dense_h_to_4h -> gelu -> dense_4h_to_h
+    'GPT2Model': ('h', 'mlp.c_proj'),                    # gpt2: c_fc -> gelu -> c_proj
+    'GPTNeoXModel': ('layers', 'mlp.dense_4h_to_h'),     # pythia: dense_h_to_4h -> gelu -> dense_4h_to_h
+    'Lfm2Model': ('layers', 'feed_forward.w2'),          # LFM2/2.5: silu(w1 x) * w3 x -> w2
 }
+
+
+def _get_path(module, path):
+    for name in path.split('.'):
+        module = getattr(module, name)
+    return module
 
 
 def mlp_projections(model):
     """The per-block MLP output projections of `model`, in layer order.
 
     Returns a list of (layer, module). The input of each module is the post-activation MLP
-    state of that block, which is what `unit_type='mlp'` treats as the units.
+    state of that block, which is what `unit_type='mlp'` treats as the units. A causal-LM
+    wrapper (`...ForCausalLM`) is unwrapped to its base model first.
     """
+    if type(model).__name__ not in MLP_PROJECTIONS and hasattr(model, 'base_model'):
+        model = model.base_model
     name = type(model).__name__
     assert name in MLP_PROJECTIONS, (
         'unit_type=mlp knows %s; got %s. Add its (blocks, output projection) attribute '
         'names to MLP_PROJECTIONS after checking that the projection input is the '
         'post-nonlinearity activation.' % (sorted(MLP_PROJECTIONS), name))
-    blocks_attr, proj_attr = MLP_PROJECTIONS[name]
+    blocks_attr, proj_path = MLP_PROJECTIONS[name]
     blocks = getattr(model, blocks_attr, None)
     assert blocks is not None and len(blocks), '%s has no %r blocks' % (name, blocks_attr)
     out = []
     for layer, block in enumerate(blocks):
-        assert hasattr(block, 'mlp') and hasattr(block.mlp, proj_attr), (
-            '%s block %d has no mlp.%s' % (name, layer, proj_attr))
-        out.append((layer, getattr(block.mlp, proj_attr)))
+        try:
+            out.append((layer, _get_path(block, proj_path)))
+        except AttributeError:
+            raise AssertionError('%s block %d has no %s' % (name, layer, proj_path))
     return out
 
 
