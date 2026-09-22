@@ -703,6 +703,17 @@ Andrea's second stage-1 question: do the networks our connectivity method finds 
 
 **Validation against the original's GPT-2 numbers passes** ([figures/patching_gpt2_validation.csv](../figures/patching_gpt2_validation.csv), from the repository's `results/openai-community_gpt2/*/*/baselines.json`). The token-alignment filter removes exactly the same items in all 46 tasks. On the 8 language tasks, where GPT-2 is competent, the both-correct item sets agree at Jaccard 0.98-1.00 and every accuracy is within 0.01. On the 38 tasks where GPT-2 is at chance, the sets of both-correct items (a few percent of items, decided by tiny log-prob margins) agree at Jaccard 0.3-0.96, and one task differs substantially: `logic_syllogism_1`, both-correct 0.204 here against 0.068. Rerunning that task locally with GPT-2 in fp16, as the original ran it, gives 0.474 / 0.446 / 0.061 (clean / corrupted / both) against the original's 0.475 / 0.449 / 0.068, and fp32 gives 0.587 / 0.566 / 0.204 again. So every residual difference is fp16 arithmetic (GPT-2 in half precision is known to be fragile on long prompts; this task has the longest prefix), not the re-implementation. The float32 decision stands, and it is the reason to expect small differences from the original wherever a model is near chance.
 
+**LFM2.5-350M screen** (job 17548826, 12 min; [figures/patching_accuracy_lfm2.5-350m.csv](../figures/patching_accuracy_lfm2.5-350m.csv), per-task files under `results/patching/LiquidAI_LFM2-5-350M/`). Both-correct accuracy and both-correct count:
+
+| domain | passes 0.60 / 300 | near | fails |
+|---|---|---|---|
+| Lan (with BOS) | anaphor 0.96 (649), det-noun irregular 0.86 (798), regular 0.85 (936), with adjective 0.65 (718), subject-verb 0.84 (865), hypernymy 0.91 (352) | npi 0.81 but 246 items | wug 0.29 |
+| MD | none | logic_propositional_1 0.41 (413), code_list 0.38 (380), mul_div_2op_symbolic 0.37 (364), code_B 0.35 (345) | 16 tasks at 0.00-0.18 |
+| phys | phys_newton 0.73 (732) | phys_prost 0.58 (695) | 7 tasks at 0.01-0.17 |
+| ToM | desires_goals 0.84 (804), primary_emotions 0.79 (729) | secondary_emotions 0.57 (653), social_interactions 0.49 but 85 items | 5 tasks at 0.00-0.14 |
+
+Two readings. **BOS decides the language tasks:** without it the raw-text prompts score 0.11-0.44 both-correct, with it 0.29-0.96; LFM2.5 has clearly never seen text that does not start with `<|startoftext|>`. The BOS variant is the one to use for this model (GPT-2, which has no BOS, is unaffected). **Nine tasks pass the provisional rule,** six language, one physical, two social, and no formal-reasoning task; four MD tasks and two others have 300-700 both-correct items at 0.35-0.58 accuracy. Attribution ran on the nine (16 x 4,608 each, 3-13 s). Their top-0.1% neurons sit in the last five layers for the language and physical tasks and in layers 8-11 for the two social tasks, so any comparison with our networks needs a layer-matched null.
+
 ## Decisions made
 
 - 2026-09-21 (stage 1, external validity): **attribution patching re-implemented in plain PyTorch on the vendored LLM_Modularity tasks; LFM2.5-350M screened on all 46 tasks with both BOS conventions on raw-text tasks; GPT-2 rerun as the validation against the original's numbers; inclusion at both-correct ≥ 0.60 and ≥ 300 items, provisional.** Rejected: running the original nnsight code (transformers-4 pin, cannot tokenize for LFM2.5); fp16; subsampling neurons. The comparison design between circuits and networks is deferred until the surviving tasks are known. Iteration 23.
