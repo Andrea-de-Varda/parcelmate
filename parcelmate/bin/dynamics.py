@@ -83,6 +83,18 @@ def cmd_partitions(args):
                     labels[(tree, key, domain, step)] = hard_labels(P)
                     for name, v in partition_measures(P, coords).items():
                         row(step, domain, key, tree, name, v)
+        # The noise reference for the transition measures: the same measures between the two
+        # halves of ONE checkpoint (same weights, disjoint text). A transition between
+        # checkpoints can only be read against how well two halves of one checkpoint match.
+        for domain in args.domains:
+            for step in steps:
+                a = labels.get((tree, HALF_NAMES[0], domain, step))
+                b = labels.get((tree, HALF_NAMES[1], domain, step))
+                if a is None or b is None:
+                    continue
+                for name, v in transition_measures(a, b, k).items():
+                    row(step, domain, 'halfA_vs_halfB', tree, name.replace('trans_', 'halves_'), v)
+        for key in HALF_NAMES:
             # Cross-domain generality, per step (same tree, same half).
             for step in steps:
                 by_dom = {d: labels[(tree, key, d, step)] for d in args.domains

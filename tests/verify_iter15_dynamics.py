@@ -227,6 +227,13 @@ check('partitions subcommand: measures for both steps and trees, transitions, bi
       r.returncode == 0 and {x['step'] for x in rows_p} == {'0', '1'} and {x['tree'] for x in rows_p} == {'real', 'null'}
       and any(x['measure'] == 'trans_continued' and float(x['value']) == 1.0 for x in rows_p)
       and os.path.exists(os.path.join(out, 'network_tracks.csv')))
+check('partitions subcommand: half A against half B of each checkpoint, the noise reference',
+      {x['step'] for x in rows_p if x['key'] == 'halfA_vs_halfB' and x['measure'] == 'halves_continued'} == {'0', '1'}
+      and {x['tree'] for x in rows_p if x['key'] == 'halfA_vs_halfB'} == {'real', 'null'})
+import pandas as pd
+check('csv readers must keep the tree label "null" (pandas reads it as missing by default)',
+      set(pd.read_csv(os.path.join(out, 'partitions.csv'), keep_default_na=False).tree) == {'real', 'null'}
+      and pd.read_csv(os.path.join(out, 'partitions.csv')).tree.isna().any())
 shutil.copy(os.path.join(out, 'subsample_step7_random_halfA.h5'), os.path.join(out, 'subsample_step8_random_halfA.h5'))
 shutil.copy(os.path.join(out, 'subsample_step7_random_halfB.h5'), os.path.join(out, 'subsample_step8_random_halfB.h5'))
 r = subprocess.run([sys.executable, '-m', 'parcelmate.bin.dynamics', 'combine', '--out', out],

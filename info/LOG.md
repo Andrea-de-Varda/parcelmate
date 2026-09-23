@@ -839,6 +839,8 @@ Andrea's reading of Iteration 27: reliability and fidelity are quality checks, t
 
 **Submitted 2026-09-23 at commit `ffc439b`** (`launch_dynamics.sh submit 70m`): checkpoint jobs 17573061-72 (four at a time: the fifth waits afterany on the first, and so on), partitions 17573073, combine 17573074 (afterok on all checkpoints). Footprint before: 1.1 TB under Andrea's directory on the share (894 GB of it the two Qwen runs), 5 jobs running on 40 CPUs, 224 GB and no GPUs. After: 10 jobs on 60 CPUs, 368 GB and 4 GPUs.
 
+**The partition measures ran first (17573073, 82 s) and needed a reference.** Only 42 of the 800 final networks (11 steps' worth of 4 domains x 2 halves x 100) are matched above Jaccard 0.5 at step 64,000, and between consecutive checkpoints after step 16 essentially no network is continued by a reciprocal best match above 0.5. That can only be read against how well two halves of the same checkpoint match, which the job did not compute. `partitions` now also writes the transition measures between half A and half B of every checkpoint (`key = halfA_vs_halfB`, measures `halves_*`), and the job was rerun. **Pitfall recorded:** pandas reads the tree label `null` as a missing value by default, so every null-tree row of these tables silently drops out of a `groupby`; read them with `keep_default_na=False` (now asserted in the suite, 24 checks).
+
 ## Decisions made
 
 - 2026-09-23 (training-dynamics measures): **describe the network, not only its quality: dimensionality, coupling, hubs, segregation, connectome similarity, firing rates, token-class selectivity with string-defined classes, loss, and the partition-only measures; 70m first; the null connectome not recomputed.** Rejected by Andrea: sign-based measures. Iteration 28.
