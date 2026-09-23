@@ -837,6 +837,8 @@ Andrea's reading of Iteration 27: reliability and fidelity are quality checks, t
 
 **Jobs** (`scripts/launch_dynamics.sh generate|submit <size>`): per checkpoint one a6000 job (2 h, 32 GB at 70m), throttled so that at most 4 GPU jobs run at once; one CPU job for the partition measures (independent of the GPU jobs); one CPU combine job after all checkpoints. Disk: about 3 GB of subsamples per size. `scripts/footprint.sh` (new) reports the disk used under Andrea's directory on the share, its free space, and the CPUs, memory and GPUs of Andrea's running, queued and dependency-held jobs; Andrea asked for both at every check.
 
+**Submitted 2026-09-23 at commit `ffc439b`** (`launch_dynamics.sh submit 70m`): checkpoint jobs 17573061-72 (four at a time: the fifth waits afterany on the first, and so on), partitions 17573073, combine 17573074 (afterok on all checkpoints). Footprint before: 1.1 TB under Andrea's directory on the share (894 GB of it the two Qwen runs), 5 jobs running on 40 CPUs, 224 GB and no GPUs. After: 10 jobs on 60 CPUs, 368 GB and 4 GPUs.
+
 ## Decisions made
 
 - 2026-09-23 (training-dynamics measures): **describe the network, not only its quality: dimensionality, coupling, hubs, segregation, connectome similarity, firing rates, token-class selectivity with string-defined classes, loss, and the partition-only measures; 70m first; the null connectome not recomputed.** Rejected by Andrea: sign-based measures. Iteration 28.
