@@ -4,16 +4,17 @@
 
 Reads `results/pythia/pythia-<size>/metrics/scores_all.csv` and `checkpoints.csv` for every
 size that has them (70m now, 160m when its chain completes) and writes
-`plots/pythia_dynamics.{svg,png}`: six panels of one metric each against the training step
-(log x; step 0 sits at a labelled pseudo-position left of step 1), one line per model size,
-with the per-domain (or per-domain-pair) values as faint dots behind each mean.
+`plots/pythia_dynamics.{svg,png}`: four panels against the training step (log x; step 0
+sits at a labelled pseudo-position left of step 1), one colour per model size, the per-domain
+(or per-domain-pair) values as faint dots behind each mean. In every panel the real
+partition is solid, the null partition dashed, and a ceiling dotted where it fits the axis:
 
-  within-domain reliability (ARI), with the restart-split ceiling dashed
+  within-domain reliability (ARI), with the restart-split ceiling
   across-domain reliability (ARI)
-  within-domain fidelity, r, real minus the null partition
-  across-domain fidelity, r, real minus the null partition, with the uncompressed r dotted
-  ARI between each checkpoint's partition and the final one, with its null reference
-  ARI between consecutive checkpoints, with its null reference
+  within-domain fidelity (r); the uncompressed ceiling, 0.99 throughout, is off the axis
+  across-domain fidelity (r), with the uncompressed across-domain r
+
+The cross-checkpoint agreement (checkpoints.csv) is no longer drawn (Andrea, 2026-09-23).
 
 House style (scientific-figure-style): left and bottom spines only, 1.5 pt, dashed y-grid,
 1/2/5 log ticks, editable-text SVG, frameless legend outside.
@@ -149,44 +150,47 @@ def main():
     sizes = [s for s in SIZE_ORDER if s in sizes] + [s for s in sizes if s not in SIZE_ORDER]
     assert sizes, 'no metrics under %s' % RESULTS
 
-    fig, axes = plt.subplots(2, 3, figsize=(7.6 * .95, 4.4 * .95), dpi=300)
+    # Every panel the same way (Andrea, 2026-09-23): the real partition solid, the null
+    # partition (fit on circularly shifted data, evaluated on the real data) dashed, and a
+    # ceiling dotted where it fits the axis. Earlier versions plotted fidelity as real minus
+    # null and reliability raw, which hid that the fidelity null moves a lot over training.
+    fig, axes = plt.subplots(2, 2, figsize=(5.4 * .95, 4.4 * .95), dpi=300)
     axes = axes.ravel()
     titles = ['Within-domain reliability (ARI)', 'Across-domain reliability (ARI)',
-              'Within-domain fidelity r,\nreal $-$ null partition',
-              'Across-domain fidelity r,\nreal $-$ null partition',
-              'Partition agreement (ARI)\nwith the final checkpoint', 'Partition agreement (ARI)\nwith the next checkpoint']
+              'Within-domain fidelity (r)', 'Across-domain fidelity (r)']
     all_steps = set()
     for size in sizes:
-        scores, ckpt = load(size)
+        scores, _ = load(size)
         c, m = SIZE_COLORS.get(size, '0.3'), SIZE_MARKERS.get(size, 'o')
+        ref = dict(ls='--', dots=False, lw=1.0, alpha=0.8, zorder=2)
+        ceil = dict(ls=':', dots=False, lw=1.0, alpha=0.8, zorder=2)
         all_steps |= set(draw(axes[0], series(scores, 'reliability_within'), c, m))
-        draw(axes[0], series(scores, 'reliability_ceiling'), c, None, ls='--', dots=False, lw=1.0, alpha=0.8, zorder=2)
+        draw(axes[0], series(scores, 'reliability_within', tree='pnull'), c, None, **ref)
+        draw(axes[0], series(scores, 'reliability_ceiling'), c, None, **ceil)
         draw(axes[1], series(scores, 'reliability_across_halves'), c, m)
-        draw(axes[2], series(scores, 'fidelity_within_r', delta=True), c, m)
-        draw(axes[3], series(scores, 'fidelity_across_halves', delta=True), c, m)
-        draw(axes[3], series(scores, 'fidelity_across_halves', variant='(ceiling)'), c, None, ls=':',
-             dots=False, lw=1.0, alpha=0.8, zorder=2)
-        if ckpt:
-            draw(axes[4], ckpt_series(ckpt, 'ari_to_final', 'real'), c, m)
-            draw(axes[4], ckpt_series(ckpt, 'ari_to_final', 'pnull'), c, None, ls='--', dots=False, lw=1.0, alpha=0.6, zorder=2)
-            draw(axes[5], ckpt_series(ckpt, 'ari_consecutive', 'real'), c, m)
-            draw(axes[5], ckpt_series(ckpt, 'ari_consecutive', 'pnull'), c, None, ls='--', dots=False, lw=1.0, alpha=0.6, zorder=2)
+        draw(axes[1], series(scores, 'reliability_across_halves', tree='pnull'), c, None, **ref)
+        draw(axes[2], series(scores, 'fidelity_within_r'), c, m)
+        draw(axes[2], series(scores, 'fidelity_within_r', tree='pnull'), c, None, **ref)
+        draw(axes[3], series(scores, 'fidelity_across_halves'), c, m)
+        draw(axes[3], series(scores, 'fidelity_across_halves', tree='pnull'), c, None, **ref)
+        draw(axes[3], series(scores, 'fidelity_across_halves', variant='(ceiling)'), c, None, **ceil)
     steps = sorted(all_steps)
     for ax, title in zip(axes, titles):
         style(ax)
         log_x(ax, steps)
         ax.set_title(title, fontsize=8.5, fontweight='bold')
         ax.set_ylim(bottom=min(0, ax.get_ylim()[0]))
-    for ax in axes[3:]:
+    for ax in axes[2:]:
         ax.set_xlabel('Training step', fontsize=9)
 
     handles = [Line2D([0], [0], color=SIZE_COLORS.get(s, '0.3'), marker=SIZE_MARKERS.get(s, 'o'),
                       markersize=4, markeredgecolor='black', markeredgewidth=0.4, lw=1.6,
                       label='Pythia-%s' % s) for s in sizes]
-    handles += [Line2D([0], [0], color='0.3', ls='--', lw=1.0, label='restart-split ceiling / null partition'),
-                Line2D([0], [0], color='0.3', ls=':', lw=1.0, label='uncompressed across-domain r')]
-    fig.legend(handles=handles, loc='lower center', bbox_to_anchor=(0.5, -0.06),
-               ncol=len(handles), frameon=False, fontsize=8)
+    handles += [Line2D([0], [0], color='0.3', ls='-', lw=1.6, label='real partition'),
+                Line2D([0], [0], color='0.3', ls='--', lw=1.0, label='null partition'),
+                Line2D([0], [0], color='0.3', ls=':', lw=1.0, label='ceiling')]
+    fig.legend(handles=handles, loc='lower center', bbox_to_anchor=(0.5, -0.09),
+               ncol=3, frameon=False, fontsize=8)
     fig.tight_layout(w_pad=1.0, h_pad=1.2)
     os.makedirs(PLOTS, exist_ok=True)
     fig.savefig(os.path.join(PLOTS, 'pythia_dynamics.svg'), format='svg', bbox_inches='tight')
