@@ -208,8 +208,13 @@ def correlate(X, rowvar=True, use_gpu=None):
 
     if use_gpu:
         X_ = torch.as_tensor(X)
-        n_bytes = torch.cuda.get_device_properties(0).total_memory - torch.cuda.memory_allocated(0)
-        n_bytes *= 0.9  # Shrink allocation to avoid edge cases
+        # Size the tiles from the memory actually free on the card (LOG.md Iteration 28): the
+        # card's total minus this process's allocation ignores other processes, and a job on
+        # a shared GPU died when another process held 43 of its 47 GB. 0.8 leaves room for
+        # the k x k product and the cuBLAS workspace. Tile size changes only how columns are
+        # grouped, never the sum over tokens inside each product, so results are unchanged.
+        free, _ = torch.cuda.mem_get_info(0)
+        n_bytes = 0.8 * free
         assert n_bytes > 0, 'No memory available on GPU'
         assert n_bytes / 8 > t, 'Not enough GPU memory to compute correlation matrix'
         k = int(n_bytes / (t * 8))
