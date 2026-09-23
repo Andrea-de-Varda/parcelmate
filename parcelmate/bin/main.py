@@ -24,6 +24,14 @@ if __name__ == '__main__':
                            help='Restrict the connectivity, parcellation and purge_null_connectivity '
                                 'steps to these domains, so domains of one config can run as '
                                 'separate jobs (LOG.md Iteration 25). Scoring always covers all.')
+    argparser.add_argument('-K', '--keys', nargs='+', default=None,
+                           help='Restrict the parcellation to these connectivity keys (halfA, '
+                                'halfB, avg), overriding `parcellate_keys`. With -D and -T this '
+                                'splits one domain into one job per matrix, which is what an '
+                                'out-of-core parcellation needs (LOG.md Iteration 26).')
+    argparser.add_argument('-T', '--trees', nargs='+', default=None, choices=['real', 'null'],
+                           help='Restrict the parcellation and the null purge to the real or the '
+                                'null tree.')
     argparser.add_argument('-V', '--variants', nargs='+', default=None,
                            help='Restrict the parcellation-level steps (and scoring) to these '
                                 'variants, so arms of one config can run as parallel jobs. A '
@@ -109,10 +117,13 @@ if __name__ == '__main__':
     # Both trees get parcellated: the null is only useful if the *same* pipeline runs on
     # it, and the metrics are reported as real-minus-null.
     def trees():
-        out = [cfg.get('output_dir', OUTPUT_DIR)]
+        root = cfg.get('output_dir', OUTPUT_DIR)
+        out = [('real', root)]
         if cfg.get('connectivity', {}).get('null_model'):
-            out.append(cfg.get('output_dir', OUTPUT_DIR).rstrip('/') + '_null')
-        return [t for t in out if os.path.isdir(t)]
+            out.append(('null', root.rstrip('/') + '_null'))
+        if args.trees:
+            out = [(n, t) for n, t in out if n in args.trees]
+        return [t for _, t in out if os.path.isdir(t)]
 
     if 'all' in steps or 'parcellation' in steps:
         for tree in trees():
@@ -120,6 +131,8 @@ if __name__ == '__main__':
                 kw = variant_cfg(name)
                 if args.domains:
                     kw['domains'] = list(args.domains)
+                if args.keys:
+                    kw['parcellate_keys'] = list(args.keys)
                 run_parcellation(
                     output_dir=tree,
                     overwrite=overwrite,

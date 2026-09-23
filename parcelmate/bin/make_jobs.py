@@ -50,7 +50,8 @@ def resolve(cli, profile):
     return settings
 
 
-def get_job(config_path, settings, steps=None, overwrite=False, seed=None, variants=None, domains=None):
+def get_job(config_path, settings, steps=None, overwrite=False, seed=None, variants=None, domains=None,
+            keys=None, trees=None):
     """Render a single SLURM batch script as a string."""
     job_name = os.path.splitext(os.path.basename(config_path))[0]
     if steps:
@@ -59,6 +60,10 @@ def get_job(config_path, settings, steps=None, overwrite=False, seed=None, varia
         job_name = '%s.%s' % (job_name, variants_tag(variants))
     if domains:
         job_name = '%s.%s' % (job_name, '_'.join(domains))
+    if trees:
+        job_name = '%s.%s' % (job_name, '_'.join(trees))
+    if keys:
+        job_name = '%s.%s' % (job_name, '_'.join(keys))
     log_dir = settings['log_dir']
     if settings['workdir'] and not os.path.isabs(log_dir):
         log_dir = os.path.join(settings['workdir'], log_dir)
@@ -119,6 +124,10 @@ def get_job(config_path, settings, steps=None, overwrite=False, seed=None, varia
         cmd += ' -V %s' % ' '.join(variants)
     if domains:
         cmd += ' -D %s' % ' '.join(domains)
+    if trees:
+        cmd += ' -T %s' % ' '.join(trees)
+    if keys:
+        cmd += ' -K %s' % ' '.join(keys)
     out.append(cmd)
     out.append('')
 
@@ -162,6 +171,10 @@ if __name__ == '__main__':
                                 'One job per arm lets the arms of a config run in parallel.')
     argparser.add_argument('-D', '--domains', nargs='+', default=None,
                            help='Pass -D to main.py: run only these domains (appended to the job name).')
+    argparser.add_argument('-K', '--keys', nargs='+', default=None,
+                           help='Pass -K to main.py: parcellate only these keys (halfA, halfB, avg).')
+    argparser.add_argument('-T', '--trees', nargs='+', default=None,
+                           help='Pass -T to main.py: only the real or the null tree.')
     args = argparser.parse_args()
 
     cli = {key: getattr(args, key) for key in (
@@ -181,8 +194,13 @@ if __name__ == '__main__':
             job_name = '%s.%s' % (job_name, variants_tag(args.variants))
         if args.domains:
             job_name = '%s.%s' % (job_name, '_'.join(args.domains))
+        if args.trees:
+            job_name = '%s.%s' % (job_name, '_'.join(args.trees))
+        if args.keys:
+            job_name = '%s.%s' % (job_name, '_'.join(args.keys))
         filename = os.path.join(outdir, job_name + '.pbs')
         with open(filename, 'w') as f:
             f.write(get_job(path, settings, steps=args.steps, overwrite=args.overwrite, seed=args.seed,
-                            variants=args.variants, domains=args.domains))
+                            variants=args.variants, domains=args.domains, keys=args.keys,
+                            trees=args.trees))
         print(filename)

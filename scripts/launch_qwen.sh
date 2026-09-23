@@ -53,13 +53,21 @@ generate() {
     local name cfg d
     for name in qwen3.5-2b qwen3.5-4b; do
         cfg=configs/qwen35/$name.yml
+        # One parcellation job per (domain, tree, half): the streamed PCA takes four passes
+        # over a half, measured at 33 min per pass at 147k units (17559496) and four times
+        # that at 295k, so one job per domain would be 9 h at 2B and 36 h at 4B, past the
+        # partition's limit. Split, the four run in parallel (LOG.md Iteration 26).
         case "$name" in
-            qwen3.5-2b) GPU_OPTS="-t 6 -m 160"; PAR="-t 12 -m 32"; SCO="-t 12 -m 32" ;;
-            qwen3.5-4b) GPU_OPTS="-t 10 -m 200 -P sphinx -G a100"; PAR="-t 24 -m 32"; SCO="-t 24 -m 32" ;;
+            qwen3.5-2b) GPU_OPTS="-t 6 -m 160"; PAR="-t 5 -m 32"; SCO="-t 12 -m 32" ;;
+            qwen3.5-4b) GPU_OPTS="-t 10 -m 200 -P sphinx -G a100"; PAR="-t 14 -m 48"; SCO="-t 36 -m 48" ;;
         esac
         for d in $(domains_of $name); do
             $M $cfg -c $GPU -s connectivity $GPU_OPTS -n 8 -D $d -o jobs/
-            $M $cfg -c $CPU -s parcellation $PAR -n 8 -D $d -o jobs/
+            for t in real null; do
+                for k in halfA halfB; do
+                    $M $cfg -c $CPU -s parcellation $PAR -n 8 -D $d -T $t -K $k -o jobs/
+                done
+            done
             $M $cfg -c $CPU -s purge_null_connectivity -t 1 -m 4 -n 1 -D $d -o jobs/
         done
         $M $cfg -c $CPU -s score purge_connectivity $SCO -n 4 -o jobs/
@@ -72,13 +80,21 @@ submit() {
     test -n "$name" || { echo "submit needs a config name" >&2; exit 2; }
     mkdir -p logs
     echo "code at $(git log --oneline | head -1)"
-    local d c p q ids=""
+    local d t k c p q ids="" real_ids="" null_ids=""
     for d in $(domains_of $name); do
         c=$(sbatch --parsable jobs/$name.connectivity.$d.pbs)
-        p=$(sbatch --parsable --dependency=afterok:$c jobs/$name.parcellation.$d.pbs)
-        q=$(sbatch --parsable --dependency=afterok:$p jobs/$name.purge_null_connectivity.$d.pbs)
-        echo "$name $d: connectivity $c -> parcellation $p -> purge null $q"
-        ids="$ids:$q"
+        real_ids=""; null_ids=""
+        for t in real null; do
+            for k in halfA halfB; do
+                p=$(sbatch --parsable --dependency=afterok:$c jobs/$name.parcellation.$d.$t.$k.pbs)
+                echo "$name $d $t $k: connectivity $c -> parcellation $p"
+                if [ "$t" = real ]; then real_ids="$real_ids:$p"; else null_ids="$null_ids:$p"; fi
+            done
+        done
+        # The null tiles go as soon as BOTH null halves are parcellated.
+        q=$(sbatch --parsable --dependency=afterok${null_ids} jobs/$name.purge_null_connectivity.$d.pbs)
+        echo "$name $d: purge null -> $q"
+        ids="$ids$real_ids:$q"
     done
     c=$(sbatch --parsable --dependency=afterok${ids} jobs/$name.score_purge_connectivity.pbs)
     echo "$name score + purge -> $c"

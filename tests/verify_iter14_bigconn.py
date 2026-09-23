@@ -239,6 +239,26 @@ check('tiled parcellation refuses whitened PCA',
 run_parcellation(output_dir=tiled, variant='onlyws', domains=['whitespace'], **PARC)
 files = sorted(os.listdir(os.path.join(tiled, 'onlyws', 'parcellation')))
 check('run_parcellation(domains=...) parcellates only that domain', files == ['parcellation_whitespace_halfA.h5', 'parcellation_whitespace_halfB.h5'])
+# -D / -T / -K through main.py: one matrix per job, which is how the big runs are split.
+cfg_split = os.path.join(tmp, 'split.yml')
+yaml.safe_dump(dict(output_dir=tiled, seed=7,
+                    connectivity=dict(domains=['random', 'whitespace'], null_model='circshift'),
+                    parcellation=dict(PARC, verbose=False), parcellation_variants={'split': {}}),
+               open(cfg_split, 'w'))
+r = subprocess.run([sys.executable, '-m', 'parcelmate.bin.main', cfg_split, '-s', 'parcellation',
+                    '-D', 'random', '-T', 'real', '-K', 'halfB'],
+                   cwd=ROOT, env=ENV, capture_output=True, text=True)
+made = sorted(os.listdir(os.path.join(tiled, 'split', 'parcellation'))) if os.path.isdir(os.path.join(tiled, 'split', 'parcellation')) else []
+check('main.py -D -T -K parcellates exactly one matrix, in the named tree only',
+      r.returncode == 0 and made == ['parcellation_random_halfB.h5']
+      and not os.path.isdir(os.path.join(tiled + '_null', 'split')))
+r = subprocess.run([sys.executable, '-m', 'parcelmate.bin.main', cfg_split, '-s', 'parcellation',
+                    '-D', 'random', '-T', 'null', '-K', 'halfA'],
+                   cwd=ROOT, env=ENV, capture_output=True, text=True)
+check('main.py -T null writes into the null tree alone',
+      r.returncode == 0
+      and sorted(os.listdir(os.path.join(tiled + '_null', 'split', 'parcellation'))) == ['parcellation_random_halfA.h5']
+      and sorted(os.listdir(os.path.join(tiled, 'split', 'parcellation'))) == ['parcellation_random_halfB.h5'])
 
 # ---------------------------------------------------------------- score_big vs dense score
 # A dense copy of the SAME tiles with the SAME parcellations, scored the ordinary way.
@@ -322,6 +342,15 @@ job = get_job('configs/qwen35/qwen3.5-4b.yml', dict(time=1, n_cores=1, memory=4,
               gpu_type=None, constraint=None, exclude=None, env={}), steps=['connectivity'], domains=['agnews'])
 check('make_jobs -D: job name carries the domain, command carries -D, script sets umask 002',
       'qwen3.5-4b.connectivity.agnews' in job and ' -D agnews' in job and 'umask 002' in job)
+job2 = get_job('configs/qwen35/qwen3.5-4b.yml', dict(time=1, n_cores=1, memory=4, workdir=None, log_dir='logs',
+               python='python', conda_sh=None, conda_env=None, account=None, partition=None, qos=None, gpu=0,
+               gpu_type=None, constraint=None, exclude=None, env={}), steps=['parcellation'],
+               domains=['agnews'], trees=['null'], keys=['halfA'])
+check('make_jobs -T -K: job name and command carry the tree and the key',
+      'qwen3.5-4b.parcellation.agnews.null.halfA' in job2 and ' -T null' in job2 and ' -K halfA' in job2)
+check('launcher: one parcellation job per (domain, tree, half), null purge after both null halves',
+      'for t in real null; do' in launcher and '-T $t -K $k' in launcher
+      and 'afterok${null_ids}' in launcher)
 
 shutil.rmtree(tmp)
 print('\n%d checks, %d failure(s)' % (n_checks[0], len(failures)))
