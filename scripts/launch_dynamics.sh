@@ -37,7 +37,7 @@ case "$MODE" in
 esac
 case "$SIZE" in
     70m)  GPU_T=2; GPU_M=32 ;;
-    160m) GPU_T=4; GPU_M=96 ;;
+    160m) GPU_T=4; GPU_M=64 ;;   # 70m peaked at 19 GB; 160m about 30 GB after the Iteration 28 memory fixes
     *) echo "size must be 70m or 160m" >&2; exit 2 ;;
 esac
 cd "$WORK"

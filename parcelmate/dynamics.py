@@ -181,7 +181,9 @@ def coupling_measures(A, seed=0, n_pairs=5_000_000, top_frac=0.01, prefix='coupl
     v = A[i[keep], j[keep]].astype(np.float64)
     strength = A.sum(1, dtype=np.float64)
     k = max(1, int(np.ceil(top_frac * (N - 1))))
-    top = np.partition(A, N - k, axis=1)[:, N - k:].sum(1, dtype=np.float64)
+    # Row blocks, so no full copy of A is made (5.4 GB at 36,864 units).
+    top = np.concatenate([np.partition(A[s:s + 2048], N - k, axis=1)[:, N - k:].sum(1, dtype=np.float64)
+                          for s in range(0, N, 2048)])
     with np.errstate(invalid='ignore', divide='ignore'):
         conc = np.where(strength > 0, top / strength, np.nan)
     out = {
@@ -325,6 +327,7 @@ def checkpoint_measures(cfg, out_dir, step=None, variant='final', n_sub=4096, ke
                 seed=derive_seed(seed, 'timecourses', domain, k + 1), verbose=False)
             X = out['timecourses']
             coordinates = out['coordinates']
+            del out   # else the sample's timecourses (14.5 GB at 160m) outlive the loop
             # Activation measures first: get_connectivity centres and normalises X in place.
             cls = token_classes(ids.numpy(), table)[mask.numpy().astype(bool)]
             onehot = np.zeros((len(cls), C), dtype=np.float32)
@@ -382,15 +385,20 @@ def checkpoint_measures(cfg, out_dir, step=None, variant='final', n_sub=4096, ke
         # Connectome measures, per half; segregation in sample and held out.
         for h in HALF_NAMES:
             R = halves[h]
+            # In place where possible (Iteration 28, for 160m): with every unit alive the
+            # eigenvalues are taken on R itself, with its diagonal set to 1; eigvalsh reads one
+            # triangle only, so the ~1e-7 asymmetry of the tiled GPU product needs no
+            # symmetrising copy. R is turned into |r| in place right after.
             live = np.isfinite(np.diag(R))
-            Rl = np.nan_to_num(R[np.ix_(live, live)])
-            Rl = (Rl + Rl.T) / 2.0
+            Rl = R if live.all() else R[np.ix_(live, live)]
+            np.nan_to_num(Rl, copy=False)
             np.fill_diagonal(Rl, 1.0)
             for name, v in spectrum_measures(eigenvalues(Rl)).items():
                 row(domain, h, '-', h, name, v)
             row(domain, h, '-', h, 'n_live_units', int(live.sum()))
             del Rl
-            A = np.abs(np.nan_to_num(R)).astype(np.float32)
+            A = np.nan_to_num(R, copy=False)
+            np.abs(A, out=A)
             np.fill_diagonal(A, 0.0)
             for name, v in coupling_measures(A, seed=derive_seed(seed, 'dynamics_pairs', domain, h)).items():
                 row(domain, h, '-', h, name, v)

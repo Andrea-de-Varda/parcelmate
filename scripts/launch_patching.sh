@@ -20,11 +20,15 @@ shift || true
 
 # Model screen (LOG.md Iteration 23, second round): accuracy on all 46 tasks, no
 # attribution, one GPU job per model. Larger models get more time; all run in float32.
+# Attribution runs (LOG.md Iteration 29): the models whose networks are compared with circuits.
+ATTR_MODELS=${ATTR_MODELS:-"Qwen/Qwen3.5-2B Qwen/Qwen3.5-4B"}
+# jagupard32 has a GPU held by a foreign process (LOG.md Iteration 28).
+EXCLUDE=${EXCLUDE:-jagupard32}
 SCREEN_MODELS=${SCREEN_MODELS:-"Qwen/Qwen3-0.6B Qwen/Qwen3-1.7B Qwen/Qwen3-4B Qwen/Qwen3.5-0.8B Qwen/Qwen3.5-2B Qwen/Qwen3.5-4B LiquidAI/LFM2.5-1.2B-Instruct ibm-granite/granite-4.2-3b google/gemma-4-e4b-it"}
 
 case "$MODE" in
-    generate|submit|generate_screen|submit_screen) ;;
-    *) echo "usage: $0 generate | submit | generate_screen | submit_screen  (SCREEN_MODELS=... to override)" >&2; exit 2 ;;
+    generate|submit|generate_screen|submit_screen|generate_attribution|submit_attribution) ;;
+    *) echo "usage: $0 generate | submit | generate_screen | submit_screen | generate_attribution | submit_attribution  (SCREEN_MODELS=, ATTR_MODELS= to override)" >&2; exit 2 ;;
 esac
 
 cd "$WORK"
@@ -45,6 +49,7 @@ job() {
 #SBATCH --account=nlp
 #SBATCH --partition=jag-standard
 #SBATCH --gres=gpu:a6000:1
+#SBATCH --exclude=$EXCLUDE
 
 set -e
 umask 002
@@ -105,8 +110,35 @@ submit_screen() {
     squeue -u "$USER" -o "%.9i %.40j %.9T %.10M %R" | grep screen
 }
 
+attr_name() { echo "attr.$(echo "$1" | tr '/' '_' | tr '.' '-')"; }
+
+generate_attribution() {
+    # --bos none: Qwen has no BOS token, so the BOS variants of the raw-text tasks are the
+    # same prompts. The accuracies are cached from the screen, so only the attribution runs:
+    # three passes (two without gradient) per batch of both-correct items, in float32.
+    # Batch 8 for evaluation, 4 for attribution, for the backward pass at 4B.
+    mkdir -p jobs logs
+    local m hours
+    for m in $ATTR_MODELS; do
+        case "$m" in *4B*) hours=8 ;; *) hours=5 ;; esac
+        job "$(attr_name $m)" $hours 64 python -m parcelmate.bin.patch_eval --model $m --bos none --attribution --batch-size 8 --out results/patching
+    done
+}
+
+submit_attribution() {
+    mkdir -p logs
+    echo "code at $(git log --oneline | head -1)"
+    local m id
+    for m in $ATTR_MODELS; do
+        id=$(sbatch --parsable jobs/$(attr_name $m).pbs)
+        echo "$m attribution -> $id"
+    done
+}
+
 case "$MODE" in
     generate) generate ;;
+    generate_attribution) generate_attribution ;;
+    submit_attribution)   submit_attribution ;;
     submit)   submit ;;
     generate_screen) generate_screen ;;
     submit_screen)   submit_screen ;;

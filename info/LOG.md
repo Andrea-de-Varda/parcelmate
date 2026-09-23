@@ -865,6 +865,26 @@ Andrea's reading of Iteration 27: reliability and fidelity are quality checks, t
 
 **Operations.** Three checkpoint jobs died on one GPU of jagupard32, held by a foreign 43 GB process; fixes in `correlate` (free memory), the eigenvalue fallback and smaller loss batches; the node excluded. Disk: 2.9 GB of subsamples and tables, as planned.
 
+## Iteration 29 -- the deliverables ledger, and the two gaps launched (2026-09-23)
+
+Andrea listed the deliverables and asked to be kept on track as a manager would: (1) Qwen3.5-2B and 4B, each with the attribution-patching circuits and the correlation networks, and the comparison of the two against a reasonable null; (2) the training dynamics for Pythia-70m and 160m. State on 2026-09-23:
+
+| deliverable | state |
+|---|---|
+| Pythia-70m: reliability and fidelity (Iteration 27), descriptive measures (Iteration 28) | done |
+| Pythia-160m: reliability and fidelity | done |
+| Pythia-160m: descriptive measures | launched here |
+| Qwen3.5-2B correlation networks, wikitext and bookcorpus | all eight parcellations done, null tiles purged; score and real-tile purge queued |
+| Qwen3.5-4B correlation networks, four domains | wikitext parcellating; the other three domains queued in series |
+| Qwen3.5-2B and 4B attributions | the screen computed accuracies only; the attributions launched here |
+| circuits against networks | design to agree with Andrea |
+
+Every failure since 2026-09-21 had already been fixed and rerun: the 160m parcellations (out of memory, Iteration 24), the 2B connectivity (GPU out of memory, Iteration 25) and its pre-split timeout (Iteration 26), and the three 70m dynamics jobs on jagupard32's bad GPU (Iteration 28). No job waits on an unsatisfiable dependency.
+
+**Before the 160m run, the dynamics job's memory.** The 70m jobs peaked at 19 GB (MaxRSS of 17573061, 17573066, 17573069). At three times the units that code would have reached about 60 GB: the last sample's timecourses (14.5 GB at 160m) stayed referenced through the whole matrix phase, the eigenvalue step made two symmetrising copies, |r| was formed in two more, and the per-unit concentration partitioned a full copy. Now: the timecourse dict is released, the eigenvalues are taken on the half itself (eigvalsh reads one triangle, so the ~1e-7 asymmetry of the tiled product needs no copy; the 70m values were computed with the symmetrising copy, a difference of that order), |r| is formed in place, and the concentration runs in row blocks. About 30 GB expected at 160m; 64 GB requested. Suite unchanged, 26 checks.
+
+**The attributions.** `launch_patching.sh generate_attribution|submit_attribution` (new modes; `ATTR_MODELS`, default the two Qwen3.5 models): one a6000 job per model running `patch_eval --attribution --bos none --batch-size 8`. `--bos none` because Qwen has no BOS token (`bos_token` is None), so the BOS variants of the raw-text tasks are the same prompts and would be attributed twice. The accuracies are cached from the screen; the inclusion rule is the agreed one (both-correct at least 0.60 and at least 300 items), which leaves about 28 tasks at 2B and 39 at 4B. jagupard32 is excluded.
+
 ## Decisions made
 
 - 2026-09-23 (training-dynamics measures): **describe the network, not only its quality: dimensionality, coupling, hubs, segregation, connectome similarity, firing rates, token-class selectivity with string-defined classes, loss, and the partition-only measures; 70m first; the null connectome not recomputed.** Rejected by Andrea: sign-based measures. Iteration 28.
