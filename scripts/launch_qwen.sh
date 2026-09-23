@@ -80,9 +80,17 @@ submit() {
     test -n "$name" || { echo "submit needs a config name" >&2; exit 2; }
     mkdir -p logs
     echo "code at $(git log --oneline | head -1)"
-    local d t k c p q ids="" real_ids="" null_ids=""
+    # Serialise the domains where the tiles are large (4B): a domain's connectivity starts
+    # only once the previous domain's null tiles are gone, which bounds the disk at the
+    # accumulated real halves plus one domain's full set (1.75 TB at 4B) instead of every
+    # domain's at once (2.8 TB). At 2B the tiles are small enough to run in parallel.
+    local serial=0
+    case "$name" in qwen3.5-4b) serial=1 ;; esac
+    local d t k c p q dep prev="" ids="" real_ids="" null_ids=""
     for d in $(domains_of $name); do
-        c=$(sbatch --parsable jobs/$name.connectivity.$d.pbs)
+        dep=""
+        if [ "$serial" = 1 ] && [ -n "$prev" ]; then dep="--dependency=afterok:$prev"; fi
+        c=$(sbatch --parsable $dep jobs/$name.connectivity.$d.pbs)
         real_ids=""; null_ids=""
         for t in real null; do
             for k in halfA halfB; do
@@ -95,6 +103,7 @@ submit() {
         q=$(sbatch --parsable --dependency=afterok${null_ids} jobs/$name.purge_null_connectivity.$d.pbs)
         echo "$name $d: purge null -> $q"
         ids="$ids$real_ids:$q"
+        prev=$q
     done
     c=$(sbatch --parsable --dependency=afterok${ids} jobs/$name.score_purge_connectivity.pbs)
     echo "$name score + purge -> $c"

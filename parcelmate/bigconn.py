@@ -341,6 +341,7 @@ def write_tiled_domain(model, input_ids, attention_mask, n_samples, domain, conn
     """
     from parcelmate.model import pool_unit_stats
     assert n_samples >= 2 and n_samples % 2 == 0, 'tiled halves need an even n_samples'
+    device = next(model.parameters()).device
     n = int(np.ceil(len(input_ids) / n_samples))
     provenance = dict(provenance or {})
     for h, name in enumerate(HALF_NAMES):
@@ -373,9 +374,15 @@ def write_tiled_domain(model, input_ids, attention_mask, n_samples, domain, conn
             null_connectivity_dir, '%s_%s_%s%s' % (CONNECTIVITY_NAME, domain, name, EXTENSION))
         if verbose:
             stderr('%sCorrelating %s (%d units, %d tokens per sample)\n' % (' ' * indent, name, zs[0].shape[0], zs[0].shape[1]))
+        # The model is not needed while correlating and its weights are the largest single
+        # allocation on the card (16 GB for a 4B model in float32), so move it out of the
+        # way and bring it back for the next half's forward passes.
+        model.to('cpu')
+        torch.cuda.empty_cache()
         write_tiled_half(zs, offsets if null_model else None, out_real, out_null, stats, prov,
                          eps=eps, block=block, verbose=verbose, indent=indent + 2)
         del zs
+        model.to(device)
 
 
 # ---------------------------------------------------------------------------- profiles
