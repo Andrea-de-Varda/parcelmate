@@ -885,7 +885,7 @@ Every failure since 2026-09-21 had already been fixed and rerun: the 160m parcel
 
 **The attributions.** `launch_patching.sh generate_attribution|submit_attribution` (new modes; `ATTR_MODELS`, default the two Qwen3.5 models): one a6000 job per model running `patch_eval --attribution --bos none --batch-size 8`. `--bos none` because Qwen has no BOS token (`bos_token` is None), so the BOS variants of the raw-text tasks are the same prompts and would be attributed twice. The accuracies are cached from the screen; the inclusion rule is the agreed one (both-correct at least 0.60 and at least 300 items), which leaves about 28 tasks at 2B and 39 at 4B. jagupard32 is excluded.
 
-**Submitted 2026-09-23 at commit `99638e6`.** Pythia-160m dynamics: checkpoints 17573835-45 (three GPUs at a time, `MAX_GPU=3`), partitions 17573846, combine 17573847. Attributions: 17573848 (2B, 5 h), 17573849 (4B, 8 h). Footprint before: 973 GB under Andrea's directory (the 2B real tiles had just been purged by its score job), 5 jobs on 36 CPUs, 224 GB, no GPUs. After: 6 more queued for resources, 24 CPUs, 336 GB, 5 GPUs.
+**Submitted 2026-09-23 at commit `99638e6`.** Pythia-160m dynamics: checkpoints 17573835-45 (three GPUs at a time, `MAX_GPU=3`), partitions 17573846, combine 17573847. Attributions: 17573848 (2B, 5 h), 17573849 (4B, 8 h). Footprint before: 973 GB under Andrea's directory (the 2B bookcorpus null tiles had just been purged; the 2B score was running), 5 jobs on 36 CPUs, 224 GB, no GPUs. After: 6 more queued for resources, 24 CPUs, 336 GB, 5 GPUs.
 
 ## Decisions made
 
