@@ -534,3 +534,33 @@ def birth_steps(labels_by_step, k, thr=0.5):
         births.append(steps[b])
     present = np.bincount(final, minlength=k) > 0
     return tracks[present], np.asarray(births)[present], steps
+
+
+def network_selectivity(class_means, labels, k, classes, thr=0.5):
+    """How consistently the units of each network prefer the same token classes.
+
+    Each unit's mean activation on the token classes is z-scored ACROSS the classes, which
+    keeps the shape of its preference and drops its overall level and scale. A network's
+    profile is the mean of its units' z-scored vectors; its coherence is the profile's norm
+    over sqrt(C), 1 when every unit has the same preference shape and near 0 when their
+    preferences are unrelated. Classes absent from the text are left out. Returns the median
+    coherence over networks, the fraction above `thr`, and the fraction of networks whose
+    profile peaks on each class.
+    """
+    M = np.asarray(class_means, dtype=np.float64)
+    ok = np.isfinite(M).all(0)
+    M = M[:, ok]
+    names = [c for c, o in zip(classes, ok) if o]
+    mu, sd = M.mean(1, keepdims=True), M.std(1, keepdims=True)
+    with np.errstate(invalid='ignore', divide='ignore'):
+        Z = np.where(sd > 0, (M - mu) / sd, 0.0)
+    labels = np.asarray(labels)
+    present = np.flatnonzero(np.bincount(labels, minlength=k) > 0)
+    prof = np.stack([Z[labels == c].mean(0) for c in present])
+    coh = np.linalg.norm(prof, axis=1) / np.sqrt(Z.shape[1])
+    out = {'selectivity_coherence_median': float(np.median(coh)),
+           'selectivity_frac_coherent': float((coh > thr).mean())}
+    pref = prof.argmax(1)
+    for j, name in enumerate(names):
+        out['selectivity_prefers_%s' % name] = float((pref == j).mean())
+    return out

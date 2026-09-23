@@ -28,8 +28,8 @@ import numpy as np
 from parcelmate.cfg import get_cfg
 from parcelmate.constants import HALF_NAMES
 from parcelmate.dynamics import (
-    birth_steps, checkpoint_measures, cross_domain_generality, partition_measures,
-    transition_measures,
+    birth_steps, checkpoint_measures, cross_domain_generality, network_selectivity,
+    partition_measures, transition_measures,
 )
 from parcelmate.metrics import hard_labels
 from parcelmate.util import stderr
@@ -168,6 +168,26 @@ def cmd_combine(args):
                     rows.append(dict(domain=domain, key='-', step=s, measure='similarity_between_halves',
                                      value=float(np.corrcoef(vecs[s], vb)[0, 1])))
     write_rows(os.path.join(args.out, 'similarity.csv'), rows)
+    # Token-class selectivity of the networks, from the per-unit class means and the stored
+    # partitions (which live next to the dynamics directory, one level up).
+    root = args.root or os.path.dirname(os.path.normpath(args.out))
+    sel_rows = []
+    for p in sorted(glob.glob(os.path.join(args.out, 'units_step*_*.h5'))):
+        m = re.match(r'units_step(\d+)_(.+)\.h5$', os.path.basename(p))
+        step, domain = int(m.group(1)), m.group(2)
+        with h5py.File(p, 'r') as f:
+            classes = f.attrs['token_classes'].split(', ')
+            means = {h: np.asarray(f['class_mean_%s' % h]) for h in HALF_NAMES}
+        for h in HALF_NAMES:
+            for tree in ('real', 'null'):
+                got = load_partition(root, step, tree, args.variant, domain, h)
+                if got is None:
+                    continue
+                for name, v in network_selectivity(means[h], hard_labels(got[0]), got[0].shape[1],
+                                                   classes).items():
+                    sel_rows.append(dict(step=step, domain=domain, key=h, tree=tree, measure=name,
+                                         value=float(v)))
+    write_rows(os.path.join(args.out, 'selectivity.csv'), sel_rows)
     # One long table of the per-checkpoint connectome and activation rows.
     allrows = []
     for p in sorted(glob.glob(os.path.join(args.out, 'connectome_step*.csv'))):
@@ -192,6 +212,9 @@ def main():
     p.add_argument('--allow-partial', action='store_true')
     m = sub.add_parser('combine')
     m.add_argument('--out', required=True)
+    m.add_argument('--root', default=None,
+                   help='the model directory holding step<N> trees (default: the parent of --out)')
+    m.add_argument('--variant', default='final')
     args = ap.parse_args()
     {'checkpoint': cmd_checkpoint, 'partitions': cmd_partitions, 'combine': cmd_combine}[args.cmd](args)
 

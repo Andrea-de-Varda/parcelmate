@@ -244,6 +244,18 @@ check('combine: identical checkpoints have similarity 1; halves compared; one lo
       and any(x['measure'] == 'similarity_to_previous' and abs(float(x['value']) - 1) < 1e-9 for x in sim)
       and any(x['measure'] == 'similarity_between_halves' for x in sim)
       and os.path.exists(os.path.join(out, 'connectome.csv')))
+sel = list(csv.DictReader(open(os.path.join(out, 'selectivity.csv')))) if r.returncode == 0 else []
+check('combine: network token-class selectivity for the real and null partitions, per half',
+      {x['tree'] for x in sel} == {'real', 'null'} and {x['key'] for x in sel} == {'halfA', 'halfB'}
+      and any(x['measure'] == 'selectivity_coherence_median' for x in sel))
+from parcelmate.dynamics import network_selectivity
+Mc = np.zeros((6, 3)); Mc[:3] = [3, 1, 0]; Mc[3:] = [0, 1, 3]   # two groups, opposite preferences
+same_lab = np.array([0, 0, 0, 1, 1, 1]); mixed_lab = np.array([0, 1, 0, 1, 0, 1])
+hi = network_selectivity(Mc, same_lab, 2, ['a', 'b', 'c'])
+lo = network_selectivity(Mc, mixed_lab, 2, ['a', 'b', 'c'])
+check('selectivity: networks of like-preferring units are coherent (1), mixed ones are not, and the preferred class is found',
+      abs(hi['selectivity_coherence_median'] - 1) < 1e-12 and lo['selectivity_coherence_median'] < 0.5
+      and hi['selectivity_prefers_a'] == 0.5 and hi['selectivity_prefers_c'] == 0.5)
 mode = oct(os.stat(os.path.join(out, 'similarity.csv')).st_mode & 0o777)
 check('files written by the subcommands are group writable (umask 002)', mode in ('0o664', '0o666'))
 
