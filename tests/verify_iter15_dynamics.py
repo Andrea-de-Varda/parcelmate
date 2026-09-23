@@ -81,6 +81,9 @@ Xs = rng.randn(40, 500)
 Rc = np.corrcoef(Xs)
 lam = np.linalg.eigvalsh(Rc)
 sm = spectrum_measures(lam)
+from parcelmate.dynamics import eigenvalues
+check('eigenvalues: the CPU route (LAPACK, float32) equals numpy float64 to 1e-5',
+      np.allclose(np.sort(eigenvalues(Rc, device='cpu')), np.sort(lam), atol=1e-5))
 check('spectrum: participation ratio = (tr R)^2 / ||R||_F^2 and top shares from the eigenvalues',
       abs(sm['dim_participation_ratio'] - np.trace(Rc) ** 2 / (Rc ** 2).sum()) < 1e-8
       and abs(sm['dim_top1_share'] - lam.max() / lam.sum()) < 1e-12)

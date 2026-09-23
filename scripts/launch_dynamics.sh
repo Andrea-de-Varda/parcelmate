@@ -36,8 +36,10 @@ case "$MODE" in
     *) echo "usage: $0 generate|submit {70m|160m}   (MAX_GPU=$MAX_GPU concurrent GPU jobs)" >&2; exit 2 ;;
 esac
 case "$SIZE" in
-    70m)  GPU_T=2; GPU_M=32 ;;
-    160m) GPU_T=4; GPU_M=64 ;;   # 70m peaked at 19 GB; 160m about 30 GB after the Iteration 28 memory fixes
+    70m)  GPU_T=2; GPU_M=32; GPU_C=4 ;;
+    # 160m: 36 GB measured at the eigenvalue step (17573835). 8 cores and 6 h in case the
+    # eigenvalues fall back to LAPACK on the CPU (10-20 min per matrix, 8 matrices): 8 h.
+    160m) GPU_T=8; GPU_M=64; GPU_C=8 ;;
     *) echo "size must be 70m or 160m" >&2; exit 2 ;;
 esac
 cd "$WORK"
@@ -63,6 +65,10 @@ set -e
 umask 002
 mkdir -p $WORK/logs
 cd $WORK
+# A per-job temporary directory on the share: a node's local /tmp was full on 2026-09-23.
+export TMPDIR=$WORK/tmp/\$SLURM_JOB_ID
+mkdir -p \$TMPDIR
+trap 'rm -rf \$TMPDIR' EXIT
 source $CONDA_SH
 conda activate $CONDA_ENV
 export HF_HOME=/juice6/u/nlp/climblab/devarda/.hf_cache
@@ -80,7 +86,7 @@ generate() {
     local step name
     for step in $STEPS; do
         name=dynamics.pythia-$SIZE.step$step
-        { header $name $GPU_T $GPU_M 4 jag-standard "#SBATCH --gres=gpu:a6000:1${EXCLUDE:+
+        { header $name $GPU_T $GPU_M $GPU_C jag-standard "#SBATCH --gres=gpu:a6000:1${EXCLUDE:+
 #SBATCH --exclude=$EXCLUDE}"
           echo "python -m parcelmate.bin.dynamics checkpoint configs/pythia/pythia-${SIZE}_step${step}.yml --out $OUT"
         } > jobs/$name.pbs

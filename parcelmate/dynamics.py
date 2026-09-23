@@ -146,23 +146,36 @@ def spectrum_measures(eig, prefix='dim_'):
 
 
 def eigenvalues(R, device=None):
-    """All eigenvalues of a symmetric matrix, on the GPU when there is one."""
+    """All eigenvalues of a symmetric matrix (lower triangle read), robust to large n.
+
+    Tried in order (LOG.md Iteration 29): cuSOLVER on the GPU; MAGMA on the GPU, since
+    cuSOLVER's syevd rejects n = 36,864 (Pythia-160m) with CUSOLVER_STATUS_INVALID_VALUE, a
+    size limit of its workspace query rather than bad input; LAPACK on the CPU in float32
+    (values only, so the workspace is O(n); minutes at 36,864 units on 8 cores). The same
+    eigenvalues each way, up to float32 rounding. Which one ran is logged.
+    """
     R = np.asarray(R, dtype=np.float32)
     if device is None:
         device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
     if device != 'cpu':
-        # Fall back to the CPU when the card is short of memory: a shared GPU once had only
-        # 4 of its 47 GB free (LOG.md Iteration 28). Same eigenvalues either way.
-        try:
-            t = torch.as_tensor(R, device=device)
-            ev = torch.linalg.eigvalsh(t).double().cpu().numpy()
-            del t
-            torch.cuda.empty_cache()
-            return ev
-        except torch.OutOfMemoryError:
-            torch.cuda.empty_cache()
-            stderr('eigenvalues: GPU out of memory, computing on the CPU\n')
-    return np.linalg.eigvalsh(R.astype(np.float64))
+        for backend in ('cusolver', 'magma'):
+            try:
+                torch.backends.cuda.preferred_linalg_library(backend)
+                t = torch.as_tensor(R, device=device)
+                ev = torch.linalg.eigvalsh(t).double().cpu().numpy()
+                del t
+                torch.cuda.empty_cache()
+                if backend != 'cusolver':
+                    stderr('eigenvalues: computed with %s\n' % backend)
+                return ev
+            except (RuntimeError, torch.OutOfMemoryError) as e:
+                torch.cuda.empty_cache()
+                stderr('eigenvalues: %s failed at n = %d (%s)\n' % (backend, R.shape[0], str(e).split('\n')[0][:120]))
+            finally:
+                torch.backends.cuda.preferred_linalg_library('default')
+        stderr('eigenvalues: computing on the CPU\n')
+    import scipy.linalg
+    return scipy.linalg.eigh(R, eigvals_only=True, driver='evd', check_finite=False).astype(np.float64)
 
 
 def coupling_measures(A, seed=0, n_pairs=5_000_000, top_frac=0.01, prefix='coupling_'):
