@@ -1019,6 +1019,50 @@ def align_samples(
     return parcellation
 
 
+def domain_data_kwargs(domain, data_kwargs=None):
+    """The `get_dataset` arguments for a named domain (LOG.md Iteration 28).
+
+    Factored out of `run_connectivity` so every step that needs a domain's text -- the
+    connectivity itself, and the training-dynamics measures that must see exactly the same
+    documents -- reads one table. The tokenizer is added by the caller.
+    """
+    out = copy.deepcopy(data_kwargs or {})
+    if domain == 'wikitext':
+        out.update(dict(
+            dataset='Salesforce/wikitext',
+            name='wikitext-103-raw-v1',
+        ))
+    elif domain == 'bookcorpus':
+        # Parquet mirror; `bookcorpus` is script-based and unsupported since datasets 4.x.
+        out.update(dict(
+            dataset='rojagtap/bookcorpus'
+        ))
+    elif domain == 'agnews':
+        out.update(dict(
+            dataset='fancyzhx/ag_news'
+        ))
+    elif domain == 'codeparrot':
+        out.update(dict(
+            dataset='codeparrot/codeparrot-clean'
+        ))
+    elif domain == 'tldr17':
+        # 50k-post parquet subset; `webis/tldr-17` is script-based and unsupported since datasets 4.x.
+        out.update(dict(
+            dataset='dim/tldr_17_50k'
+        ))
+    elif domain == 'random':
+        out.update(dict(
+            dataset='random'
+        ))
+    elif domain == 'whitespace':
+        out.update(dict(
+            dataset='whitespace'
+        ))
+    else:
+        raise ValueError('Unrecognized input data name: %s' % domain)
+    return out
+
+
 def run_connectivity(
         model_name='gpt2',
         revision=None,
@@ -1172,41 +1216,7 @@ def run_connectivity(
         if verbose:
             stderr('%sRunning connectivity for %s\n' % (' ' * indent, domain))
         indent += 2
-        _data_kwargs = copy.deepcopy(data_kwargs)
-        if domain == 'wikitext':
-            _data_kwargs.update(dict(
-                dataset='Salesforce/wikitext',
-                tokenizer= tokenizer,
-                name='wikitext-103-raw-v1',
-            ))
-        elif domain == 'bookcorpus':
-            # Parquet mirror; `bookcorpus` is script-based and unsupported since datasets 4.x.
-            _data_kwargs.update(dict(
-                dataset='rojagtap/bookcorpus'
-            ))
-        elif domain == 'agnews':
-            _data_kwargs.update(dict(
-                dataset='fancyzhx/ag_news'
-            ))
-        elif domain == 'codeparrot':
-            _data_kwargs.update(dict(
-                dataset='codeparrot/codeparrot-clean'
-            ))
-        elif domain == 'tldr17':
-            # 50k-post parquet subset; `webis/tldr-17` is script-based and unsupported since datasets 4.x.
-            _data_kwargs.update(dict(
-                dataset='dim/tldr_17_50k'
-            ))
-        elif domain == 'random':
-            _data_kwargs.update(dict(
-                dataset='random'
-            ))
-        elif domain == 'whitespace':
-            _data_kwargs.update(dict(
-                dataset='whitespace'
-            ))
-        else:
-            raise ValueError('Unrecognized input data name: %s' % domain)
+        _data_kwargs = domain_data_kwargs(domain, data_kwargs)
         _data_kwargs['tokenizer'] = tokenizer
 
         # Mean-ablation: replace the lesioned units with their mean activation under THIS
