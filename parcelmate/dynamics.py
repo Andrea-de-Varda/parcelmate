@@ -151,11 +151,17 @@ def eigenvalues(R, device=None):
     if device is None:
         device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
     if device != 'cpu':
-        t = torch.as_tensor(R, device=device)
-        ev = torch.linalg.eigvalsh(t).double().cpu().numpy()
-        del t
-        torch.cuda.empty_cache()
-        return ev
+        # Fall back to the CPU when the card is short of memory: a shared GPU once had only
+        # 4 of its 47 GB free (LOG.md Iteration 28). Same eigenvalues either way.
+        try:
+            t = torch.as_tensor(R, device=device)
+            ev = torch.linalg.eigvalsh(t).double().cpu().numpy()
+            del t
+            torch.cuda.empty_cache()
+            return ev
+        except torch.OutOfMemoryError:
+            torch.cuda.empty_cache()
+            stderr('eigenvalues: GPU out of memory, computing on the CPU\n')
     return np.linalg.eigvalsh(R.astype(np.float64))
 
 
