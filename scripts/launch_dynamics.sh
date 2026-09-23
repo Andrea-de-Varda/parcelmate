@@ -26,6 +26,9 @@ CONDA_ENV=${CONDA_ENV:-parcelmate}
 MODE=${1:-}
 SIZE=${2:-}
 MAX_GPU=${MAX_GPU:-4}
+# Nodes to avoid (comma-separated). jagupard32 had a GPU held by a stale 43 GB process on
+# 2026-09-23 that killed three jobs (LOG.md Iteration 28).
+EXCLUDE=${EXCLUDE:-jagupard32}
 STEPS="0 1 4 16 64 256 1000 4000 16000 64000 143000"
 
 case "$MODE" in
@@ -77,7 +80,8 @@ generate() {
     local step name
     for step in $STEPS; do
         name=dynamics.pythia-$SIZE.step$step
-        { header $name $GPU_T $GPU_M 4 jag-standard "#SBATCH --gres=gpu:a6000:1"
+        { header $name $GPU_T $GPU_M 4 jag-standard "#SBATCH --gres=gpu:a6000:1${EXCLUDE:+
+#SBATCH --exclude=$EXCLUDE}"
           echo "python -m parcelmate.bin.dynamics checkpoint configs/pythia/pythia-${SIZE}_step${step}.yml --out $OUT"
         } > jobs/$name.pbs
     done

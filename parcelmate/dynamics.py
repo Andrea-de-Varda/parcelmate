@@ -339,7 +339,9 @@ def checkpoint_measures(cfg, out_dir, step=None, variant='final', n_sub=4096, ke
             ph['R'].append(get_connectivity(X))
             del X
             lm.to(device)
-            losses.append(lm_loss(lm, ids, mask, batch_size=batch_size))
+            # Two sequences at a time: the logits are the largest GPU allocation of the job
+            # (1.6 GB at a batch of 8 over a 50k vocabulary). Sum and count are unchanged.
+            losses.append(lm_loss(lm, ids, mask, batch_size=min(batch_size, 2)))
             lm.to('cpu')
             torch.cuda.empty_cache()
         N = coordinates.shape[0]
