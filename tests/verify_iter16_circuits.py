@@ -129,6 +129,22 @@ check('test 3: tasks sharing networks within ONE layer show structure beyond lay
 rand_c = [rs.choice(W, 40, replace=False) for _ in range(8)]
 st0 = structure_test(rand_c, lab_flat, k, W, L, doms, n_perm=500, rng=np.random.RandomState(6))
 check('test 3: tasks random within one layer show no domain contrast', st0['p_domain_contrast'] > 0.05)
+# (cross-domain pairs sit BELOW chance here, since both domains use layer 0, so only the
+# contrast is expected to be positive, not the mean over all pairs)
+check('test 3 (non-shared units): planted shared networks give a same-domain excess contrast',
+      st['domain_contrast_excess'] > 0.3 and st['p_domain_contrast_excess'] < 0.05)
+# The circularity: circuits that share units, on a partition that knows nothing about them.
+# Pairs overlap by varying amounts; the raw measure then tracks overlap on ANY partition, the
+# non-shared excess measure does not.
+rs2 = np.random.RandomState(7)
+core = rs2.choice(L * W, 40, replace=False)
+shared_c = [np.concatenate([core[:rs2.randint(0, 40)], rs2.choice(L * W, 40, replace=False)])[:40] for _ in range(10)]
+shared_c = [np.unique(c) for c in shared_c]
+rand_part = rs2.randint(0, k, L * W)
+st_c = structure_test(shared_c, rand_part, k, W, L, ['X'] * 5 + ['Y'] * 5, n_perm=300, rng=np.random.RandomState(8))
+check('test 3 circularity: on a random partition the raw measure tracks overlap, the non-shared excess does not',
+      st_c['spearman_overlap_network'] > 0.5 and abs(st_c['mean_excess_similarity']) < 0.05
+      and st_c['p_overlap_excess'] > 0.05)
 
 # ---------------------------------------------------------------- CLI end to end
 patching = os.path.join(tmp, 'patching')

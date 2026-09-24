@@ -168,7 +168,8 @@ def partial_spearman(x, y, z):
     return float(np.corrcoef(resid(rx), resid(ry))[0, 1])
 
 
-def structure_test(circuits, labels_flat, k, width, n_layers, task_domains, n_perm=1000, rng=None):
+def structure_test(circuits, labels_flat, k, width, n_layers, task_domains, n_perm=1000, rng=None,
+                   n_draws=200):
     """Circuit overlap against network-profile similarity, controlling for layer similarity.
 
     Returns Spearman(overlap, network similarity), Spearman(overlap, layer similarity), the
@@ -206,4 +207,62 @@ def structure_test(circuits, labels_flat, k, width, n_layers, task_domains, n_pe
                p_domain_contrast=float((1 + (c_null >= c_obs).sum()) / (1 + n_perm)),
                domain_contrast_layer=contrast(Sl, doms),
                n_tasks=int(n), n_same_domain_pairs=int(same.sum()))
+
+    # The measures above are circular: units two circuits share carry the same network label
+    # in any partition, so overlap raises network similarity by construction. The version
+    # below compares only the units the two circuits do NOT share, and subtracts what
+    # layer-matched random sets of those sizes and layers would give, because the cosine of
+    # two count vectors grows with the number of units counted (so smaller remainders, i.e.
+    # larger overlaps, would otherwise look less similar under any partition).
+    X = excess_network_similarity(circuits, labels_flat, k, width, n_layers, n_draws, rng)
+    x = _upper(X)
+    ok = np.isfinite(x)
+    out['spearman_overlap_excess'] = float(stats.spearmanr(o[ok], x[ok])[0])
+    null = []
+    for _ in range(n_perm):
+        perm = rng.permutation(n)
+        xp = _upper(X[np.ix_(perm, perm)])
+        okp = np.isfinite(xp)
+        null.append(stats.spearmanr(o[okp], xp[okp])[0])
+    null = np.asarray(null)
+    out['p_overlap_excess'] = float((1 + (null >= out['spearman_overlap_excess']).sum()) / (1 + n_perm))
+
+    def contrast_x(labels):
+        s = _upper(labels[:, None] == labels[None, :])
+        return float(np.nanmean(x[s]) - np.nanmean(x[~s]))
+    cx = contrast_x(doms)
+    cx_null = np.array([contrast_x(rng.permutation(doms)) for _ in range(n_perm)])
+    out.update(mean_excess_similarity=float(np.nanmean(x)),
+               domain_contrast_excess=cx,
+               p_domain_contrast_excess=float((1 + (cx_null >= cx).sum()) / (1 + n_perm)))
     return out
+
+
+def excess_network_similarity(circuits, labels_flat, k, width, n_layers, n_draws=200, rng=None):
+    """Per task pair: cosine of the network profiles of the NON-shared units (C_i minus C_j
+    against C_j minus C_i), minus its mean over layer-matched random sets of the same sizes.
+
+    Zero in expectation under any partition that ignores what the circuits compute; positive
+    when our networks group the distinct units that two tasks use. NaN when a remainder is
+    empty (one circuit contained in the other).
+    """
+    rng = rng or np.random.RandomState(0)
+    n = len(circuits)
+    sets = [np.asarray(c) for c in circuits]
+    X = np.full((n, n), np.nan)
+    for i in range(n):
+        for j in range(i + 1, n):
+            a = np.setdiff1d(sets[i], sets[j])
+            b = np.setdiff1d(sets[j], sets[i])
+            if len(a) == 0 or len(b) == 0:
+                continue
+            pa = np.bincount(labels_flat[a], minlength=k).astype(np.float64)
+            pb = np.bincount(labels_flat[b], minlength=k).astype(np.float64)
+            obs = pa @ pb / (np.linalg.norm(pa) * np.linalg.norm(pb))
+            da = labels_flat[layer_matched_draws(a, width, n_layers, n_draws, rng)]
+            db = labels_flat[layer_matched_draws(b, width, n_layers, n_draws, rng)]
+            ca = np.stack([np.bincount(r, minlength=k) for r in da]).astype(np.float64)
+            cb = np.stack([np.bincount(r, minlength=k) for r in db]).astype(np.float64)
+            exp_ = ((ca * cb).sum(1) / (np.linalg.norm(ca, axis=1) * np.linalg.norm(cb, axis=1))).mean()
+            X[i, j] = X[j, i] = obs - exp_
+    return X
