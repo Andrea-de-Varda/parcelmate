@@ -16,9 +16,15 @@ and half, on the real partition and, as a reference, on the null partition.
                                    predicts; Benjamini-Hochberg over task x network pairs.
   3. shared structure              do tasks that share circuit neurons (the original's
                                    overlap ratio) also sit close together in network space
-                                   (cosine of their network profiles), beyond what their
-                                   layer profiles explain (partial Spearman, permutation p),
-                                   and are same-domain tasks closer than cross-domain ones?
+                                   (cosine of the network profiles of the units they do NOT
+                                   share, minus its layer-matched expectation; permutation
+                                   p), and are same-domain tasks closer than cross-domain
+                                   ones? The circular all-unit version is kept for the record.
+
+At the level of the four task domains (Iteration 31): `domain_overlap_test` (step A: do a
+domain's tasks share more circuit units with each other than with other domains' tasks?)
+and `domain_attribution` (step B: one map per domain, the mean over its tasks, each task
+rescaled to mean |a| = 1 first), whose top units then go through tests 1 and 2.
 
 Units are addressed by their flat index layer * width + neuron, the layout of the
 attribution arrays (n_layers x width); the partitions' `coordinates` (layer, neuron) are
@@ -266,3 +272,73 @@ def excess_network_similarity(circuits, labels_flat, k, width, n_layers, n_draws
             exp_ = ((ca * cb).sum(1) / (np.linalg.norm(ca, axis=1) * np.linalg.norm(cb, axis=1))).mean()
             X[i, j] = X[j, i] = obs - exp_
     return X
+
+
+# ---------------------------------------------------------------------------- domain level
+
+def domain_overlap_test(circuits, task_domains, n_perm=10000, rng=None):
+    """Step A (Andrea, 2026-09-23): do tasks of one domain share more circuit units with each
+    other than with tasks of other domains?
+
+    Overlap is the original's ratio |C_i & C_j| / |C_i|, symmetrised. Returns one row for all
+    domains together (mean within-domain pairs minus mean cross-domain pairs) and one per
+    domain (its within pairs minus its pairs with every other domain), each with a one-sided
+    permutation p over the task-domain labels.
+    """
+    rng = rng or np.random.RandomState(0)
+    O = overlap_matrix(circuits)
+    O = (O + O.T) / 2.0
+    o = _upper(O)
+    doms = np.asarray(task_domains)
+    iu = np.triu_indices(len(doms), k=1)
+    names = sorted(set(doms))
+
+    def stats_of(labels):
+        a, b = labels[iu[0]], labels[iu[1]]
+        same = a == b
+        out = {'all': o[same].mean() - o[~same].mean()}
+        for d in names:
+            w = same & (a == d)
+            x = (a != b) & ((a == d) | (b == d))
+            out[d] = o[w].mean() - o[x].mean() if w.any() and x.any() else np.nan
+        return out, same
+
+    obs, same = stats_of(doms)
+    null = [stats_of(rng.permutation(doms))[0] for _ in range(n_perm)]
+    rows = []
+    for d in ['all'] + names:
+        nd = np.array([n[d] for n in null])
+        a, b = doms[iu[0]], doms[iu[1]]
+        if d == 'all':
+            w, x = same, ~same
+        else:
+            w = same & (a == d)
+            x = (a != b) & ((a == d) | (b == d))
+        rows.append(dict(task_domain=d, n_tasks=int((doms == d).sum()) if d != 'all' else len(doms),
+                         mean_within=float(o[w].mean()), mean_across=float(o[x].mean()),
+                         difference=float(obs[d]),
+                         p=float((1 + np.sum(nd[np.isfinite(nd)] >= obs[d])) / (1 + np.isfinite(nd).sum()))))
+    return rows
+
+
+def domain_attribution(attributions, task_domains, rescale=True):
+    """Step B: one attribution map per task domain, the mean over its tasks.
+
+    rescale=True divides each task's map by its mean absolute value first, so every task
+    weighs the same whatever the scale of its scores (Andrea's choice, 2026-09-23); False is
+    the plain mean, reported as a check.
+    """
+    out = {}
+    doms = np.asarray(task_domains)
+    for d in sorted(set(doms)):
+        maps = []
+        for a, t in zip(attributions, doms):
+            if t != d:
+                continue
+            a = np.asarray(a, dtype=np.float64)
+            if rescale:
+                s = np.abs(a).mean()
+                a = a / s if s > 0 else a
+            maps.append(a)
+        out[d] = np.mean(maps, 0)
+    return out

@@ -261,7 +261,9 @@ def write_tiled_half(zs, offsets, out_real, out_null, stats, provenance, eps=1e-
     stats     dict(unit_means, unit_stds, n_obs, coordinates) pooled for this half
     """
     device = device or ('cuda:0' if torch.cuda.is_available() else 'cpu')
-    N, T = zs[0].shape
+    N = zs[0].shape[0]
+    Ts = [z.shape[1] for z in zs]   # samples may differ in length (pooled domains)
+    T = min(Ts)
     n_s = len(zs)
     block = int(min(block, N))
     write_null = out_null is not None
@@ -295,11 +297,11 @@ def write_tiled_half(zs, offsets, out_real, out_null, stats, provenance, eps=1e-
             ce = min(cs + block, N)
             for k, z in enumerate(zs):
                 col = torch.as_tensor(z[cs:ce]).to(device).float()
-                r = (rows_real[k] @ col.T) / float(T)
+                r = (rows_real[k] @ col.T) / float(Ts[k])
                 acc['real'][:, cs:ce] += torch.atanh(torch.clamp(r * scale, -scale, scale))
                 if write_null:
                     col_n = roll_rows(col, offs[k][cs:ce])
-                    r = (rows_null[k] @ col_n.T) / float(T)
+                    r = (rows_null[k] @ col_n.T) / float(Ts[k])
                     acc['null'][:, cs:ce] += torch.atanh(torch.clamp(r * scale, -scale, scale))
                     del col_n
                 del col, r
@@ -339,41 +341,69 @@ def write_tiled_domain(model, input_ids, attention_mask, n_samples, domain, conn
     Each half needs its samples' z-scored timecourses resident at once (2 x N x T fp16:
     116 GB for Qwen3.5-4B), and nothing else of that size.
     """
+    write_tiled_pooled(model, [(domain, input_ids, attention_mask)], n_samples, domain,
+                       connectivity_dir, null_connectivity_dir, seed, null_model=null_model,
+                       batch_size=batch_size, eps=eps, block=block, provenance=provenance,
+                       verbose=verbose, indent=indent)
+
+
+def write_tiled_pooled(model, parts, n_samples, name, connectivity_dir, null_connectivity_dir,
+                       seed, null_model='circshift', batch_size=8, eps=1e-3, block=DEFAULT_BLOCK,
+                       provenance=None, verbose=True, indent=0):
+    """Split halves Fisher-averaged over the samples of one or several domains (LOG.md
+    Iteration 31), written as the pseudo-domain `name`.
+
+    parts  list of (domain, input_ids, attention_mask), each cut into `n_samples` samples;
+           half A holds samples 1..n/2 of EVERY domain, half B samples n/2+1..n.
+
+    Every sample is z-scored on its own (so a domain's mean and scale never enter another's
+    correlations) and correlated on its own; the half is the Fisher mean over all of its
+    samples, so with equal tokens per domain every domain weighs the same. The null shifts
+    each sample under the same seed key as a single-domain run. With one part this is
+    exactly `write_tiled_domain`: same files, seeds and provenance.
+    """
     from parcelmate.model import pool_unit_stats
     assert n_samples >= 2 and n_samples % 2 == 0, 'tiled halves need an even n_samples'
     device = next(model.parameters()).device
-    n = int(np.ceil(len(input_ids) / n_samples))
+    pooled = len(parts) > 1
     provenance = dict(provenance or {})
-    for h, name in enumerate(HALF_NAMES):
+    for h, half_name in enumerate(HALF_NAMES):
         sample_ids = list(range(h * (n_samples // 2), (h + 1) * (n_samples // 2)))
-        zs, offsets, means, stds, counts, coords = [], [], [], [], [], None
-        for k in sample_ids:
-            if verbose:
-                stderr('%sSample %d/%d (%s)\n' % (' ' * indent, k + 1, n_samples, name))
-            tc = zscored_timecourses(model, input_ids[k * n:(k + 1) * n],
-                                     attention_mask[k * n:(k + 1) * n], batch_size=batch_size,
-                                     verbose=verbose, indent=indent + 2)
-            zs.append(tc['z'])
-            means.append(tc['unit_means'])
-            stds.append(tc['unit_stds'])
-            counts.append(int(tc['n_obs']))
-            coords = tc['coordinates']
-            if null_model:
-                # Same seed keys as the dense path (`derive_seed(seed, 'null', domain, sample)`).
-                N, T = tc['z'].shape
-                offsets.append(null_offsets(N, T, derive_seed(seed, 'null', domain, k + 1)))
+        zs, offsets, means, stds, counts, coords, sources = [], [], [], [], [], None, []
+        for domain, input_ids, attention_mask in parts:
+            n = int(np.ceil(len(input_ids) / n_samples))
+            for k in sample_ids:
+                if verbose:
+                    stderr('%sSample %d/%d of %s (%s)\n' % (' ' * indent, k + 1, n_samples, domain, half_name))
+                tc = zscored_timecourses(model, input_ids[k * n:(k + 1) * n],
+                                         attention_mask[k * n:(k + 1) * n], batch_size=batch_size,
+                                         verbose=verbose, indent=indent + 2)
+                zs.append(tc['z'])
+                means.append(tc['unit_means'])
+                stds.append(tc['unit_stds'])
+                counts.append(int(tc['n_obs']))
+                assert coords is None or np.array_equal(coords, tc['coordinates'])
+                coords = tc['coordinates']
+                sources.append(('%s:sample%d' if pooled else 'sample%d') % ((domain, k + 1) if pooled else (k + 1,)))
+                if null_model:
+                    # Same seed keys as the dense path (`derive_seed(seed, 'null', domain, sample)`).
+                    N, T = tc['z'].shape
+                    offsets.append(null_offsets(N, T, derive_seed(seed, 'null', domain, k + 1)))
         pooled_means, pooled_stds = pool_unit_stats(means, stds, counts)
         stats = dict(unit_means=pooled_means, unit_stds=pooled_stds, n_obs=np.asarray(sum(counts)),
                      coordinates=coords)
-        prov = dict(provenance, domain=domain, key=name,
-                    sources=', '.join('sample%d' % (k + 1) for k in sample_ids),
+        prov = dict(provenance, domain=name, key=half_name, sources=', '.join(sources),
                     n_obs=int(sum(counts)), git_commit=git_commit(),
                     created=time.strftime('%Y-%m-%dT%H:%M:%S'))
-        out_real = os.path.join(connectivity_dir, '%s_%s_%s%s' % (CONNECTIVITY_NAME, domain, name, EXTENSION))
+        if pooled:
+            prov['pooled_domains'] = ', '.join(d for d, _, _ in parts)
+            prov['sample_tokens'] = ', '.join(str(c) for c in counts)
+        out_real = os.path.join(connectivity_dir, '%s_%s_%s%s' % (CONNECTIVITY_NAME, name, half_name, EXTENSION))
         out_null = None if not null_model else os.path.join(
-            null_connectivity_dir, '%s_%s_%s%s' % (CONNECTIVITY_NAME, domain, name, EXTENSION))
+            null_connectivity_dir, '%s_%s_%s%s' % (CONNECTIVITY_NAME, name, half_name, EXTENSION))
         if verbose:
-            stderr('%sCorrelating %s (%d units, %d tokens per sample)\n' % (' ' * indent, name, zs[0].shape[0], zs[0].shape[1]))
+            stderr('%sCorrelating %s (%d units, %d samples, %d tokens)\n' % (
+                ' ' * indent, half_name, zs[0].shape[0], len(zs), sum(counts)))
         # The model is not needed while correlating and its weights are the largest single
         # allocation on the card (16 GB for a 4B model in float32), so move it out of the
         # way and bring it back for the next half's forward passes.

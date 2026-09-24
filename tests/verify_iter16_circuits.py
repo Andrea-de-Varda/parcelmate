@@ -23,8 +23,8 @@ import h5py
 import numpy as np
 
 from parcelmate.circuits import (
-    benjamini_hochberg, circuit_indices, concentration, concentration_test, enrichment,
-    flat_labels, layer_matched_draws, overlap_matrix, structure_test,
+    benjamini_hochberg, circuit_indices, concentration, concentration_test, domain_attribution,
+    domain_overlap_test, enrichment, flat_labels, layer_matched_draws, overlap_matrix, structure_test,
 )
 
 failures = []
@@ -146,6 +146,28 @@ check('test 3 circularity: on a random partition the raw measure tracks overlap,
       st_c['spearman_overlap_network'] > 0.5 and abs(st_c['mean_excess_similarity']) < 0.05
       and st_c['p_overlap_excess'] > 0.05)
 
+# ---------------------------------------------------------------- domain level (Iteration 31)
+rs3 = np.random.RandomState(10)
+coreX, coreY = rs3.choice(L * W, 30, replace=False), rs3.choice(L * W, 30, replace=False)
+# Six tasks per domain: with 4 + 4 only 70 labelings exist and p cannot go below 2/70.
+dc = [np.unique(np.concatenate([coreX, rs3.choice(L * W, 30, replace=False)])) for _ in range(6)] + \
+     [np.unique(np.concatenate([coreY, rs3.choice(L * W, 30, replace=False)])) for _ in range(6)]
+rows = {r['task_domain']: r for r in domain_overlap_test(dc, ['X'] * 6 + ['Y'] * 6, 2000, np.random.RandomState(11))}
+check('step A: tasks sharing a within-domain core overlap more within than across (all and per domain)',
+      rows['all']['difference'] > 0.3 and rows['all']['p'] < 0.01 and rows['X']['p'] < 0.01 and rows['Y']['p'] < 0.01)
+rows0 = {r['task_domain']: r for r in domain_overlap_test([rs3.choice(L * W, 60, replace=False) for _ in range(8)],
+                                                         ['X'] * 4 + ['Y'] * 4, 2000, np.random.RandomState(12))}
+check('step A: independent random circuits show no within-domain excess', rows0['all']['p'] > 0.05)
+big, small = np.zeros(L * W), np.zeros(L * W)
+big[:20] = 1000.0 * (1 + rs3.rand(20))
+small[100:120] = 1.0 + rs3.rand(20)
+maps_r = domain_attribution([big, small], ['X', 'X'], rescale=True)
+maps_raw = domain_attribution([big, small], ['X', 'X'], rescale=False)
+top_r, top_raw = set(circuit_indices(maps_r['X'], 2.0)), set(circuit_indices(maps_raw['X'], 2.0))
+check('step B: rescaling lets a small-scale task count as much as a large-scale one; the plain mean does not',
+      len(top_r & set(range(100, 120))) == 20 and len(top_r & set(range(20))) == 20
+      and top_raw >= set(range(20)) and len(top_raw) == 40)
+
 # ---------------------------------------------------------------- CLI end to end
 patching = os.path.join(tmp, 'patching')
 nets = os.path.join(tmp, 'nets')
@@ -178,6 +200,13 @@ real = [s for s in summ if s['tree'] == 'real']
 null = [s for s in summ if s['tree'] == 'null']
 check('CLI: planted circuits are concentrated on the real partition, not on the shuffled null partition',
       all(float(s['frac_tasks_p05']) == 1.0 for s in real) and all(float(s['frac_tasks_p05']) <= 0.5 for s in null))
+dconc = list(csv.DictReader(open(os.path.join(out, 'domain_concentration.csv')))) if r.returncode == 0 else []
+dov = list(csv.DictReader(open(os.path.join(out, 'domain_overlap.csv')))) if r.returncode == 0 else []
+check('CLI: domain-level tables (step A per pct x (all + 2 domains); step B per partition x 2 averagings x 2 domains)',
+      len(dov) == 3 and len(dconc) == 8 * 2 * 2 and os.path.exists(os.path.join(out, 'domain_enrichment.csv')))
+check('CLI: each task domain\'s mean-attribution circuit is concentrated on the real partition only',
+      all(float(x['p_concentrated']) < 0.01 for x in dconc if x['tree'] == 'real')
+      and all(float(x['p_concentrated']) > 0.01 for x in dconc if x['tree'] == 'null'))
 check('CLI: outputs are group writable', oct(os.stat(os.path.join(out, 'summary.csv')).st_mode & 0o777) in ('0o664', '0o666'))
 
 shutil.rmtree(tmp)

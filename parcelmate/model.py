@@ -1063,6 +1063,42 @@ def domain_data_kwargs(domain, data_kwargs=None):
     return out
 
 
+def _run_pooled_tiled(model, tokenizer, domains, pool_as, provenance, connectivity_dir,
+                      null_connectivity_dir, null_model, data_kwargs, n_tokens_total, n_samples,
+                      split, take, seq_len, wrap, shuffle, batch_size, eps, seed, overwrite,
+                      verbose, indent):
+    """`run_connectivity(pool_as=...)`: load every domain's tokens, then one pooled write."""
+    from parcelmate.bigconn import write_tiled_pooled
+    needed = [os.path.join(d, '%s_%s_%s%s' % (CONNECTIVITY_NAME, pool_as, h, EXTENSION))
+              for d in [connectivity_dir] + ([null_connectivity_dir] if null_model else [])
+              for h in HALF_NAMES]
+    if not overwrite and all(os.path.exists(f) and all(
+            k in h5_keys(f) for k in ('connectivity', 'coordinates', 'unit_means', 'unit_stds', 'n_obs'))
+            for f in needed):
+        if verbose:
+            stderr('%sSkipping %s (halves exist)\n' % (' ' * indent, pool_as))
+        return
+    parts = []
+    for domain in domains:
+        if verbose:
+            stderr('%sLoading %s for the pool %s\n' % (' ' * indent, domain, pool_as))
+        kw = domain_data_kwargs(domain, data_kwargs)
+        kw['tokenizer'] = tokenizer
+        input_ids, attention_mask = get_dataset(
+            n_tokens=n_tokens_total, split=split, take=take, seq_len=seq_len, wrap=wrap,
+            shuffle=shuffle, seed=derive_seed(seed, 'data', domain), verbose=verbose,
+            indent=indent + 2, **kw)
+        parts.append((domain, input_ids, attention_mask))
+    for d in (connectivity_dir, null_connectivity_dir):
+        if d and not os.path.exists(d):
+            os.makedirs(d)
+    write_tiled_pooled(
+        model.to('cuda:0' if torch.cuda.is_available() else 'cpu'), parts, n_samples, pool_as,
+        connectivity_dir, null_connectivity_dir, seed, null_model=null_model, batch_size=batch_size,
+        eps=eps, provenance=dict(provenance, seq_len=int(seq_len), n_samples=int(n_samples)),
+        verbose=verbose, indent=indent)
+
+
 def run_connectivity(
         model_name='gpt2',
         revision=None,
@@ -1096,6 +1132,7 @@ def run_connectivity(
         n_surrogates=0,
         outputs=('samples', 'avg'),
         storage='dense',
+        pool_as=None,
         seed=None,
         overwrite=False,
         verbose=True,
@@ -1110,6 +1147,11 @@ def run_connectivity(
     `bigconn.write_tiled_domain`: float16 row tiles, GPU-tiled correlation, the null shifted
     on the fly. Requires `outputs: [halves]`, MLP units, no filtering and no surrogates;
     every later step detects the format from the file. 'dense' is the path below.
+
+    `pool_as='pooled'` (tiled only, LOG.md Iteration 31) writes ONE pair of halves, named as
+    the pseudo-domain `pool_as`, Fisher-averaged over the samples of every domain in
+    `domains` (`bigconn.write_tiled_pooled`); no per-domain file is written. Each domain
+    gets its usual data seed, so its documents are the ones a single-domain run would draw.
 
     `outputs` says which files to write per domain (LOG.md Iteration 22):
       'samples'  one file per sample (the cache the `split_halves` step reads);
@@ -1211,6 +1253,14 @@ def run_connectivity(
 
     if isinstance(domains, str):
         domains = (domains,)
+
+    if pool_as:
+        assert tiled, 'pool_as needs storage: tiled_fp16'
+        assert '_' not in pool_as and pool_as not in domains, 'pool_as must be a new name without underscores'
+        return _run_pooled_tiled(model, tokenizer, domains, pool_as, provenance, connectivity_dir,
+                                 null_connectivity_dir if null_model else None, null_model, data_kwargs,
+                                 n_tokens * n_samples, n_samples, split, take, seq_len, wrap, shuffle,
+                                 batch_size, eps, seed, overwrite, verbose, indent)
 
     for domain in domains:
         if verbose:

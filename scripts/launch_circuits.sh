@@ -23,8 +23,8 @@ cd "$WORK"
 
 model_of() {
     case "$1" in
-        qwen3.5-2b) echo Qwen_Qwen3-5-2B ;;
-        qwen3.5-4b) echo Qwen_Qwen3-5-4B ;;
+        qwen3.5-2b|qwen3.5-2b-pool5) echo Qwen_Qwen3-5-2B ;;
+        qwen3.5-4b|qwen3.5-4b-pool5) echo Qwen_Qwen3-5-4B ;;
         *) echo "unknown tree $1" >&2; exit 2 ;;
     esac
 }
@@ -32,7 +32,7 @@ model_of() {
 generate() {
     mkdir -p jobs logs
     local t name
-    for t in qwen3.5-2b qwen3.5-4b; do
+    for t in qwen3.5-2b qwen3.5-4b qwen3.5-2b-pool5 qwen3.5-4b-pool5; do
         name=circuits.$t
         cat > jobs/$name.pbs <<EOF
 #!/bin/bash

@@ -29,7 +29,7 @@ NAME=${2:-}
 
 case "$MODE" in
     generate|submit) ;;
-    *) echo "usage: $0 generate | submit {qwen3.5-2b|qwen3.5-4b}" >&2; exit 2 ;;
+    *) echo "usage: $0 generate | submit {qwen3.5-2b|qwen3.5-4b|qwen3.5-2b-pool5|qwen3.5-4b-pool5}" >&2; exit 2 ;;
 esac
 
 cd "$WORK"
@@ -38,6 +38,22 @@ domains_of() {
     # The head node has no python: read the generated YAML's `domains:` list with awk.
     awk '/^  domains:/{f=1; next} f && /^  - /{sub(/^  - /, ""); printf "%s ", $0; next} f{exit}' \
         "configs/qwen35/$1.yml"
+}
+
+pool_of() {
+    # A pooled config (`pool_as:`, LOG.md Iteration 31) has ONE connectivity job over all
+    # its domains, and its parcellation and purge jobs run on the pseudo-domain it names.
+    awk '/^  pool_as:/{print $2}' "configs/qwen35/$1.yml"
+}
+
+job_domains_of() {
+    local p; p=$(pool_of "$1")
+    if [ -n "$p" ]; then echo "$p"; else domains_of "$1"; fi
+}
+
+conn_job_of() {
+    # jobs/<name>.connectivity[.<domain>].pbs
+    if [ -n "$(pool_of "$1")" ]; then echo "jobs/$1.connectivity.pbs"; else echo "jobs/$1.connectivity.$2.pbs"; fi
 }
 
 generate() {
@@ -51,18 +67,23 @@ generate() {
     local CPU=configs/cluster/sc-cpu.yml
     local GPU=configs/cluster/sc.yml
     local name cfg d
-    for name in qwen3.5-2b qwen3.5-4b; do
+    for name in ${NAMES:-qwen3.5-2b qwen3.5-4b qwen3.5-2b-pool5 qwen3.5-4b-pool5}; do
         cfg=configs/qwen35/$name.yml
         # One parcellation job per (domain, tree, half): the streamed PCA takes four passes
         # over a half, measured at 33 min per pass at 147k units (17559496) and four times
         # that at 295k, so one job per domain would be 9 h at 2B and 36 h at 4B, past the
         # partition's limit. Split, the four run in parallel (LOG.md Iteration 26).
         case "$name" in
-            qwen3.5-2b) GPU_OPTS="-t 6 -m 160"; PAR="-t 5 -m 32"; SCO="-t 12 -m 32" ;;
-            qwen3.5-4b) GPU_OPTS="-t 10 -m 200 -P sphinx -G a100"; PAR="-t 14 -m 48"; SCO="-t 36 -m 48" ;;
+            # Pooled runs: the same tokens per half as one single-domain run (5 x 40,960
+            # against 2 x ~100k), so the same sizes; scoring has no across-domain pairs.
+            qwen3.5-2b|qwen3.5-2b-pool5) GPU_OPTS="-t 6 -m 160"; PAR="-t 5 -m 32"; SCO="-t 12 -m 32" ;;
+            qwen3.5-4b|qwen3.5-4b-pool5) GPU_OPTS="-t 10 -m 200 -P sphinx -G a100"; PAR="-t 14 -m 48"; SCO="-t 36 -m 48" ;;
         esac
-        for d in $(domains_of $name); do
-            $M $cfg -c $GPU -s connectivity $GPU_OPTS -n 8 -D $d -o jobs/
+        if [ -n "$(pool_of $name)" ]; then
+            $M $cfg -c $GPU -s connectivity $GPU_OPTS -n 8 -o jobs/
+        fi
+        for d in $(job_domains_of $name); do
+            [ -n "$(pool_of $name)" ] || $M $cfg -c $GPU -s connectivity $GPU_OPTS -n 8 -D $d -o jobs/
             for t in real null; do
                 for k in halfA halfB; do
                     $M $cfg -c $CPU -s parcellation $PAR -n 8 -D $d -T $t -K $k -o jobs/
@@ -87,10 +108,10 @@ submit() {
     local serial=0
     case "$name" in qwen3.5-4b) serial=1 ;; esac
     local d t k c p q dep prev="" ids="" real_ids="" null_ids=""
-    for d in $(domains_of $name); do
+    for d in $(job_domains_of $name); do
         dep=""
         if [ "$serial" = 1 ] && [ -n "$prev" ]; then dep="--dependency=afterok:$prev"; fi
-        c=$(sbatch --parsable $dep jobs/$name.connectivity.$d.pbs)
+        c=$(sbatch --parsable $dep $(conn_job_of $name $d))
         real_ids=""; null_ids=""
         for t in real null; do
             for k in halfA halfB; do
