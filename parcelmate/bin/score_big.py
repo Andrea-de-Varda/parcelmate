@@ -37,7 +37,12 @@ from parcelmate.util import derive_seed, load_h5_data, read_attrs, stderr, varia
 def tree_is_tiled(cfg):
     """Whether the config's real tree holds tiled halves (decided from the first file found)."""
     root = cfg.get('output_dir', OUTPUT_DIR)
-    for domain in cfg.get('connectivity', {}).get('domains', []):
+    conn = cfg.get('connectivity', {}) or {}
+    # A pooled tree (Iteration 31) holds only its pseudo-domain's files, so look there too;
+    # checking only the member domains sent pooled trees to the dense scorer (OOM, 17575075).
+    candidates = list((cfg.get('score') or {}).get('domains') or []) + \
+        ([conn['pool_as']] if conn.get('pool_as') else []) + list(conn.get('domains', []))
+    for domain in candidates:
         p = conn_path(root, domain, HALF_NAMES[0])
         if os.path.exists(p):
             return is_tiled(p)

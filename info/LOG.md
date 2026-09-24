@@ -933,6 +933,8 @@ Design agreed with Andrea on 2026-09-23 ("this plan works and 1 should be the he
 
 **Submitted 2026-09-23 at commit `5ea7ba1`.** 4B wikitext score and purge 17575067 (after its real parcellations 17564927-28 and null purge 17564931). 2B pooled: connectivity 17575068 (a6000, jagupard32 excluded) -> parcellations 17575070-73 -> null purge 17575074 -> score and purge 17575075. 4B pooled: connectivity 17575076 (a100) -> parcellations 17575077-80 -> null purge 17575081 -> score and purge 17575082. Circuit comparisons: 2B single-domain rerun with the step A/B tables 17575083 (after the test-3 rerun 17574963), 2B pooled 17575084, 4B pooled 17575085 and 4B wikitext 17575086 (both also after the 4B attributions 17573849). Footprint at submission: 974 GB under Andrea's directory, 49 TB free on the share; 10 jobs running (68 CPUs, 496 GB, 4 GPUs), 2 queued (16 CPUs, 360 GB, 2 GPUs), 24 waiting on dependencies.
 
+**The 2B pooled score failed out of memory (17575075, 7 min, 32 GB).** A bug of mine in the dispatch: `tree_is_tiled` decided between the tiled and the dense scorer by looking for the half-A file of the config's member domains (wikitext, ...), which a pooled tree does not have, so the pooled tree went to the dense scorer, which loads a whole 43 GB half. It now also looks at the score domains and the `pool_as` name. A check added to [tests/verify_iter17_pooled.py](../tests/verify_iter17_pooled.py) (11). Nothing was lost: the job died before its purge step, so the real tiles are intact, and the score was resubmitted. The 4B pooled score (17575082) had not started and picks up the fix.
+
 ## Decisions made
 
 - 2026-09-23 (training-dynamics measures): **describe the network, not only its quality: dimensionality, coupling, hubs, segregation, connectome similarity, firing rates, token-class selectivity with string-defined classes, loss, and the partition-only measures; 70m first; the null connectome not recomputed.** Rejected by Andrea: sign-based measures. Iteration 28.
@@ -1159,6 +1161,8 @@ Every code change to the repo, newest last. Format: date — files — what and 
 - 2026-09-23 -- [parcelmate/circuits.py](../parcelmate/circuits.py) (`excess_network_similarity`, non-shared-unit measures in `structure_test`), [tests/verify_iter16_circuits.py](../tests/verify_iter16_circuits.py) (17 checks) -- test 3 fix, Iteration 30.
 
 - 2026-09-23 -- **Iteration 31**: pooled connectivity (`write_tiled_pooled`, `run_connectivity(pool_as=...)`, per-sample token counts in `write_tiled_half`), pooled configs and launchers, 4B single-domain config cut to wikitext after cancelling 17564932-50, domain-level circuit analyses; [tests/verify_iter17_pooled.py](../tests/verify_iter17_pooled.py) (new, 10), [tests/verify_iter16_circuits.py](../tests/verify_iter16_circuits.py) (22), [tests/verify_iter14_bigconn.py](../tests/verify_iter14_bigconn.py) (32, unchanged).
+
+- 2026-09-24 -- [parcelmate/bin/score_big.py](../parcelmate/bin/score_big.py) (`tree_is_tiled` finds pooled trees), [tests/verify_iter17_pooled.py](../tests/verify_iter17_pooled.py) (11) -- fix for the 2B pooled score OOM (17575075).
 
 ## Cluster
 

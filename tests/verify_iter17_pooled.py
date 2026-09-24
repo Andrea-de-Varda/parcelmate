@@ -126,6 +126,11 @@ check('pool_as refuses dense storage, underscores, and a name equal to a member 
                                           pool_as='all_five', **COMMON))
       and raises(lambda: run_connectivity(output_dir=os.path.join(tmp, 'z'), null_output_dir=os.path.join(tmp, 'z_null'),
                                           pool_as='random', **COMMON)))
+from parcelmate.bin.score_big import tree_is_tiled
+pcfg = dict(output_dir=out, connectivity=dict(domains=['random', 'whitespace'], pool_as='pooled'),
+            score=dict(domains=['pooled']))
+check('tree_is_tiled finds a pooled tree by its pseudo-domain (it went to the dense scorer: OOM, 17575075)',
+      tree_is_tiled(pcfg) and tree_is_tiled(dict(pcfg, score={})))
 m = INPUT_NAME_RE.match('%s_pooled_halfA.h5' % CONNECTIVITY_NAME)
 check('the parcellation file pattern reads the pseudo-domain and key', m is not None and m.group(2) == 'pooled' and m.group(3) == 'halfA')
 
