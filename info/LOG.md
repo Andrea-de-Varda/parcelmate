@@ -935,6 +935,15 @@ Design agreed with Andrea on 2026-09-23 ("this plan works and 1 should be the he
 
 **The 2B pooled score failed out of memory (17575075, 7 min, 32 GB).** A bug of mine in the dispatch: `tree_is_tiled` decided between the tiled and the dense scorer by looking for the half-A file of the config's member domains (wikitext, ...), which a pooled tree does not have, so the pooled tree went to the dense scorer, which loads a whole 43 GB half. It now also looks at the score domains and the `pool_as` name. A check added to [tests/verify_iter17_pooled.py](../tests/verify_iter17_pooled.py) (11). Nothing was lost: the job died before its purge step, so the real tiles are intact, and the score was resubmitted. The 4B pooled score (17575082) had not started and picks up the fix.
 
+**Results so far (pulled 2026-09-24).** Jobs 17575083 (2B single-domain), 17575084 (2B pooled), 17575086 (4B wikitext). Values at 0.1% unless noted; "null" means the null partition.
+
+- **Step A, tasks overlap more within than across domains**, in both models: 2B within 0.132 against across 0.026 (p = 0.0001); Lan 0.176 against 0.006, MD 0.116 against 0.033, phys 0.154 against 0.046 (p <= 0.02); ToM only marginal (0.089 against 0.022, p = 0.055). 4B the same pattern: Lan, MD and phys p <= 0.001, ToM p = 0.11. Same at 1%. So three of the four domains have coherent circuits across their tasks; ToM's tasks share least.
+- **Test 1 per task.** 2B single-domain: real concentrated (median z -1.2 to -3.1, 44-74% of tasks at p < 0.05), null not (z +0.6 to +2.4). 2B pooled: real concentrated (z -1.8 and -2.1, 52-56% of tasks) but **the null partition as much or more** (z -2.6 and -2.9, 59-67%). 4B wikitext: real **not** concentrated at the median (z -0.4 and -0.3; 45% of tasks significant, so the distribution is bimodal), null z -1.4 and -1.5.
+- **Step B, domain circuits.** Language is the robust case: strongly concentrated on the real partition everywhere (z -5.5 to -8.7 at 0.1%, to -16.8 at 1%, 27-39 effective networks against 46-55). 2B bookcorpus: all four domains concentrated; 2B wikitext: Lan only; 2B pooled: Lan, ToM, phys (not MD); 4B wikitext: Lan and MD (z -6 to -7). But the null partition also concentrates some domain circuits (2B bookcorpus Lan and ToM; 2B pooled Lan, MD, phys; 4B Lan, MD).
+- **Test 3, non-shared units.** Real beats null throughout: Spearman(overlap, excess network similarity) 0.41-0.48 (2B), 0.44-0.48 (2B pooled), 0.69-0.70 (4B) on the real partition against 0.07-0.29 on the null; same-domain excess 0.08-0.15 against 0.02-0.09.
+
+**Reading.** The null partition is not a neutral reference: fitted on circularly shifted data, its clusters still group units by per-unit properties (the shift keeps each unit's autocorrelation, and units dead or near-constant in some samples correlate differently), and those properties evidently differ between circuit and non-circuit units. Concentration against layer-matched draws is therefore partly a unit-property effect, visible on the null partition too; the evidence that our networks carry more than that is where the real partition beats the null one (test 3 everywhere, 2B single-domain test 1, Lan in step B). To discuss with Andrea: a direct paired real-versus-null comparison per task as the headline statistic.
+
 ## Decisions made
 
 - 2026-09-23 (training-dynamics measures): **describe the network, not only its quality: dimensionality, coupling, hubs, segregation, connectome similarity, firing rates, token-class selectivity with string-defined classes, loss, and the partition-only measures; 70m first; the null connectome not recomputed.** Rejected by Andrea: sign-based measures. Iteration 28.
@@ -1163,6 +1172,8 @@ Every code change to the repo, newest last. Format: date — files — what and 
 - 2026-09-23 -- **Iteration 31**: pooled connectivity (`write_tiled_pooled`, `run_connectivity(pool_as=...)`, per-sample token counts in `write_tiled_half`), pooled configs and launchers, 4B single-domain config cut to wikitext after cancelling 17564932-50, domain-level circuit analyses; [tests/verify_iter17_pooled.py](../tests/verify_iter17_pooled.py) (new, 10), [tests/verify_iter16_circuits.py](../tests/verify_iter16_circuits.py) (22), [tests/verify_iter14_bigconn.py](../tests/verify_iter14_bigconn.py) (32, unchanged).
 
 - 2026-09-24 -- [parcelmate/bin/score_big.py](../parcelmate/bin/score_big.py) (`tree_is_tiled` finds pooled trees), [tests/verify_iter17_pooled.py](../tests/verify_iter17_pooled.py) (11) -- fix for the 2B pooled score OOM (17575075).
+
+- 2026-09-24 -- pulled circuits results (2B single, 2B pooled, 4B wikitext) and `results/pythia/pythia-160m/dynamics/` (+ [figures/dynamics_pythia-160m/](../figures/dynamics_pythia-160m/)); [plots/pythia_descriptive.svg](../plots/pythia_descriptive.svg) regenerated with both sizes.
 
 ## Cluster
 
