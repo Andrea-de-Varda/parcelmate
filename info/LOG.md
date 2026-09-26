@@ -963,6 +963,8 @@ Design agreed with Andrea on 2026-09-23 ("this plan works and 1 should be the he
 
 **Open questions for Andrea:** (1) a paired real-versus-null-partition test per task as the headline statistic, since the null partition also concentrates circuits in several runs (see Results so far above); (2) the unexplained dimensionality drop between Pythia steps 64k and 143k (both sizes).
 
+**Connectome consistency over training, no parcellation (Andrea, 2026-09-25).** Read from the existing score tables (the `(ceiling)` rows of `results/pythia/pythia-{70m,160m}/metrics/scores_all.csv`; no new job): Pearson r over the strict upper triangle of the |r| connectomes of all MLP units. Split-half = half A against half B of one domain (`fidelity_within_r`), across datasets = half A of one domain against half B of another (`fidelity_across_halves`, 12 ordered pairs of the four prose domains). Table in [figures/pythia_connectome_consistency.csv](../figures/pythia_connectome_consistency.csv). Split-half r is 0.986-0.999 at every checkpoint of both sizes, **including the untrained model** (0.997 at step 0). Across datasets: 0.54 (70m) and 0.53 (160m) at initialisation, structured by domain pair (wikitext-bookcorpus and agnews-tldr17 about 0.8, the other pairs about 0.4, presumably surface statistics of the text passed through random weights); a peak at step 64 (0.73, 0.75, the step of the dimensionality collapse), the lowest at step 4000 (0.46, 0.38), and 0.57 and 0.51 at the end, with the pair structure evened out (0.45-0.67 and 0.38-0.60). The circular-shift null stays at or below 0.04 throughout. So much of the connectome's cross-dataset agreement in trained models is already present at initialisation.
+
 ## Decisions made
 
 - 2026-09-23 (training-dynamics measures): **describe the network, not only its quality: dimensionality, coupling, hubs, segregation, connectome similarity, firing rates, token-class selectivity with string-defined classes, loss, and the partition-only measures; 70m first; the null connectome not recomputed.** Rejected by Andrea: sign-based measures. Iteration 28.
@@ -1214,6 +1216,8 @@ Every code change to the repo, newest last. Format: date — files — what and 
 - 2026-09-25 -- [figures/overview_tikz/overview.tex](../figures/overview_tikz/overview.tex) -- **Arial and larger type (Andrea).** Text set in Arial via fontspec, falling back to Liberation Sans (metric-identical) where Arial is not installed; math letters and digits in the same face via `mathastext`, Greek tau taken from the text font. All five type sizes raised by about 0.6-1 pt (5.8 / 6.4 / 7.2 / 8.4 / 10.5 pt); layout adjusted where the larger text collided (evaluation rows, tau label, credit box). Build now requires LuaLaTeX with `luaotfload` and `luatex85`, i.e. Debian/Ubuntu package `texlive-luatex`, which was not installed on the local machine; the figure was built against an extracted copy of that package.
 
 - 2026-09-25 -- all jobs cancelled at Andrea's request; handover state and the steps to finish 4B pooled recorded in Iteration 31.
+
+- 2026-09-25 -- [figures/pythia_connectome_consistency.csv](../figures/pythia_connectome_consistency.csv) (new): split-half and across-dataset connectome correlations per Pythia checkpoint, from the existing score tables.
 
 ## Cluster
 
