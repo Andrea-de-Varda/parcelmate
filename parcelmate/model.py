@@ -1250,6 +1250,8 @@ def run_connectivity(
     )
     provenance = dict(model_name=model_name, revision='' if revision is None else str(revision),
                       unit_type=unit_type)
+    if data_kwargs.get('shuffle_words'):
+        provenance['shuffle_words'] = 'within each seq_len window'
 
     if isinstance(domains, str):
         domains = (domains,)

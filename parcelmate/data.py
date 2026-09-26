@@ -4,7 +4,7 @@ from scipy import signal
 import torch
 import datasets
 
-from parcelmate.util import stderr
+from parcelmate.util import derive_seed, stderr
 
 
 class BaselineDataset:
@@ -50,6 +50,38 @@ class BaselineDataset:
         return out
 
 
+def word_start_table(tokenizer):
+    """Boolean per vocabulary id: does the token begin a new word (leading whitespace)?
+
+    Byte-level BPE (GPT-2, Pythia) marks a word boundary by the space it folds into the
+    word's first token, so a word is a whitespace-initial token plus the continuation
+    tokens (subword pieces, attached punctuation) that follow it.
+    """
+    table = getattr(tokenizer, '_parcelmate_word_starts', None)
+    if table is None:
+        table = np.array([tokenizer.decode([i])[:1].isspace() for i in range(len(tokenizer))])
+        tokenizer._parcelmate_word_starts = table
+    return table
+
+
+def shuffle_words_within(rows, starts, seed):
+    """Permute the words of each row (a list of token ids), keeping every word's tokens
+    together and in order. The row's first token always opens a word (a window can begin
+    mid-word after wrapping). Returns new lists; the multiset of tokens per row is kept."""
+    rng = np.random.RandomState(int(seed) % (2 ** 32))
+    out = []
+    for ids in rows:
+        a = np.asarray(ids, dtype=np.int64)
+        if len(a) < 2:
+            out.append(list(ids))
+            continue
+        b = starts[a].copy()
+        b[0] = True
+        words = np.split(a, np.flatnonzero(b)[1:])
+        out.append(np.concatenate([words[i] for i in rng.permutation(len(words))]).tolist())
+    return out
+
+
 def get_dataset(
         dataset,
         tokenizer,
@@ -60,10 +92,17 @@ def get_dataset(
         wrap=True,
         shuffle=True,
         seed=None,
+        shuffle_words=False,
         verbose=True,
         indent=0,
         **kwargs
 ):
+    """Tokenized text of a domain, `n_tokens` in total, as padded (rows, seq_len) tensors.
+
+    `shuffle_words=True` (LOG.md Iteration 32) permutes whole words within each seq_len
+    window after tokenization (`shuffle_words_within`): the same documents, tokens and
+    windows, the same bag of words and of tokens per window, only the order destroyed.
+    """
     if verbose:
         stderr('%sGetting input data\n' % (' ' * indent))
     assert seq_len > 0, 'seq_len must be positive'
@@ -134,6 +173,10 @@ def get_dataset(
     assert n_tokens == _n_tokens, ('%d tokens requested but the dataset only contains %d tokens.'
                                    ' Consider increasing the value of `take`.'
                                    % (n_tokens, _n_tokens))
+
+    if shuffle_words:
+        input_ids = shuffle_words_within(input_ids, word_start_table(tokenizer),
+                                         derive_seed(seed, 'shuffle_words'))
 
     input_ids = torch.as_tensor(pad(input_ids))
     attention_mask = torch.as_tensor(pad(attention_mask))
