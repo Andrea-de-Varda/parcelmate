@@ -1217,6 +1217,7 @@ Every code change to the repo, newest last. Format: date — files — what and 
 
 - 2026-09-25 -- all jobs cancelled at Andrea's request; handover state and the steps to finish 4B pooled recorded in Iteration 31.
 
+- 2026-09-25 -- [figures/make_connectome_consistency.py](../figures/make_connectome_consistency.py) (new), [plots/pythia_connectome_consistency.svg](../plots/pythia_connectome_consistency.svg): three panels (split-half, across datasets, across datasets per pair for 160m), real solid, circular-shift null dashed.
 - 2026-09-25 -- [figures/pythia_connectome_consistency.csv](../figures/pythia_connectome_consistency.csv) (new): split-half and across-dataset connectome correlations per Pythia checkpoint, from the existing score tables.
 
 ## Cluster
