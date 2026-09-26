@@ -946,6 +946,23 @@ Design agreed with Andrea on 2026-09-23 ("this plan works and 1 should be the he
 
 **Status 2026-09-25.** Done: the 2B pooled score (17584993, 1 h 49, after the dispatch fix), the 4B wikitext score and purge (17575067, 7 h 08), and three of the four 4B pooled parcellations (9 h 42 to 13 h 37). **The 4B pooled null half B timed out** at its 14 h limit on john8 (17575080), at alignment 84 of 200, the last stage; the same job took 9.7-13.6 h on other nodes, so john8 was slow rather than the job being mis-sized. The parcellation has no mid-run checkpoint, so it was resubmitted from the start with 24 h and john8 excluded (17609648). Its dependents, left unsatisfiable, were cancelled and re-chained: null purge 17609649, score and purge 17609650, circuits comparison 17609651. Footprint: 821 GB under Andrea's directory (the 2B pooled and 4B wikitext real tiles purged by their score jobs; the 4B pooled real and null halves, 0.7 TB, remain until purge and scoring).
 
+**All jobs cancelled on 2026-09-25 at Andrea's request** (`scancel -u devarda`; the queue is empty). Cancelled before running: the resubmitted 4B pooled null half B parcellation (17609648), its null purge (17609649), the 4B pooled score and purge (17609650) and the 4B pooled circuits comparison (17609651). Andrea will rerun with another agent.
+
+**Handover state (2026-09-25).**
+
+| item | state |
+|---|---|
+| Pythia-70m and 160m: reliability, fidelity, descriptive measures | done; [plots/pythia_dynamics.svg](../plots/pythia_dynamics.svg), [plots/pythia_descriptive.svg](../plots/pythia_descriptive.svg) |
+| Qwen3.5-2B and 4B attributions | done (`results/patching/Qwen_Qwen3-5-{2B,4B}`) |
+| 2B single-domain (wikitext, bookcorpus) | parcellated, scored, tiles purged; circuits comparison done (17575083) |
+| 4B single-domain (wikitext only) | parcellated, scored, tiles purged; circuits comparison done (17575086) |
+| 2B pooled (five domains) | parcellated, scored (17584993), tiles purged; circuits comparison done (17575084) |
+| **4B pooled (five domains)** | **incomplete**: connectivity done; real halves A and B and null half A parcellated; **null half B missing** (timed out, 17575080). Not scored, no circuits comparison |
+
+**To finish 4B pooled:** `sbatch --time=24:00:00 jobs/qwen3.5-4b-pool5.parcellation.pooled.null.halfB.pbs` (9.7-13.6 h on a healthy john node; john8 was slow), then `jobs/qwen3.5-4b-pool5.purge_null_connectivity.pooled.pbs`, then `jobs/qwen3.5-4b-pool5.score_purge_connectivity.pbs`, and `bash scripts/launch_circuits.sh submit qwen3.5-4b-pool5 <parcellation job id>`. **Disk left on the share for this:** 648 GB of 4B pooled tiles (`results/qwen35/qwen3.5-4b-pool5{,_null}/connectivity/`, 324 GB each; the null tree must stay until its half B is parcellated, the real tree until scoring). If the run is abandoned instead, these should be deleted (Cory's cleanup rule). Code on the cluster is at commit `3b0c6d4` and matches the repository.
+
+**Open questions for Andrea:** (1) a paired real-versus-null-partition test per task as the headline statistic, since the null partition also concentrates circuits in several runs (see Results so far above); (2) the unexplained dimensionality drop between Pythia steps 64k and 143k (both sizes).
+
 ## Decisions made
 
 - 2026-09-23 (training-dynamics measures): **describe the network, not only its quality: dimensionality, coupling, hubs, segregation, connectome similarity, firing rates, token-class selectivity with string-defined classes, loss, and the partition-only measures; 70m first; the null connectome not recomputed.** Rejected by Andrea: sign-based measures. Iteration 28.
@@ -1195,6 +1212,8 @@ Every code change to the repo, newest last. Format: date — files — what and 
 
 - 2026-09-24 -- [figures/overview_tikz/overview.tex](../figures/overview_tikz/overview.tex) (new), overview.pdf, overview.png -- **schematic overview figure** (TikZ, standalone, 180 mm double-column): (a) MLP-neuron timecourses recorded over tokens of each text domain; (b) |r| connectome, Fisher z, one per domain, units in arbitrary order; (c) row profiles z-scored and sparsified to top 10%, PCA-100, k-means k = 100 with 200 restarts, restarts aligned and averaged, shown as the same matrix sorted by network plus a layer-by-neuron network map; (d) evaluation: one domain split into halves A and B, each giving a connectome and a partition, then two parallel questions, reliability (ARI between P^A and P^B) and fidelity (Pearson r between C^B and its block means under P^A), both asked within and across domains, and the null reference (each timecourse rotated by its own lag, same pipeline, null partition scored on the real matrices, credit = real minus null). The comparison of pipeline variants (first draft's panel e) was removed by Andrea's decision: method selection goes to an appendix figure, if included. All matrices and traces are synthetic toy data (32 units, 5 networks) generated inside TikZ, not real results. Compile with `lualatex overview.tex`.
 - 2026-09-25 -- [figures/overview_tikz/overview.tex](../figures/overview_tikz/overview.tex) -- **Arial and larger type (Andrea).** Text set in Arial via fontspec, falling back to Liberation Sans (metric-identical) where Arial is not installed; math letters and digits in the same face via `mathastext`, Greek tau taken from the text font. All five type sizes raised by about 0.6-1 pt (5.8 / 6.4 / 7.2 / 8.4 / 10.5 pt); layout adjusted where the larger text collided (evaluation rows, tau label, credit box). Build now requires LuaLaTeX with `luaotfload` and `luatex85`, i.e. Debian/Ubuntu package `texlive-luatex`, which was not installed on the local machine; the figure was built against an extracted copy of that package.
+
+- 2026-09-25 -- all jobs cancelled at Andrea's request; handover state and the steps to finish 4B pooled recorded in Iteration 31.
 
 ## Cluster
 
