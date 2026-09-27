@@ -975,6 +975,21 @@ Design agreed with Andrea on 2026-09-23 ("this plan works and 1 should be the he
 
 **Verification.** [tests/verify_iter18_shuffle.py](../tests/verify_iter18_shuffle.py) (new, 10 checks): the word-start table; the shuffle keeps the token multiset and every word intact, changes the order, is seed-deterministic and handles a window beginning mid-word; `get_dataset(shuffle_words=True)` keeps windows, masks and per-window token multisets; the provenance; `connectome_consistency` equals a numpy reference (Pearson r of the upper triangles of |r|), writes one row per ordered domain pair and purges; the configs differ from the originals only in output tree, shuffle and null; the launcher. Two test-side fixes: a test sentence beginning without a space glued its first word to a neighbour when moved, and the launcher check did not allow for the escaped `$cfg`. [tests/verify_iter14_bigconn.py](../tests/verify_iter14_bigconn.py) unchanged at 32.
 
+**Submitted and completed.** 22 jobs at commit `7717b6b` (17620764-85, three at a time): 70m 9-24 min, 160m 61-93 min, all exit 0; every connectivity directory purged, 335 KB left under `results/pythia_shuffled/`. Tables pulled; means in [figures/pythia_connectome_consistency_shuffled.csv](../figures/pythia_connectome_consistency_shuffled.csv). The shuffle was verified to have been applied: every row carries the `shuffle_words` provenance, and the values differ from the intact ones (step 0 wikitext split-half 0.99615 against 0.99612).
+
+**Result: through step 256 word order changes nothing; afterwards, removing it makes datasets MORE alike.**
+
+| step | 70m across, intact / shuffled | 160m across, intact / shuffled |
+|---|---|---|
+| 0 | 0.539 / 0.539 | 0.530 / 0.530 |
+| 64 | 0.734 / 0.734 | 0.748 / 0.748 |
+| 256 | 0.679 / 0.679 | 0.660 / 0.658 |
+| 1000 | 0.518 / 0.529 | 0.433 / 0.456 |
+| 4000 | 0.460 / 0.478 | 0.381 / 0.424 |
+| 143000 | 0.569 / 0.601 | 0.512 / 0.571 |
+
+Split-half r is unchanged by shuffling at every step (0.986-0.999). Reading: (1) the whole initial pattern, including the domain-pair structure (Books-Wiki and News-Reddit near 0.8), and the step-64 peak are carried by the bag of words within each window; the model up to step 256 builds the same connectome whatever the order. (2) From step 1000 on, word order contributes a dataset-specific component: on shuffled text the connectomes of different datasets agree more, by +0.02 to +0.03 (70m) and +0.02 to +0.06 (160m), growing with training and with model size. So sequential structure is a source of between-dataset differences, not of agreement, and it enters when the model starts to use context. Figure: [plots/pythia_connectome_consistency.svg](../plots/pythia_connectome_consistency.svg), now with the shuffled curves (dotted, open markers) and a fourth panel with the difference per pair.
+
 ## Decisions made
 
 - 2026-09-23 (training-dynamics measures): **describe the network, not only its quality: dimensionality, coupling, hubs, segregation, connectome similarity, firing rates, token-class selectivity with string-defined classes, loss, and the partition-only measures; 70m first; the null connectome not recomputed.** Rejected by Andrea: sign-based measures. Iteration 28.
@@ -1231,6 +1246,8 @@ Every code change to the repo, newest last. Format: date — files — what and 
 - 2026-09-25 -- [figures/pythia_connectome_consistency.csv](../figures/pythia_connectome_consistency.csv) (new): split-half and across-dataset connectome correlations per Pythia checkpoint, from the existing score tables.
 
 - 2026-09-26 -- **Iteration 32**: word shuffling in `get_dataset`, `connectome_consistency` (new), shuffled Pythia configs and launcher; [tests/verify_iter18_shuffle.py](../tests/verify_iter18_shuffle.py) (new, 10).
+
+- 2026-09-27 -- pulled `results/pythia_shuffled/*/metrics/connectome_consistency.csv`; [figures/pythia_connectome_consistency_shuffled.csv](../figures/pythia_connectome_consistency_shuffled.csv) (new); [figures/make_connectome_consistency.py](../figures/make_connectome_consistency.py) draws the shuffled curves and a difference panel. Result in Iteration 32.
 
 ## Cluster
 
