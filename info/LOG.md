@@ -1034,6 +1034,21 @@ Same signs at 1% (single-domain trees: 79-93% of tasks, p < 1e-4). By task domai
 
 **Submitted 2026-09-30 at commit `3c6e799`.** -rest coarse: parcellations 17672978-17673001 (after the -rest connectivity 17671249, 17671255, 17671264), score `-V k10 k20` 17673002; the queued -rest null purges 17671254, 17671263, 17671269 and the -rest score and purge 17671270 were updated (`scontrol update Dependency=`) to wait for the coarse null parcellations and the coarse score, so no tile is deleted before the coarse jobs read it. qwen3.5-2b-coarse: connectivity, 16 parcellations, null purges 17673012 and 17673034, score and purge 17673036 (ids in `logs/coarse_submit_2b.txt` on the cluster); qwen3.5-2b-pool5-coarse: connectivity, 8 parcellations, null purge 17673046, score and purge 17673047 (`logs/coarse_submit_pool.txt`); GPU jobs exclude jagupard32. Circuits (top-pct and graded) per coarse variant: 17673049-54. The pending -rest circuits jobs 17671296-97 were submitted before the graded step existed, so they were cancelled and resubmitted with it (17673055 2B-rest, 17673056 4B-rest). Graded-only jobs on the four finished trees: 17673057 (2B), 17673058 (2B pooled), 17673059 (4B wikitext), 17673060 (4B pooled).
 
+**Graded results (2026-10-01; jobs 17673057-60, 1-3 min each; 2B-rest from 17673055).** Network share of attribution-rank variance beyond layer, real against null partition, all tasks, paired Wilcoxon (real > null):
+
+| network set | tasks p < 0.05, real / null | real > null | p (halves A, B) |
+|---|---|---|---|
+| 2B bookcorpus | 22-26% / 4-11% | 52-67% | 0.17, 0.045 |
+| 2B wikitext | 30-44% / 7-11% | 59-70% | 0.039, 0.053 |
+| 2B agnews | 44-56% / 11-19% | 67-74% | 0.015, 0.014 |
+| 2B tldr17 | 30-33% / 11-15% | 44-52% | 0.44, 0.23 |
+| 2B codeparrot | 26-33% / 0-11% | 59-70% | 0.002, 0.028 |
+| 2B pooled | 41-52% / 7-11% | 74-78% | 8e-4, 2e-4 |
+| 4B wikitext | 37-42% / 32-34% | 55-63% | 0.10, 0.15 |
+| 4B pooled | 47-53% / 3-13% | 76-82% | 2e-5, 3e-6 |
+
+Domain maps (real partition, 200 permutations, p floor 0.005): Language and Formal (MD) at the floor in every network set; Physical in 4B (both sets) and occasionally at 2B; Social (ToM) never. **The pooled networks, which failed the entropy-based paired test (Iteration 33), pass the graded one most strongly**, because here the pooled null partition explains almost nothing: its apparent concentration in the entropy test does not carry over to a measure on all units, so it was a property of the entropy measure on the null partition, not evidence that pooling hurts. **Effect sizes are very small in absolute terms:** the network share beyond layer is 0.01-0.03% of rank variance per task and 0.04-0.14% for domain maps (layer itself 0.1-1.1%); most units carry essentially no task signal, so variance explained over all units is a diluted measure; it is useful for the real-versus-null and domain comparisons, not as an effect size. Also in: the 2B-rest top-pct paired test: agnews and tldr17 like the other prose datasets (63-89% of tasks real < null, p <= 0.002), codeparrot weaker (63-70%, p 0.02 and 0.07).
+
 ## Decisions made
 
 - 2026-09-23 (training-dynamics measures): **describe the network, not only its quality: dimensionality, coupling, hubs, segregation, connectome similarity, firing rates, token-class selectivity with string-defined classes, loss, and the partition-only measures; 70m first; the null connectome not recomputed.** Rejected by Andrea: sign-based measures. Iteration 28.
