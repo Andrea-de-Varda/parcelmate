@@ -367,3 +367,54 @@ def paired_real_null(real_deficit, null_deficit, n_perm=10000, rng=None):
     null = (flips * np.abs(d)[None, :]).mean(1)
     out['p_signflip'] = float((1 + (null <= d.mean()).sum()) / (1 + n_perm))
     return out
+
+
+# ---------------------------------------------------------------------------- graded (all units)
+
+def graded_network_variance(attributions, labels_flat, k, width, n_layers, n_perm=200, rng=None):
+    """How much of the variation in attribution across ALL units the networks explain,
+    beyond layer (Iteration 35). No top-pct cut, so no circuit size to choose.
+
+    attributions  (T, n_layers * width) flat maps, one row per task (or task domain)
+
+    Per map: ranks of the attribution (signed, so high = supports the correct answer) scaled
+    to [0, 1], minus each layer's mean rank; eta2 = between-network sum of squares of these
+    residuals over their total sum of squares. Null: the network labels permuted WITHIN each
+    layer (every layer keeps its count of units per network), the same layer match as test
+    1; one permutation is shared by all maps of a call. Returns per map eta2 of layer, the
+    observed network eta2 beyond layer, the null mean and sd, excess = observed - null mean,
+    z and the one-sided p (1 + #{null >= obs}) / (1 + n_perm).
+    """
+    from scipy import sparse
+    rng = rng or np.random.RandomState(0)
+    A = np.atleast_2d(np.asarray(attributions, dtype=np.float64))
+    T, N = A.shape
+    assert N == n_layers * width
+    R = np.apply_along_axis(stats.rankdata, 1, A) / N            # (T, N)
+    layer = np.arange(N) // width
+    lm = np.stack([np.bincount(layer, weights=r, minlength=n_layers) for r in R]) / width
+    total = ((R - R.mean(1, keepdims=True)) ** 2).sum(1)
+    eta_layer = (width * ((lm - R.mean(1, keepdims=True)) ** 2).sum(1)) / total
+    E = (R - lm[:, layer]).T                                       # (N, T) residuals
+    ss = (E ** 2).sum(0)
+
+    def eta(labels):
+        G = sparse.csr_matrix((np.ones(N), (labels, np.arange(N))), shape=(k, N))
+        n = np.asarray(G.sum(1)).ravel()
+        S = G @ E                                                  # (k, T)
+        ok = n > 0
+        return ((S[ok] ** 2) / n[ok, None]).sum(0) / ss
+
+    obs = eta(labels_flat)
+    null = np.empty((n_perm, T))
+    lab = labels_flat.copy()
+    for i in range(n_perm):
+        for l in range(n_layers):
+            sl = slice(l * width, (l + 1) * width)
+            lab[sl] = rng.permutation(labels_flat[sl])
+        null[i] = eta(lab)
+    mu, sd = null.mean(0), null.std(0, ddof=1)
+    return [dict(eta2_layer=float(eta_layer[t]), eta2_network=float(obs[t]), null_mean=float(mu[t]),
+                 null_sd=float(sd[t]), excess=float(obs[t] - mu[t]),
+                 z=float((obs[t] - mu[t]) / sd[t]) if sd[t] > 0 else float('nan'),
+                 p=float((1 + (null[:, t] >= obs[t]).sum()) / (1 + n_perm))) for t in range(T)]

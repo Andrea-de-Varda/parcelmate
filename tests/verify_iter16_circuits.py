@@ -25,7 +25,7 @@ import numpy as np
 from parcelmate.circuits import (
     benjamini_hochberg, circuit_indices, concentration, concentration_test, domain_attribution,
     domain_overlap_test, enrichment, flat_labels, layer_matched_draws, overlap_matrix, paired_real_null,
-    structure_test,
+    structure_test, graded_network_variance,
 )
 
 failures = []
@@ -178,6 +178,16 @@ check('paired real vs null: a shift of the real deficits is detected, an unshift
       pr['p_wilcoxon'] < 0.001 and pr['p_signflip'] < 0.001 and abs(pr['mean_diff'] + 0.15) < 0.05
       and p0['p_wilcoxon'] > 0.05 and p0['p_signflip'] > 0.05)
 
+# ---------------------------------------------------------------- graded, all units (Iteration 35)
+rs5 = np.random.RandomState(16)
+a_net = rs5.randn(L * W) + 3.0 * np.isin(lab_flat, [0, 1, 12])         # networks 0, 1 (layer 0), 12 (layer 1) carry signal
+a_lay = rs5.randn(L * W) + 3.0 * (np.arange(L * W) // W == 2)           # a pure layer effect
+a_rnd = rs5.randn(L * W)
+gr = graded_network_variance(np.stack([a_net, a_lay, a_rnd]), lab_flat, k, W, L, 200, np.random.RandomState(17))
+check('graded: a network-carried map is significant beyond layer; a pure layer effect and noise are not',
+      gr[0]['p'] < 0.01 and gr[0]['excess'] > 0.05 and gr[1]['p'] > 0.05 and gr[1]['eta2_layer'] > 0.3
+      and gr[2]['p'] > 0.05 and abs(gr[2]['excess']) < 0.01)
+
 # ---------------------------------------------------------------- CLI end to end
 patching = os.path.join(tmp, 'patching')
 nets = os.path.join(tmp, 'nets')
@@ -225,6 +235,12 @@ check('paired CLI: per partition a summary over all tasks and per task domain; p
       r2.returncode == 0 and len(pall) == 4 and len(ps) == 4 * 3
       and all(float(x['mean_diff']) < 0 and float(x['frac_real_more_concentrated']) == 1.0 for x in pall)
       and os.path.exists(os.path.join(out, 'paired_domains.csv')))
+r3 = subprocess.run([sys.executable, '-m', 'parcelmate.bin.graded_circuits', '--patching', patching,
+                     '--networks', nets, '--perm', '100'], cwd=ROOT, env=ENV, capture_output=True, text=True)
+gs = list(csv.DictReader(open(os.path.join(out, 'graded_summary.csv')))) if r3.returncode == 0 else []
+gall = [x for x in gs if x['task_group'] == 'all']
+check('graded CLI: planted maps explained beyond layer on the real partition, more than on the shuffled null',
+      r3.returncode == 0 and len(gall) == 4 and all(float(x['frac_p05_real']) == 1.0 and float(x['mean_diff']) > 0 for x in gall))
 check('CLI: outputs are group writable', oct(os.stat(os.path.join(out, 'summary.csv')).st_mode & 0o777) in ('0o664', '0o666'))
 
 shutil.rmtree(tmp)

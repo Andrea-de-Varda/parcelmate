@@ -38,7 +38,19 @@ MODELS = {
                              domains=['wikitext', 'bookcorpus', 'agnews', 'tldr17', 'codeparrot']),
     'qwen3.5-4b-pool5': dict(model='Qwen/Qwen3.5-4B', layers=32, neurons=9216, pool_as='pooled',
                              domains=['wikitext', 'bookcorpus', 'agnews', 'tldr17', 'codeparrot']),
+    # Coarse networks, 2B only (Iteration 35, Andrea 2026-09-30): the same pipeline at k = 10
+    # and 20 as variants. wikitext/bookcorpus and the pool recompute their connectivity
+    # (purged) into their own `-coarse` trees; the -rest datasets reuse their connectivity in
+    # place (same tiles as their k = 100 partitions), so that config writes into the -rest tree.
+    'qwen3.5-2b-coarse': dict(model='Qwen/Qwen3.5-2B', layers=24, neurons=6144, coarse=True,
+                              domains=['wikitext', 'bookcorpus']),
+    'qwen3.5-2b-pool5-coarse': dict(model='Qwen/Qwen3.5-2B', layers=24, neurons=6144, pool_as='pooled', coarse=True,
+                                    domains=['wikitext', 'bookcorpus', 'agnews', 'tldr17', 'codeparrot']),
+    'qwen3.5-2b-rest-coarse': dict(model='Qwen/Qwen3.5-2B', layers=24, neurons=6144, coarse=True,
+                                   output_dir='results/qwen35/qwen3.5-2b-rest',
+                                   domains=['agnews', 'tldr17', 'codeparrot']),
 }
+COARSE_VARIANTS = {'k10': {'n_networks': 10}, 'k20': {'n_networks': 20}}
 POOL_SAMPLES = 2
 POOL_TOKENS = 40960   # per sample: 40 sequences of 1,024; 5 batches of 8
 
@@ -70,7 +82,7 @@ def config(name, spec):
     units = spec['layers'] * spec['neurons']
     gb = units * units * 2 / 1e9
     cfg = dict(
-        output_dir='results/qwen35/%s' % name,
+        output_dir=spec.get('output_dir', 'results/qwen35/%s' % name),
         seed=42,
         purge_connectivity=True,
         connectivity=dict(
@@ -115,7 +127,7 @@ def config(name, spec):
             weight_samples=False,
             parcellate_samples=False,
         ),
-        parcellation_variants={'final': {}},
+        parcellation_variants=dict(COARSE_VARIANTS) if spec.get('coarse') else {'final': {}},
     )
     if spec.get('pool_as'):
         cfg['connectivity']['pool_as'] = spec['pool_as']

@@ -64,9 +64,10 @@ def main():
     ap.add_argument('trees', nargs='+')
     ap.add_argument('--perm', type=int, default=10000)
     ap.add_argument('--seed', type=int, default=42)
+    ap.add_argument('--sub', default='circuits', help='results subdirectory (circuits_k10 for a coarse variant)')
     args = ap.parse_args()
     for tree in args.trees:
-        d = os.path.join(tree, 'circuits')
+        d = os.path.join(tree, args.sub)
         conc = list(csv.DictReader(open(os.path.join(d, 'concentration.csv'))))
         tasks = pair(conc, ('text_domain', 'half', 'pct', 'task_domain', 'task'))
         write(os.path.join(d, 'paired_tasks.csv'), tasks)

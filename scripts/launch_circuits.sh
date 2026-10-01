@@ -23,7 +23,7 @@ cd "$WORK"
 
 model_of() {
     case "$1" in
-        qwen3.5-2b|qwen3.5-2b-pool5|qwen3.5-2b-rest) echo Qwen_Qwen3-5-2B ;;
+        qwen3.5-2b|qwen3.5-2b-pool5|qwen3.5-2b-rest|qwen3.5-2b-coarse|qwen3.5-2b-pool5-coarse) echo Qwen_Qwen3-5-2B ;;
         qwen3.5-4b|qwen3.5-4b-pool5|qwen3.5-4b-rest) echo Qwen_Qwen3-5-4B ;;
         *) echo "unknown tree $1" >&2; exit 2 ;;
     esac
@@ -32,15 +32,21 @@ model_of() {
 generate() {
     mkdir -p jobs logs
     local t name
-    for t in qwen3.5-2b qwen3.5-4b qwen3.5-2b-pool5 qwen3.5-4b-pool5 qwen3.5-2b-rest qwen3.5-4b-rest; do
-        name=circuits.$t
+    # <tree>:<variant>. Every job runs the top-pct comparison and the graded all-unit one
+    # (Iteration 35); a coarse variant writes into circuits_<variant>/.
+    for tv in qwen3.5-2b:final qwen3.5-4b:final qwen3.5-2b-pool5:final qwen3.5-4b-pool5:final \
+              qwen3.5-2b-rest:final qwen3.5-4b-rest:final \
+              qwen3.5-2b-rest:k10 qwen3.5-2b-rest:k20 qwen3.5-2b-coarse:k10 qwen3.5-2b-coarse:k20 \
+              qwen3.5-2b-pool5-coarse:k10 qwen3.5-2b-pool5-coarse:k20; do
+        t=${tv%%:*}; v=${tv##*:}
+        if [ "$v" = final ]; then name=circuits.$t; vopt=""; else name=circuits.$t.$v; vopt="--variant $v --out results/qwen35/$t/circuits_$v"; fi
         cat > jobs/$name.pbs <<EOF
 #!/bin/bash
 #
 #SBATCH --job-name=$name
 #SBATCH --output=$WORK/logs/$name-%N-%j.out
 #SBATCH --error=$WORK/logs/$name-%N-%j.err
-#SBATCH --time=4:00:00
+#SBATCH --time=16:00:00
 #SBATCH --mem=16gb
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
@@ -55,7 +61,8 @@ source $CONDA_SH
 conda activate $CONDA_ENV
 export OMP_NUM_THREADS=\$SLURM_CPUS_PER_TASK
 
-python -m parcelmate.bin.compare_circuits --patching results/patching/$(model_of $t) --networks results/qwen35/$t
+python -m parcelmate.bin.compare_circuits --patching results/patching/$(model_of $t) --networks results/qwen35/$t $vopt
+python -m parcelmate.bin.graded_circuits --patching results/patching/$(model_of $t) --networks results/qwen35/$t $vopt
 EOF
         echo jobs/$name.pbs
     done
@@ -66,7 +73,7 @@ submit() {
     local dep=""
     if [ $# -gt 0 ]; then dep="--dependency=afterok:$(echo "$@" | tr ' ' ':')"; fi
     echo "code at $(git log --oneline | head -1)"
-    echo "circuits.$t -> $(sbatch --parsable $dep jobs/circuits.$t.pbs) ${dep}"
+    echo "circuits.$t -> $(sbatch --parsable $dep jobs/circuits.$t.pbs) ${dep}"   # $t may be <tree> or <tree>.<variant>
 }
 
 case "$MODE" in
