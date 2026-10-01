@@ -342,3 +342,28 @@ def domain_attribution(attributions, task_domains, rescale=True):
             maps.append(a)
         out[d] = np.mean(maps, 0)
     return out
+
+
+# ---------------------------------------------------------------------------- real vs null
+
+def paired_real_null(real_deficit, null_deficit, n_perm=10000, rng=None):
+    """Paired test across tasks: is a circuit more concentrated on the real partition than
+    on the null partition, each measured against its OWN layer-matched baseline?
+
+    deficit = observed entropy minus the mean entropy of layer-matched random sets on that
+    partition (nats; negative = more concentrated than chance). Each partition's baseline
+    absorbs its own network sizes and layer layout, so the difference d = real - null is
+    what the real networks' co-activation structure adds beyond the per-unit properties the
+    null partition also captures (Iteration 33). Returns the mean and median d, the share
+    of tasks with d < 0, a one-sided Wilcoxon signed-rank p and a sign-flip permutation p
+    on the mean (both for d < 0).
+    """
+    rng = rng or np.random.RandomState(0)
+    d = np.asarray(real_deficit, dtype=np.float64) - np.asarray(null_deficit, dtype=np.float64)
+    out = dict(n=int(len(d)), mean_diff=float(d.mean()), median_diff=float(np.median(d)),
+               frac_real_more_concentrated=float((d < 0).mean()))
+    out['p_wilcoxon'] = float(stats.wilcoxon(d, alternative='less').pvalue) if np.any(d != 0) else 1.0
+    flips = rng.choice([-1.0, 1.0], size=(n_perm, len(d)))
+    null = (flips * np.abs(d)[None, :]).mean(1)
+    out['p_signflip'] = float((1 + (null <= d.mean()).sum()) / (1 + n_perm))
+    return out

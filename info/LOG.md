@@ -994,6 +994,24 @@ Split-half r is unchanged by shuffling at every step (0.986-0.999). Reading: (1)
 
 **4B pooled done (2026-09-30).** Parcellation 17648028 (8 h 57, john12), null purge 17648029, score and purge 17648030 (6 h 01), circuits 17648031 (3 h 54); all connectivity purged, 174 GB left under Andrea's directory, no jobs queued. **Network quality**, within the pooled pseudo-domain, real against null partition: 2B pooled reliability 0.589 (pnull 0.033, ceiling 0.863), held-out fidelity r 0.380 (pnull 0.155, connectome ceiling 0.908); 4B pooled 0.594 (0.029, 0.878) and 0.399 (0.160, 0.883); 4B wikitext 0.584 (0.014, 0.880) and 0.392 (0.214, 0.960). Pooling five domains costs nothing in reliability or fidelity. **Circuits on 4B pooled (0.1%):** test 1 per task, real median z -2.0 and -1.6 (47-55% of tasks at p < 0.05) but the null partition more (z -5.7 and -4.6, 76-82%); step B, real: Lan z -5.6 and -6.7, MD -2.4 and -2.6, ToM and phys not concentrated, while the null partition concentrates all four domains (z -3 to -12); test 3, real Spearman 0.61 and 0.64 against null 0.15 and 0.04, same-domain excess 0.13 against 0.04-0.06. The pattern of Iteration 31 holds at 4B: the null partition is strongly concentrated for circuits (a unit-property effect), so test 1 against layer-matched draws does not isolate what our networks add; test 3 (real far above null) and language in step B are the robust results.
 
+## Iteration 33 -- real against null partition, paired per task (2026-09-30)
+
+Andrea's go (2026-09-30) for a direct real-versus-null comparison as the headline of the circuit comparison, since the null partition is itself concentrated for circuits (Iteration 31). **Measure:** per task, the entropy deficit = observed entropy of the circuit over the networks minus the mean over the 1,000 layer-matched random sets on the same partition (nats; negative = more concentrated than chance). Each partition is judged against its own baseline, which absorbs its network sizes and layer layout. **Statistic:** d = deficit(real) - deficit(null), paired by task, text domain and half; one-sided Wilcoxon signed-rank and sign-flip permutation p (10,000) for d < 0, over all tasks and per task domain; step B circuits reported descriptively (four per partition). Code: `paired_real_null` in [parcelmate/circuits.py](../parcelmate/circuits.py), [parcelmate/bin/paired_circuits.py](../parcelmate/bin/paired_circuits.py) (reads the existing tables, no cluster job; run locally on CSVs), outputs `paired_tasks.csv`, `paired_summary.csv`, `paired_domains.csv` in each `circuits/`. Two checks added to [tests/verify_iter16_circuits.py](../tests/verify_iter16_circuits.py) (24, all passing).
+
+**Results (0.1%, all tasks).**
+
+| tree | text domain | mean d (halves A, B) | tasks with real < null | Wilcoxon p |
+|---|---|---|---|---|
+| 2B single | bookcorpus | -0.33, -0.34 | 85%, 89% | < 1e-4 |
+| 2B single | wikitext | -0.20, -0.22 | 85%, 89% | < 1e-4 |
+| 4B single | wikitext | -0.07, -0.06 | 68%, 63% | 0.006, 0.024 |
+| 2B pooled | five domains | +0.05, -0.05 | 44%, 56% | 0.83, 0.27 |
+| 4B pooled | five domains | +0.16, +0.07 | 21%, 26% | 0.999, 0.989 |
+
+Same signs at 1% (single-domain trees: 79-93% of tasks, p < 1e-4). By task domain, single-domain trees: MD significant in all six partitions (p <= 0.05 in five), Lan in four of six (2B wikitext, 4B wikitext), phys in 2B bookcorpus, ToM in 2B bookcorpus half B and 2B wikitext half B; 4B ToM and phys at chance. Pooled trees: no task domain significant; MD reversed (the null partition concentrates MD circuits more than the real one, 0/10 and 0/16 tasks real < null).
+
+**Reading.** On networks fitted within one domain, circuits sit in fewer networks on the real partition than on the null one, for most tasks: the co-activation structure, not only per-unit properties, groups circuit units, most clearly at 2B. On the pooled networks the comparison fails, and it fails because the pooled NULL partition becomes strongly concentrated (deficits to -0.6 for MD), while the real pooled partitions are about as concentrated as the single-domain ones. Hypothesis, not yet tested: in the pooled null, each sample is shifted and z-scored per domain, so units that are near-silent in one domain (codeparrot is the obvious candidate) contribute near-zero rows for that sample and the null clusters group units by their per-domain activity profile, a property task circuits share; MD tasks (formal reasoning, symbolic content) would be most exposed. Testable from the stored per-domain unit statistics only if recomputed (the tiles are purged). Separately, FDR-enriched task x network pairs (test 2, 1%) favour the real partition in every tree: 289 against 148 (2B single), 206 against 0 (2B pooled), 363 against 264 (4B wikitext), 490 against 0 (4B pooled), so the entropy-based concentration and the enrichment disagree on the pooled null partition; entropy compares partitions with different size structures less robustly than enrichment does.
+
 ## Decisions made
 
 - 2026-09-23 (training-dynamics measures): **describe the network, not only its quality: dimensionality, coupling, hubs, segregation, connectome similarity, firing rates, token-class selectivity with string-defined classes, loss, and the partition-only measures; 70m first; the null connectome not recomputed.** Rejected by Andrea: sign-based measures. Iteration 28.
@@ -1252,6 +1270,8 @@ Every code change to the repo, newest last. Format: date — files — what and 
 - 2026-09-26 -- **Iteration 32**: word shuffling in `get_dataset`, `connectome_consistency` (new), shuffled Pythia configs and launcher; [tests/verify_iter18_shuffle.py](../tests/verify_iter18_shuffle.py) (new, 10).
 
 - 2026-09-27 -- pulled `results/pythia_shuffled/*/metrics/connectome_consistency.csv`; [figures/pythia_connectome_consistency_shuffled.csv](../figures/pythia_connectome_consistency_shuffled.csv) (new); [figures/make_connectome_consistency.py](../figures/make_connectome_consistency.py) draws the shuffled curves and a difference panel. Result in Iteration 32.
+
+- 2026-09-30 -- [parcelmate/circuits.py](../parcelmate/circuits.py) (`paired_real_null`), [parcelmate/bin/paired_circuits.py](../parcelmate/bin/paired_circuits.py) (new), [tests/verify_iter16_circuits.py](../tests/verify_iter16_circuits.py) (24) -- **Iteration 33**; paired tables written for the four Qwen trees; pulled 4B pooled `metrics/` and `circuits/`.
 
 ## Cluster
 

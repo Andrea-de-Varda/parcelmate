@@ -24,7 +24,8 @@ import numpy as np
 
 from parcelmate.circuits import (
     benjamini_hochberg, circuit_indices, concentration, concentration_test, domain_attribution,
-    domain_overlap_test, enrichment, flat_labels, layer_matched_draws, overlap_matrix, structure_test,
+    domain_overlap_test, enrichment, flat_labels, layer_matched_draws, overlap_matrix, paired_real_null,
+    structure_test,
 )
 
 failures = []
@@ -168,6 +169,15 @@ check('step B: rescaling lets a small-scale task count as much as a large-scale 
       len(top_r & set(range(100, 120))) == 20 and len(top_r & set(range(20))) == 20
       and top_raw >= set(range(20)) and len(top_raw) == 40)
 
+# ---------------------------------------------------------------- real vs null, paired (Iteration 33)
+rs4 = np.random.RandomState(13)
+nd_ = rs4.normal(-0.2, 0.1, 30)
+pr = paired_real_null(nd_ - 0.15 + rs4.normal(0, 0.05, 30), nd_, 5000, np.random.RandomState(14))
+p0 = paired_real_null(nd_ + rs4.normal(0, 0.05, 30), nd_, 5000, np.random.RandomState(15))
+check('paired real vs null: a shift of the real deficits is detected, an unshifted copy is not',
+      pr['p_wilcoxon'] < 0.001 and pr['p_signflip'] < 0.001 and abs(pr['mean_diff'] + 0.15) < 0.05
+      and p0['p_wilcoxon'] > 0.05 and p0['p_signflip'] > 0.05)
+
 # ---------------------------------------------------------------- CLI end to end
 patching = os.path.join(tmp, 'patching')
 nets = os.path.join(tmp, 'nets')
@@ -207,6 +217,14 @@ check('CLI: domain-level tables (step A per pct x (all + 2 domains); step B per 
 check('CLI: each task domain\'s mean-attribution circuit is concentrated on the real partition only',
       all(float(x['p_concentrated']) < 0.01 for x in dconc if x['tree'] == 'real')
       and all(float(x['p_concentrated']) > 0.01 for x in dconc if x['tree'] == 'null'))
+r2 = subprocess.run([sys.executable, '-m', 'parcelmate.bin.paired_circuits', nets, '--perm', '500'],
+                    cwd=ROOT, env=ENV, capture_output=True, text=True)
+ps = list(csv.DictReader(open(os.path.join(out, 'paired_summary.csv')))) if r2.returncode == 0 else []
+pall = [x for x in ps if x['task_group'] == 'all']
+check('paired CLI: per partition a summary over all tasks and per task domain; planted circuits more concentrated on real',
+      r2.returncode == 0 and len(pall) == 4 and len(ps) == 4 * 3
+      and all(float(x['mean_diff']) < 0 and float(x['frac_real_more_concentrated']) == 1.0 for x in pall)
+      and os.path.exists(os.path.join(out, 'paired_domains.csv')))
 check('CLI: outputs are group writable', oct(os.stat(os.path.join(out, 'summary.csv')).st_mode & 0o777) in ('0o664', '0o666'))
 
 shutil.rmtree(tmp)
