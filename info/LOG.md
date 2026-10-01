@@ -1022,6 +1022,8 @@ Same signs at 1% (single-domain trees: 79-93% of tasks, p < 1e-4). By task domai
 
 **Sizing.** 4B parcellations get 24 h (one pooled half timed out at 14 h on a slow node), 4B score 48 h; 2B parcellations 8 h, score 24 h. 2B connectivity on a6000 with jagupard32 excluded.
 
+**Submitted 2026-09-30 at commit `ac5c21b`.** 2B-rest (datasets in parallel, jagupard32 excluded): agnews 17671249 -> 17671250-53 -> 17671254; tldr17 17671255 -> 17671256, 17671260-62 -> 17671263; codeparrot 17671264 -> 17671265-68 -> 17671269; score and purge 17671270; circuits 17671296. 4B-rest (serialised): bookcorpus 17671271 -> 17671272-75 -> 17671276; agnews 17671277 -> 17671278-81 -> 17671282; tldr17 17671283 -> 17671284-87 -> 17671288; codeparrot 17671289 -> 17671290-93 -> 17671294; score and purge 17671295; circuits 17671297. Footprint at submission: 174 GB, 41 TB free; 4 jobs queued (32 CPUs, 680 GB, 4 GPUs), 42 waiting on dependencies.
+
 ## Decisions made
 
 - 2026-09-23 (training-dynamics measures): **describe the network, not only its quality: dimensionality, coupling, hubs, segregation, connectome similarity, firing rates, token-class selectivity with string-defined classes, loss, and the partition-only measures; 70m first; the null connectome not recomputed.** Rejected by Andrea: sign-based measures. Iteration 28.
