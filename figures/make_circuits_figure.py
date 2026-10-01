@@ -11,6 +11,8 @@ Reads `results/qwen35/<tree>/circuits/` for the four network sets (2B single-dat
   D  test 3: Spearman(overlap, non-shared-unit network similarity), real vs null partition
   E  test 3: same-domain minus cross-domain network similarity, real vs null partition
   F  test 2: task x network pairs enriched at q < 0.05, real vs null partition
+  (since Iteration 35: D = held-out enrichment per task domain; test 3 and test 2 move to
+  E, F, G; the 2B agnews, tldr17 and codeparrot sets added)
 
 Circuit size 0.1% of all MLP neurons except F (1%: at 0.1% too few units survive FDR).
 Values averaged over the two halves; a per-half value is a small dot. The plotted values
@@ -26,6 +28,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.lines import Line2D
 from scipy import stats
+
+from parcelmate.circuits import heldout_enrichment
 
 mpl.rcParams['svg.fonttype'] = 'none'
 mpl.rcParams['font.family'] = 'DejaVu Sans'
@@ -44,6 +48,9 @@ NS_FILL, NS_EDGE = '#cccccc', '#999999'
 # Network sets: (tree, text domain, label). "pooled" = five datasets.
 SETS = [('qwen3.5-2b', 'bookcorpus', '2B\nbook'),
         ('qwen3.5-2b', 'wikitext', '2B\nwiki'),
+        ('qwen3.5-2b-rest', 'agnews', '2B\nnews'),
+        ('qwen3.5-2b-rest', 'tldr17', '2B\ntldr'),
+        ('qwen3.5-2b-rest', 'codeparrot', '2B\ncode'),
         ('qwen3.5-2b-pool5', 'pooled', '2B\npool'),
         ('qwen3.5-4b', 'wikitext', '4B\nwiki'),
         ('qwen3.5-4b-pool5', 'pooled', '4B\npool')]
@@ -74,7 +81,7 @@ def title(ax, letter, text):
 
 def set_xticks(ax):
     ax.set_xticks(range(len(SETS)))
-    ax.set_xticklabels([s[2] for s in SETS], fontsize=8)
+    ax.set_xticklabels([s[2] for s in SETS], fontsize=6.8)
     ax.set_xlim(-0.6, len(SETS) - 0.4)
 
 
@@ -85,8 +92,8 @@ def keep(panel, **kw):
     out_rows.append(dict(panel=panel, **kw))
 
 
-fig, axes = plt.subplots(2, 3, figsize=(12.5 * .85, 7.2 * .85))
-plt.subplots_adjust(wspace=0.6, hspace=0.7)
+fig, axes = plt.subplots(2, 4, figsize=(19 * .85, 7.4 * .85))
+plt.subplots_adjust(wspace=0.5, hspace=0.72)
 
 # ---------------------------------------------------------------- A: step A
 ax = axes[0, 0]
@@ -163,9 +170,6 @@ set_xticks(ax)
 ax.set_ylabel('real − null partition\n(entropy deficit, nats)', fontsize=8.5)
 style(ax)
 title(ax, 'C', 'Domain circuits: real − null')
-ax.legend(handles=[Line2D([], [], marker='o', ls='', mfc=DOMAIN_COLORS[d], mec='black', mew=0.5,
-                          label=DOMAIN_LABELS[d]) for d in DOMAIN_ORDER],
-          frameon=False, fontsize=7, loc='upper left', bbox_to_anchor=(1.0, 1.0), handletextpad=0.2)
 
 
 # ---------------------------------------------------------------- D, E, F: real vs null
@@ -209,21 +213,74 @@ def enriched(tree, td, tr, pct):
 
 
 real_vs_null(axes[1, 0], structure('spearman_overlap_excess', 'p_overlap_excess'),
-             'Spearman ρ: overlap vs network\nsimilarity of non-shared units', 'D',
+             'Spearman ρ: overlap vs network\nsimilarity of non-shared units', 'E',
              'Shared circuits → shared networks')
 axes[1, 0].set_ylim(-0.05, 0.85)
 real_vs_null(axes[1, 1], structure('domain_contrast_excess', 'p_domain_contrast_excess'),
-             'similarity excess,\nsame − cross domain', 'E',
+             'similarity excess,\nsame − cross domain', 'F',
              'Same-domain tasks closer')
 axes[1, 1].set_ylim(0, 0.17)
-real_vs_null(axes[1, 2], enriched, 'enriched task × network\npairs (q < 0.05)', 'F',
+real_vs_null(axes[1, 2], enriched, 'enriched task × network\npairs (q < 0.05)', 'G',
              'Enriched networks (1%)', pct='1.0')
-axes[1, 2].legend(handles=[Line2D([], [], marker='o', ls='', mfc=REAL, mec='black', mew=0.6, label='real networks'),
-                           Line2D([], [], marker='o', ls='', mfc=NULL, mec='black', mew=0.6, label='null partition')],
-                  frameon=False, fontsize=7, loc='upper left', bbox_to_anchor=(1.0, 1.0), handletextpad=0.2)
+
+# ---------------------------------------------------------------- D: held-out enrichment
+ax = axes[0, 3]
+ratios = {tr: collections.defaultdict(list) for tr in ('real', 'null')}   # domain -> one value per set x half
+for tree, td, label in SETS:
+    rows = [r for r in read(tree, 'enrichment.csv') if r['text_domain'] == td and r['pct'] == '0.1']
+    for tr in ('real', 'null'):
+        for half in ('halfA', 'halfB'):
+            rr = [r for r in rows if r['tree'] == tr and r['half'] == half]
+            tasks = sorted({r['task'] for r in rr})
+            k = 1 + max(int(r['network']) for r in rr)
+            O, E = np.zeros((len(tasks), k)), np.zeros((len(tasks), k))
+            dom = {}
+            for r in rr:
+                i = tasks.index(r['task'])
+                O[i, int(r['network'])] = float(r['observed'])
+                E[i, int(r['network'])] = float(r['expected'])
+                dom[r['task']] = r['task_domain']
+            doms = [dom[t] for t in tasks]
+            res = heldout_enrichment(O, E, doms, n_top=5)
+            for dname in DOMAIN_ORDER:
+                v = [x['ratio'] for x, dd in zip(res, doms) if dd == dname and np.isfinite(x['ratio'])]
+                ratios[tr][dname].append(float(np.mean(v)))
+                keep('D', set=label.replace('\n', ' '), half=half, tree=tr, task_domain=dname, ratio=float(np.mean(v)))
+for j, dname in enumerate(DOMAIN_ORDER):
+    rv, nv = np.array(ratios['real'][dname]), np.array(ratios['null'][dname])
+    p = stats.wilcoxon(rv - nv, alternative='greater').pvalue
+    xr = j + 0.14 + rng.uniform(-0.06, 0.06, len(rv))
+    xn = j - 0.14 + rng.uniform(-0.06, 0.06, len(nv))
+    ax.scatter(xn, nv, s=9, color=NULL, alpha=0.5, edgecolors='none', zorder=3)
+    ax.scatter(xr, rv, s=9, color=DOMAIN_COLORS[dname], alpha=0.5, edgecolors='none', zorder=3)
+    ax.plot([j - 0.14, j + 0.14], [nv.mean(), rv.mean()], color='0.6', lw=1.2, zorder=2)
+    ax.scatter(j - 0.14, nv.mean(), s=40, color=NULL, edgecolors='black', lw=0.6, zorder=4)
+    ax.scatter(j + 0.14, rv.mean(), s=40, color=DOMAIN_COLORS[dname], edgecolors='black', lw=0.6, zorder=4)
+    ax.text(j, 4.35, stars(p), ha='center', fontsize=7.5)
+    keep('D', task_domain=dname, mean_real=float(rv.mean()), mean_null=float(nv.mean()), p_wilcoxon_real_gt_null=p)
+ax.axhline(1, color='#333333', lw=0.9, ls='--', zorder=2)
+ax.set_ylim(0.6, 4.6)
+ax.set_xticks(range(4))
+ax.set_xticklabels([DOMAIN_LABELS[d] for d in DOMAIN_ORDER], fontsize=8)
+ax.set_xlim(-0.6, 3.6)
+ax.set_ylabel('held-out task\'s share in its domain\'s\ntop-5 networks ÷ chance', fontsize=8.5)
+style(ax)
+title(ax, 'D', 'Domains reuse networks')
+
+# ---------------------------------------------------------------- legends
+ax = axes[1, 3]
+ax.axis('off')
+ax.legend(handles=[Line2D([], [], marker='o', ls='', mfc=DOMAIN_COLORS[d], mec='black', mew=0.5, ms=7,
+                          label=DOMAIN_LABELS[d]) for d in DOMAIN_ORDER]
+          + [Line2D([], [], ls='', label='')]
+          + [Line2D([], [], marker='o', ls='', mfc=REAL, mec='black', mew=0.6, ms=7, label='real networks'),
+             Line2D([], [], marker='o', ls='', mfc=NULL, mec='black', mew=0.6, ms=7, label='null partition')],
+          frameon=False, fontsize=8.5, loc='upper left', bbox_to_anchor=(0.0, 1.0), handletextpad=0.3)
+ax.text(0.0, -0.05, 'book, wiki, news (agnews), tldr (tldr17),\ncode (codeparrot): networks fitted on one\ndataset; pool: on all five together.\nSmall dots: halves (B: tasks); large: means.',
+        transform=ax.transAxes, fontsize=7.5, color='0.35', va='bottom')
 
 fig.text(0.5, -0.02, 'Qwen3.5 attribution-patching circuits (top 0.1% of MLP neurons by attribution) against connectivity networks '
-         '(k = 100); book/wiki = networks fitted on bookcorpus/wikitext alone, pool = fitted on five datasets together. Every measure is relative to layer-matched random neurons.',
+         '(k = 100). Every measure is relative to layer-matched random neurons. D: networks chosen on the other tasks of a domain, scored on the held-out task.',
          ha='center', fontsize=7, color='0.35', wrap=True)
 
 os.makedirs(os.path.join(ROOT, 'plots'), exist_ok=True)

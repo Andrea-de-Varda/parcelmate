@@ -418,3 +418,33 @@ def graded_network_variance(attributions, labels_flat, k, width, n_layers, n_per
                  null_sd=float(sd[t]), excess=float(obs[t] - mu[t]),
                  z=float((obs[t] - mu[t]) / sd[t]) if sd[t] > 0 else float('nan'),
                  p=float((1 + (null[:, t] >= obs[t]).sum()) / (1 + n_perm))) for t in range(T)]
+
+
+# ---------------------------------------------------------------------------- held-out enrichment
+
+def heldout_enrichment(observed, expected, task_domains, n_top=5):
+    """Do a task domain's tasks reuse the same networks? (Iteration 35.)
+
+    observed, expected  (n_tasks, k) circuit counts per network and their layer-matched
+                        expectation, as `enrichment` returns them, on ONE partition
+    For each task: the `n_top` networks with the largest summed excess (observed - expected)
+    over the OTHER tasks of its domain; then the held-out task's share of circuit units in
+    those networks, its expected share, and their ratio. Leave-one-task-out, so the choice
+    of networks never sees the task it is scored on (picking them on the same data inflates
+    every domain). NaN for a task alone in its domain.
+    """
+    O = np.asarray(observed, dtype=np.float64)
+    E = np.asarray(expected, dtype=np.float64)
+    doms = np.asarray(task_domains)
+    out = []
+    for i in range(len(O)):
+        others = np.flatnonzero((doms == doms[i]) & (np.arange(len(O)) != i))
+        if len(others) == 0:
+            out.append(dict(share=np.nan, expected_share=np.nan, ratio=np.nan))
+            continue
+        top = np.argsort(-(O[others] - E[others]).sum(0), kind='stable')[:n_top]
+        n = O[i].sum()
+        share, exp_share = O[i, top].sum() / n, E[i, top].sum() / n
+        out.append(dict(share=float(share), expected_share=float(exp_share),
+                        ratio=float(share / exp_share) if exp_share > 0 else np.nan))
+    return out

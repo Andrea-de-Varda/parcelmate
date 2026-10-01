@@ -25,7 +25,7 @@ import numpy as np
 from parcelmate.circuits import (
     benjamini_hochberg, circuit_indices, concentration, concentration_test, domain_attribution,
     domain_overlap_test, enrichment, flat_labels, layer_matched_draws, overlap_matrix, paired_real_null,
-    structure_test, graded_network_variance,
+    structure_test, graded_network_variance, heldout_enrichment,
 )
 
 failures = []
@@ -187,6 +187,17 @@ gr = graded_network_variance(np.stack([a_net, a_lay, a_rnd]), lab_flat, k, W, L,
 check('graded: a network-carried map is significant beyond layer; a pure layer effect and noise are not',
       gr[0]['p'] < 0.01 and gr[0]['excess'] > 0.05 and gr[1]['p'] > 0.05 and gr[1]['eta2_layer'] > 0.3
       and gr[2]['p'] > 0.05 and abs(gr[2]['excess']) < 0.01)
+
+# ---------------------------------------------------------------- held-out enrichment (Iteration 35)
+rs6 = np.random.RandomState(18)
+Eh = np.full((8, k), 1.0)
+Oh = rs6.poisson(1.0, (8, k)).astype(float)
+Oh[:4, :3] += 6.0                                          # domain X reuses networks 0-2
+hx = heldout_enrichment(Oh, Eh, ['X'] * 4 + ['Y'] * 4, n_top=3)
+hn = heldout_enrichment(rs6.poisson(1.0, (8, k)).astype(float), Eh, ['X'] * 4 + ['Y'] * 4, n_top=3)
+check('held-out enrichment: shared networks give ratios well above 1 for held-out tasks; none shared, about 1',
+      min(h['ratio'] for h in hx[:4]) > 3 and abs(np.mean([h['ratio'] for h in hn]) - 1) < 0.5
+      and np.isnan(heldout_enrichment(Oh[:1], Eh[:1], ['X'])[0]['ratio']))
 
 # ---------------------------------------------------------------- CLI end to end
 patching = os.path.join(tmp, 'patching')
