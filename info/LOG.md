@@ -1273,6 +1273,8 @@ Every code change to the repo, newest last. Format: date — files — what and 
 
 - 2026-09-30 -- [parcelmate/circuits.py](../parcelmate/circuits.py) (`paired_real_null`), [parcelmate/bin/paired_circuits.py](../parcelmate/bin/paired_circuits.py) (new), [tests/verify_iter16_circuits.py](../tests/verify_iter16_circuits.py) (24) -- **Iteration 33**; paired tables written for the four Qwen trees; pulled 4B pooled `metrics/` and `circuits/`.
 
+- 2026-09-30 -- [figures/make_circuits_figure.py](../figures/make_circuits_figure.py) (new), [plots/circuits_networks.svg](../plots/circuits_networks.svg), [figures/circuits_networks.csv](../figures/circuits_networks.csv) -- the circuits-vs-networks summary figure, six panels: A step A (within vs across task-domain overlap, both models), B the paired real - null deficit per task (per-task means over halves, one-sided Wilcoxon), C the same for the averaged domain circuits, D-E test 3 real vs null partition, F test 2 enriched pairs at 1%. Five network sets: 2B bookcorpus, 2B wikitext, 2B pooled, 4B wikitext, 4B pooled; 0.1% circuits unless noted.
+
 ## Cluster
 
 Compute for this project runs on the Stanford SC cluster (NLP group, CLiMB lab). Connection, storage layout, SLURM conventions, cluster profiles and job-launching instructions are in [CLUSTER.md](CLUSTER.md).
