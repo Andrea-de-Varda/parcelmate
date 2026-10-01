@@ -23,6 +23,13 @@ MODELS = {
     # replaced them (Iteration 31). Only wikitext was computed, so the config says so.
     'qwen3.5-4b': dict(model='Qwen/Qwen3.5-4B', layers=32, neurons=9216,
                        domains=['wikitext']),
+    # The remaining single datasets (Iteration 34, Andrea 2026-09-30: "let's do all of
+    # them"), in their own trees so they never mix with the runs above. Same seeds, so each
+    # dataset's documents are those any other run of that dataset draws.
+    'qwen3.5-2b-rest': dict(model='Qwen/Qwen3.5-2B', layers=24, neurons=6144,
+                            domains=['agnews', 'tldr17', 'codeparrot']),
+    'qwen3.5-4b-rest': dict(model='Qwen/Qwen3.5-4B', layers=32, neurons=9216,
+                            domains=['bookcorpus', 'agnews', 'tldr17', 'codeparrot']),
     # Pooled connectivity (Iteration 31): ONE pair of halves, the pseudo-domain `pooled`,
     # Fisher-averaged over 2 samples x 40,960 tokens of each of five domains (one sample per
     # domain per half), for the comparison with the attribution-patching circuits. Separate

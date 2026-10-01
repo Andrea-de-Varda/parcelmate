@@ -1012,6 +1012,16 @@ Same signs at 1% (single-domain trees: 79-93% of tasks, p < 1e-4). By task domai
 
 **Reading.** On networks fitted within one domain, circuits sit in fewer networks on the real partition than on the null one, for most tasks: the co-activation structure, not only per-unit properties, groups circuit units, most clearly at 2B. On the pooled networks the comparison fails, and it fails because the pooled NULL partition becomes strongly concentrated (deficits to -0.6 for MD), while the real pooled partitions are about as concentrated as the single-domain ones. Hypothesis, not yet tested: in the pooled null, each sample is shifted and z-scored per domain, so units that are near-silent in one domain (codeparrot is the obvious candidate) contribute near-zero rows for that sample and the null clusters group units by their per-domain activity profile, a property task circuits share; MD tasks (formal reasoning, symbolic content) would be most exposed. Testable from the stored per-domain unit statistics only if recomputed (the tiles are purged). Separately, FDR-enriched task x network pairs (test 2, 1%) favour the real partition in every tree: 289 against 148 (2B single), 206 against 0 (2B pooled), 363 against 264 (4B wikitext), 490 against 0 (4B pooled), so the entropy-based concentration and the enrichment disagree on the pooled null partition; entropy compares partitions with different size structures less robustly than enrichment does.
 
+## Iteration 34 -- the remaining single datasets (2026-09-30)
+
+**Why.** The single-dataset network sets in the circuit comparison were what was left from before the pooled design: 2B had wikitext and bookcorpus (Andrea's "keep two for now", 2026-09-23), 4B wikitext only (the other three cancelled in Iteration 31). Andrea (2026-09-30): run all five datasets as single-dataset network sets for both models ("let's do all of them!"), then clean up. Missing: 2B agnews, tldr17, codeparrot; 4B bookcorpus, agnews, tldr17, codeparrot. Codeparrot gets its own networks for the first time in the project.
+
+**Kept apart.** New configs and trees `qwen3.5-2b-rest` and `qwen3.5-4b-rest` ([scripts/make_qwen_configs.py](../scripts/make_qwen_configs.py)); the existing trees are not touched. Same pipeline and seeds, so each dataset draws the same documents as in any other run. Within-dataset scores and across-dataset scores among the datasets of one tree (the earlier datasets' tiles are purged, so pairs with them cannot be scored).
+
+**Disk.** Andrea's 3 TB was a cap on cumulative writes, not on occupancy; occupancy is 174 GB because every connectivity file has been purged after scoring. About 1.9 TB had been written for Qwen; this run writes about 0.5 TB (2B) and 2.8 TB (4B), about 5.2 TB in total, which Andrea approved by asking for all datasets. Peak on disk: 2B datasets in parallel (about 0.5 TB), 4B serialised as before (the accumulated real halves plus one dataset's full set, at most about 1.75 TB before the final score purges). Everything is purged after scoring.
+
+**Sizing.** 4B parcellations get 24 h (one pooled half timed out at 14 h on a slow node), 4B score 48 h; 2B parcellations 8 h, score 24 h. 2B connectivity on a6000 with jagupard32 excluded.
+
 ## Decisions made
 
 - 2026-09-23 (training-dynamics measures): **describe the network, not only its quality: dimensionality, coupling, hubs, segregation, connectome similarity, firing rates, token-class selectivity with string-defined classes, loss, and the partition-only measures; 70m first; the null connectome not recomputed.** Rejected by Andrea: sign-based measures. Iteration 28.
@@ -1274,6 +1284,8 @@ Every code change to the repo, newest last. Format: date — files — what and 
 - 2026-09-30 -- [parcelmate/circuits.py](../parcelmate/circuits.py) (`paired_real_null`), [parcelmate/bin/paired_circuits.py](../parcelmate/bin/paired_circuits.py) (new), [tests/verify_iter16_circuits.py](../tests/verify_iter16_circuits.py) (24) -- **Iteration 33**; paired tables written for the four Qwen trees; pulled 4B pooled `metrics/` and `circuits/`.
 
 - 2026-09-30 -- [figures/make_circuits_figure.py](../figures/make_circuits_figure.py) (new), [plots/circuits_networks.svg](../plots/circuits_networks.svg), [figures/circuits_networks.csv](../figures/circuits_networks.csv) -- the circuits-vs-networks summary figure, six panels: A step A (within vs across task-domain overlap, both models), B the paired real - null deficit per task (per-task means over halves, one-sided Wilcoxon), C the same for the averaged domain circuits, D-E test 3 real vs null partition, F test 2 enriched pairs at 1%. Five network sets: 2B bookcorpus, 2B wikitext, 2B pooled, 4B wikitext, 4B pooled; 0.1% circuits unless noted.
+
+- 2026-09-30 -- [scripts/make_qwen_configs.py](../scripts/make_qwen_configs.py) (`qwen3.5-2b-rest`, `qwen3.5-4b-rest`), [configs/qwen35/](../configs/qwen35/) (2 new), [scripts/launch_qwen.sh](../scripts/launch_qwen.sh) (sizes, 4B-rest serialised), [scripts/launch_circuits.sh](../scripts/launch_circuits.sh) -- **Iteration 34**. Suites unchanged and passing (32, 11).
 
 ## Cluster
 
