@@ -469,11 +469,78 @@ def fig5():
     save(fig, 'fig5_shared_structure')
 
 
+# ============================================================ fig 3b: top-3 networks shared between tasks
+def top3_shared(tree):
+    """Task x task: how many of the two tasks' top-3 networks coincide (0-3). Top-3 by excess
+    over the layer-matched random sets (observed minus expected), so large networks do not
+    win by size. Shared circuit neurons are NOT removed (overlap contributes)."""
+    O, E = X['%s_observed' % tree].astype(float), X['%s_expected' % tree]
+    top = [set(np.argsort(-(o - e), kind='stable')[:3].tolist()) for o, e in zip(O, E)]
+    n = len(top)
+    M = np.zeros((n, n))
+    for a in range(n):
+        for b in range(n):
+            M[a, b] = len(top[a] & top[b])
+    return M
+
+
+def fig3b():
+    rng = np.random.default_rng(0)
+    iu = np.triu_indices(len(DOM), 1)
+    same = DOM[iu[0]] == DOM[iu[1]]
+    fig = plt.figure(figsize=(9.6 * .85, 4.0 * .85))
+    gs = fig.add_gridspec(1, 2, width_ratios=[1, 1.25], wspace=0.6)
+    ax = fig.add_subplot(gs[0])
+    M = top3_shared('real')
+    np.fill_diagonal(M, np.nan)
+    im = ax.imshow(M, cmap='Greys', vmin=0, vmax=3)
+    domain_blocks(ax)
+    cb = fig.colorbar(im, ax=ax, fraction=0.045, pad=0.03, ticks=[0, 1, 2, 3])
+    cb.set_label('top-3 networks in common', fontsize=8)
+    cb.ax.tick_params(labelsize=7)
+    ax.set_title('Top-3 networks in common\n(real networks)', fontsize=9.5, weight='bold')
+    letter(ax, 'a')
+    ax = fig.add_subplot(gs[1])
+    for j, d in enumerate(ORDER):
+        for tr, dx in (('null', -0.2), ('real', 0.2)):
+            v = top3_shared(tr)[iu]
+            w = same & (DOM[iu[0]] == d)
+            x = (~same) & ((DOM[iu[0]] == d) | (DOM[iu[1]] == d))
+            col = DC[d] if tr == 'real' else RAND
+
+            def stat(lab):
+                s_ = lab[iu[0]] == lab[iu[1]]
+                ww = s_ & (lab[iu[0]] == d)
+                xx = (~s_) & ((lab[iu[0]] == d) | (lab[iu[1]] == d))
+                return v[ww].mean() - v[xx].mean()
+            obs = stat(DOM)
+            null = np.array([stat(rng.permutation(DOM)) for _ in range(5000)])
+            p = (1 + (null >= obs).sum()) / 5001.0
+            ax.bar(j + dx - 0.08, v[w].mean(), 0.16, color=col, ec='black', lw=0.6, zorder=3)
+            ax.bar(j + dx + 0.08, v[x].mean(), 0.16, color=col, alpha=0.3, ec=col, lw=0.8, zorder=3)
+            ax.text(j + dx, max(v[w].mean(), v[x].mean()) + 0.04, stars(p), ha='center', fontsize=7)
+    ax.set_xticks(range(4))
+    ax.set_xticklabels([DL[d] for d in ORDER], fontsize=8.5)
+    ax.set_ylabel('mean top-3 networks in common\nper task pair (of 3)', fontsize=8.5)
+    ax.set_ylim(0, 1.1)
+    style(ax)
+    ax.legend(handles=[Rectangle((0, 0), 1, 1, color='0.35', ec='black', lw=0.6, label='same-domain pairs'),
+                       Rectangle((0, 0), 1, 1, color='0.35', alpha=0.3, label='cross-domain pairs')],
+              frameon=False, fontsize=7.5, loc='upper right')
+    ax.set_title('Within vs across domains\n(grey: null partition; colour: real)', fontsize=9, weight='bold')
+    letter(ax, 'b')
+    fig.text(0.5, -0.1, '2B, wikitext networks, half A. Top-3 networks of each circuit by excess over layer-matched random sets\n'
+             '(observed minus expected neurons). Shared circuit neurons are counted, so overlap contributes. Stars: permutation over domain labels.',
+             ha='center', fontsize=7, color='0.35')
+    save(fig, 'fig3b_top3_networks')
+
+
 os.makedirs(OUT, exist_ok=True)
 measures_diagram()
 fig1()
 example = fig2()
 fig3()
+fig3b()
 fig4()
 fig5()
 print('example task:', X['task'][example])
