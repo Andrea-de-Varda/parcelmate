@@ -283,20 +283,10 @@ fig.text(0.5, -0.02, 'Qwen3.5 attribution-patching circuits (top 0.1% of MLP neu
          '(k = 100). Every measure is relative to layer-matched random neurons. D: networks chosen on the other tasks of a domain, scored on the held-out task.',
          ha='center', fontsize=7, color='0.35', wrap=True)
 
-OUT = os.path.join(ROOT, 'plots', 'circuits_vs_networks')
+OUT = os.path.join(ROOT, 'plots', 'circuits_vs_networks', 'supplementary')   # superseded by make_circuits_explained.py (Iteration 36)
 os.makedirs(OUT, exist_ok=True)
 for ext in ('svg', 'png'):
     fig.savefig(os.path.join(OUT, 'overview.%s' % ext), format=ext, dpi=300, bbox_inches='tight')
-# Every panel on its own as well, for the README (the panel's tight box, padded).
-fig.canvas.draw()
-renderer = fig.canvas.get_renderer()
-for name, ax in (('A_domains_share_circuits', axes[0, 0]), ('B_per_task_real_minus_null', axes[0, 1]),
-                 ('C_domain_circuits_real_minus_null', axes[0, 2]), ('D_heldout_enrichment', axes[0, 3]),
-                 ('E_shared_circuits_shared_networks', axes[1, 0]), ('F_same_domain_closer', axes[1, 1]),
-                 ('G_enriched_networks', axes[1, 2])):
-    box = ax.get_tightbbox(renderer).transformed(fig.dpi_scale_trans.inverted()).expanded(1.04, 1.06)
-    for ext in ('svg', 'png'):
-        fig.savefig(os.path.join(OUT, 'panel_%s.%s' % (name, ext)), format=ext, dpi=300, bbox_inches=box)
 keys = []
 for r in out_rows:
     for k in r:
@@ -306,4 +296,4 @@ with open(os.path.join(HERE, 'circuits_networks.csv'), 'w', newline='') as f:
     w = csv.DictWriter(f, fieldnames=keys)
     w.writeheader()
     w.writerows(out_rows)
-print('wrote plots/circuits_vs_networks/overview + panels and figures/circuits_networks.csv')
+print('wrote plots/circuits_vs_networks/supplementary/overview and figures/circuits_networks.csv')
