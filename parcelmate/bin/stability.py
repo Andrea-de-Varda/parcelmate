@@ -75,10 +75,13 @@ def main():
     ap.add_argument('--variant', default='final')
     ap.add_argument('--seed', type=int, default=42)
     ap.add_argument('--n-init', type=int, default=10)
+    ap.add_argument('--datasets', nargs='+', default=None, help='restrict to these datasets')
     args = ap.parse_args()
     os.makedirs(args.out, exist_ok=True)
     rng = np.random.RandomState(args.seed)
     parts, layer, k = load(args.trees, args.variant)
+    if args.datasets:
+        parts = {key: v for key, v in parts.items() if key[1] in args.datasets}
     datasets = sorted({d for (_, d, _) in parts})
     stderr('%d partitions, datasets %s, k = %d, %d units\n' % (len(parts), ', '.join(datasets), k, len(layer)))
 
