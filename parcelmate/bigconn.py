@@ -250,6 +250,29 @@ def roll_rows(x, offsets, sub=1024):
 
 # ---------------------------------------------------------------------------- correlation
 
+def fit_block(block, N, T, n_s, n_trees, device, margin=0.7, step=1024):
+    """Largest row block (a multiple of `step`, at most `block`) whose working set fits in
+    `margin` of the device's free memory (LOG.md Iteration 36: the 4B agnews half ran out of
+    memory on a 40 GB A100 with the 8,192-row block sized for 80 GB cards).
+
+    Per row of a block, float32: the accumulators (n_trees x N), the block's rows for every
+    sample, real and rolled (2 x n_s x T), and the column temporaries (about 3 x T); plus
+    the int64 roll index (1,024 x T) and the r tiles. The block size changes no value: each
+    correlation is still one dot product over all T tokens.
+    """
+    block = int(min(block, N))
+    if not (torch.cuda.is_available() and str(device).startswith('cuda')):
+        return block
+    free, _ = torch.cuda.mem_get_info(torch.device(device))
+    fixed = 8 * 1024 * T
+    while block > step:
+        need = 4 * block * (n_trees * N + 2 * n_s * T + 3 * T) + 3 * 4 * block * block + fixed
+        if need <= margin * free:
+            break
+        block -= step
+    return max(block, min(step, N))
+
+
 def write_tiled_half(zs, offsets, out_real, out_null, stats, provenance, eps=1e-3,
                      block=DEFAULT_BLOCK, device=None, verbose=True, indent=0):
     """Fisher-mean correlation of the samples in `zs`, real and circularly shifted, as
@@ -265,9 +288,11 @@ def write_tiled_half(zs, offsets, out_real, out_null, stats, provenance, eps=1e-
     Ts = [z.shape[1] for z in zs]   # samples may differ in length (pooled domains)
     T = min(Ts)
     n_s = len(zs)
-    block = int(min(block, N))
     write_null = out_null is not None
     assert not write_null or len(offsets) == n_s
+    block = fit_block(block, N, max(Ts), n_s, 1 + int(write_null), device)
+    if verbose:
+        stderr('%sGPU tile: %d rows\n' % (' ' * indent, block))
     tf32 = torch.backends.cuda.matmul.allow_tf32
     torch.backends.cuda.matmul.allow_tf32 = True
     files = {}
