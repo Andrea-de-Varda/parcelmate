@@ -1081,6 +1081,27 @@ Andrea: the summary figures did not convey the concepts (effective networks, tar
 
 **Submitted 2026-10-06 at commit `acc1b2d`.** A/B/C on 2B: 17742734 (`stability.qwen3.5-2b`, john, 8 cores, 48 GB) over the k = 100 partitions of wikitext, bookcorpus (qwen3.5-2b) and agnews, tldr17, codeparrot (qwen3.5-2b-rest), real and null, into `results/qwen35/stability_2b/`. 4B: agnews connectivity resubmitted (17742735; the four agnews parcellations 17671278-81 re-pointed to it with `scontrol update`), D 17742744 (`network_generality.qwen3.5-4b-rest`, john, 24 h, 64 GB) after the half-A parcellations of agnews, tldr17 and codeparrot (bookcorpus's done), and the 4B score and purge 17671295 now also waits for D, so the tiles are read before deletion. A first submission of D failed on a dependency on bookcorpus jobs finished days earlier, which SLURM no longer knew.
 
+**Results, 2B (job 17742734, 7 min; `results/qwen35/stability_2b/`).** Five datasets, k = 100, real and null partitions.
+
+Median best-match Dice of a network, fitted on the row dataset, in the column dataset (diagonal: the other half of the same dataset):
+
+| fit \\ in | wikitext | bookcorpus | agnews | tldr17 | codeparrot |
+|---|---|---|---|---|---|
+| wikitext | 0.78 | 0.07 | 0.09 | 0.08 | 0.04 |
+| bookcorpus | 0.07 | 0.84 | 0.05 | 0.10 | 0.03 |
+| agnews | 0.09 | 0.04 | 0.82 | 0.06 | 0.03 |
+| tldr17 | 0.07 | 0.10 | 0.06 | 0.72 | 0.03 |
+| codeparrot | 0.04 | 0.03 | 0.03 | 0.03 | 0.14 |
+
+Layer-shuffled chance is 0.025. Same-tree and cross-tree pairs alike (agnews-tldr17 0.056), so no unit-order artefact; the closest pairs follow genre (wikitext-agnews, bookcorpus-tldr17).
+- **A.** Networks are highly reliable within a prose dataset (Dice 0.72-0.84) and almost entirely dataset-specific across datasets: median generality 0.06 (10th-90th percentile 0.02-0.16); only 4.1% of networks have a mean across-dataset Dice above 0.2, 0.8% above 0.3, maximum 0.41. 30% are "present" (above chance + 3 sd) in all four other datasets, but at very small Dice. Generality is unrelated to how many layers a network spans (r = 0.00). The null partition's networks do not reproduce even within a dataset (Dice 0.07, at chance), so their generality ratio is meaningless.
+- **B.** Meta-networks reaching at least 4 of 5 datasets: 19 (half A) and 20 (half B), 5 and 3 reaching all five; their cores hold 4,473 and 5,536 units (3-4% of 147,456; median core 151-200 units) and reproduce across half sets with median core Dice 0.53. The null partition has 4, large (about 1,200 units) and less reproducible (0.43).
+- **C.** Consensus over the five datasets: ARI between half sets 0.14, against 0.54 for single datasets; only 1.8-2.0% of units sit with their consensus network in at least 4 of 5 datasets (layer-shuffled chance 0.4%); unit scores correlate 0.53 between half sets.
+- **Codeparrot at 2B is not reproducible even within itself**: split-half Dice 0.14, reliability ARI 0.074 (prose 0.60-0.72), connectome split-half fidelity ceiling r = 0.55 (prose 0.96-0.99), although the restart-split ceiling is 0.82, so the clustering is stable and the code connectome itself differs between halves. Its circuit-comparison results (Iteration 35) rest on unreliable networks.
+- **Connectome level** (2B-rest scores, already on disk): the raw half A of one prose dataset predicts the half B of another at r = 0.27 (agnews-tldr17), against 0.96-0.99 within; networks fitted on one dataset predict the other dataset's connectome WORSE than the null partition does (0.14 and 0.15 against 0.17 and 0.21). So what transfers across datasets is captured as well by neuron-level properties as by the networks.
+
+**Reading.** Andrea's premise holds in part: the connectome is partly shared across datasets (r about 0.27 between prose datasets). But at the level of network membership the shared part is small: about 20 meta-networks with cores covering 3-4% of units recur across at least four datasets, reproducibly. The rest of the k = 100 partition is reliable but dataset-specific. And across datasets, the networks predict the other connectome no better than a partition built from neuron-level properties.
+
 ## Decisions made
 
 - 2026-09-23 (training-dynamics measures): **describe the network, not only its quality: dimensionality, coupling, hubs, segregation, connectome similarity, firing rates, token-class selectivity with string-defined classes, loss, and the partition-only measures; 70m first; the null connectome not recomputed.** Rejected by Andrea: sign-based measures. Iteration 28.
@@ -1355,6 +1376,8 @@ Every code change to the repo, newest last. Format: date — files — what and 
 - 2026-10-01 -- **Iteration 36**: [figures/export_circuit_figdata.py](../figures/export_circuit_figdata.py), [figures/make_circuits_explained.py](../figures/make_circuits_explained.py) (new), [figures/make_circuits_figure.py](../figures/make_circuits_figure.py) (output to `supplementary/`, no single panels), [plots/circuits_vs_networks/README.md](../plots/circuits_vs_networks/README.md) rewritten.
 
 - 2026-10-06 -- **Iteration 36**: [parcelmate/stability.py](../parcelmate/stability.py) (new), [parcelmate/bin/stability.py](../parcelmate/bin/stability.py) (new), [parcelmate/bin/network_generality.py](../parcelmate/bin/network_generality.py) (new), [tests/verify_iter18_stability.py](../tests/verify_iter18_stability.py) (new, 13), [parcelmate/bigconn.py](../parcelmate/bigconn.py) (`fit_block`, memory-adaptive GPU tile). Suites 32 and 11 unchanged.
+
+- 2026-10-06 -- pulled `results/qwen35/stability_2b/` and `results/qwen35/qwen3.5-2b-rest/metrics/`; Iteration 36 results recorded.
 
 ## Cluster
 
