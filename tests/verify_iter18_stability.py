@@ -152,6 +152,20 @@ check('D: network_cohesion = within minus mean between; a network cohesive in X 
       cx[('X', 0)] > 0.25 and cx[('Y', 0)] > 0.25 and cx[('X', 1)] > 0.25 and abs(cx[('Y', 1)]) < 0.05
       and np.allclose(network_cohesion(np.array([[3., 1.], [1., 2.]]))[0], [2., 1.]))
 
+# stable sets vs circuits
+from parcelmate.stability import set_enrichment, set_graded
+S = np.zeros(N, dtype=bool); S[stable_units] = True
+circ_in = rng.choice(stable_units, 60, replace=False)
+circ_rand = rng.choice(N, 60, replace=False)
+e_in = set_enrichment(circ_in, S, W, L, 500, np.random.RandomState(5))
+e_rand = set_enrichment(circ_rand, S, W, L, 500, np.random.RandomState(6))
+att = rng.randn(N); att[stable_units] += 1.0
+gi = set_graded(att, S, W, L, 100, np.random.RandomState(7))
+g0 = set_graded(rng.randn(N), S, W, L, 100, np.random.RandomState(8))
+check('stable-set enrichment: exact layer-matched expectation, a circuit inside the set is enriched, a random one is not',
+      abs(e_in['expected'] - 0.4) < 1e-9 and e_in['ratio'] > 2 and e_in['p'] < 0.01 and e_rand['p'] > 0.01
+      and gi['p'] < 0.01 and gi['rank_diff'] > 0 and g0['p'] > 0.01)
+
 # CLI
 for d in datasets:
     for tree, sfx in (('real', ''), ('null', '_null')):

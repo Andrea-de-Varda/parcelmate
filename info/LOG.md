@@ -1102,6 +1102,8 @@ Layer-shuffled chance is 0.025. Same-tree and cross-tree pairs alike (agnews-tld
 
 **Reading.** Andrea's premise holds in part: the connectome is partly shared across datasets (r about 0.27 between prose datasets). But at the level of network membership the shared part is small: about 20 meta-networks with cores covering 3-4% of units recur across at least four datasets, reproducibly. The rest of the k = 100 partition is reliable but dataset-specific. And across datasets, the networks predict the other connectome no better than a partition built from neuron-level properties.
 
+**Hypothesis test: do circuits favour the stable networks? (Andrea's go, 2026-10-06; codeparrot kept with the caveat that its networks are unreliable at 2B; D at 4B kept as chained.)** [parcelmate/bin/stable_circuits.py](../parcelmate/bin/stable_circuits.py) with `set_enrichment` and `set_graded` in [parcelmate/stability.py](../parcelmate/stability.py) (one check added, 14 in [tests/verify_iter18_stability.py](../tests/verify_iter18_stability.py)); run locally (CSV and attribution files only), outputs in `results/qwen35/stability_2b/circuits/`. Stable sets: B cores of meta-networks reaching at least 4 of 5 datasets (3.0-3.8% of units) and C consensus cores (score >= 0.8, 1.8-2.0%); the same from the null partitions as reference. **Result: not supported.** (i) Circuits put FEWER units into the stable cores than layer-matched chance: B cores 0.86x (0.1%) and 0.90x (1%), C cores 0.79x and 0.72x, under 1 for most tasks (p of enrichment 0.75-0.94); on all units the attribution rank inside the cores is higher by a negligible +0.002-0.003 (p 0.005-0.025), the same as for the null partition's cores (+0.001-0.002, p 0.02-0.04). (ii) Within each dataset's partition, a network's cross-dataset generality does not predict its circuit enrichment: partial Spearman (on size and layer span) about 0 for wikitext, bookcorpus, agnews and codeparrot (-0.17 to +0.21) and +0.29 to +0.32 only for tldr17. So the circuits sit in the dataset-specific part of the partitions as much as, or more than, in the stable part.
+
 ## Decisions made
 
 - 2026-09-23 (training-dynamics measures): **describe the network, not only its quality: dimensionality, coupling, hubs, segregation, connectome similarity, firing rates, token-class selectivity with string-defined classes, loss, and the partition-only measures; 70m first; the null connectome not recomputed.** Rejected by Andrea: sign-based measures. Iteration 28.
@@ -1378,6 +1380,8 @@ Every code change to the repo, newest last. Format: date — files — what and 
 - 2026-10-06 -- **Iteration 36**: [parcelmate/stability.py](../parcelmate/stability.py) (new), [parcelmate/bin/stability.py](../parcelmate/bin/stability.py) (new), [parcelmate/bin/network_generality.py](../parcelmate/bin/network_generality.py) (new), [tests/verify_iter18_stability.py](../tests/verify_iter18_stability.py) (new, 13), [parcelmate/bigconn.py](../parcelmate/bigconn.py) (`fit_block`, memory-adaptive GPU tile). Suites 32 and 11 unchanged.
 
 - 2026-10-06 -- pulled `results/qwen35/stability_2b/` and `results/qwen35/qwen3.5-2b-rest/metrics/`; Iteration 36 results recorded.
+
+- 2026-10-06 -- [parcelmate/stability.py](../parcelmate/stability.py) (`set_enrichment`, `set_graded`), [parcelmate/bin/stable_circuits.py](../parcelmate/bin/stable_circuits.py) (new), [tests/verify_iter18_stability.py](../tests/verify_iter18_stability.py) (14); stable-set circuit test run on 2B.
 
 ## Cluster
 

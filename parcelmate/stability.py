@@ -249,3 +249,46 @@ def cohesion_across(matrices, partitions):
                 rows.append(dict(fit=d, tree=tree, eval=e, network=i, size=int(size[i]),
                                  within=float(w[i]), between=float(b[i]), cohesion=float(coh[i])))
     return rows
+
+
+# ---------------------------------------------------------------------------- stable sets vs circuits
+
+def set_enrichment(circuit, in_set, width, n_layers, n_draws=1000, rng=None):
+    """Share of a circuit's units inside a unit set, against layer-matched random sets.
+
+    Returns observed share, expected share (exact: per layer, the set's share of that layer,
+    weighted by the circuit's per-layer counts), their ratio, and a one-sided p from
+    `n_draws` layer-matched draws (Iteration 36: do circuits favour the stable cores?).
+    """
+    from parcelmate.circuits import layer_matched_draws
+    rng = rng or np.random.RandomState(0)
+    circuit = np.asarray(circuit)
+    in_set = np.asarray(in_set, dtype=bool)
+    per_layer = np.bincount(circuit // width, minlength=n_layers)
+    frac = in_set.reshape(n_layers, width).mean(1)
+    exp_ = float((per_layer * frac).sum() / len(circuit))
+    obs = float(in_set[circuit].mean())
+    draws = layer_matched_draws(circuit, width, n_layers, n_draws, rng)
+    null = in_set[draws].mean(1)
+    return dict(observed=obs, expected=exp_, ratio=obs / exp_ if exp_ > 0 else np.nan,
+                p=float((1 + (null >= obs).sum()) / (1 + n_draws)))
+
+
+def set_graded(attribution, in_set, width, n_layers, n_perm=1000, rng=None):
+    """Mean attribution rank (0-1, layer means removed) of units in a set minus outside it,
+    with a one-sided p from permuting set membership within each layer."""
+    from scipy import stats as _st
+    rng = rng or np.random.RandomState(0)
+    a = np.asarray(attribution, dtype=np.float64).ravel()
+    r = _st.rankdata(a) / a.size
+    R = r.reshape(n_layers, width)
+    R = (R - R.mean(1, keepdims=True)).ravel()
+    S = np.asarray(in_set, dtype=bool).reshape(n_layers, width)
+
+    def diff(m):
+        m = m.ravel()
+        return R[m].mean() - R[~m].mean() if m.any() and (~m).any() else np.nan
+    obs = diff(S)
+    null = np.array([diff(np.stack([rng.permutation(row) for row in S])) for _ in range(n_perm)])
+    return dict(rank_diff=float(obs), null_sd=float(np.nanstd(null)),
+                p=float((1 + (null >= obs).sum()) / (1 + n_perm)))
