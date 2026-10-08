@@ -40,13 +40,14 @@ import torch
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 from parcelmate.bigconn import _mlp_hooks
 from parcelmate.data import get_dataset
-from parcelmate.model import domain_data_kwargs, get_model_and_tokenizer
+from parcelmate.model import domain_data_kwargs, get_model_and_tokenizer, mlp_projections
 from parcelmate.util import derive_seed, stderr
 
 DATASETS = ['wikitext', 'bookcorpus', 'agnews', 'tldr17', 'codeparrot']
 PROSE = DATASETS[:4]
 SEQ = 1024
 CHUNK = 64
+LAYER_WIDTH = None   # set from the model
 
 
 def load_portions(tokenizer, n_tok, seed, take, ref_mult=1):
@@ -140,6 +141,8 @@ def main():
         T = {(d, p): data[d][p].reshape(-1).to(dev) for d in DATASETS for p in ('A', 'B', 'ref')}
         pos = torch.arange(SEQ, device=dev).repeat(args.tokens // SEQ)
         N = X[(DATASETS[0], 'A')].shape[1]
+        global LAYER_WIDTH
+        LAYER_WIDTH = N // len(mlp_projections(model))
         g = torch.Generator(device='cpu').manual_seed(0)
         pi = torch.randint(0, N, (args.pairs,), generator=g)
         pj = torch.randint(0, N, (args.pairs,), generator=g)
@@ -197,6 +200,13 @@ def main():
                 return x, None
             if name == 'tokres':
                 return (x - mu(t))[seen], None
+            if name.startswith('cm:'):
+                # C7 (iteration 2): a per-token gain shared by all units of a layer (layer
+                # norm, residual-stream scale). Remove each token's mean over the units of
+                # each layer from whatever the base variant leaves.
+                Y, w = variant(name[3:], d, p)
+                Z = Y.float().reshape(Y.shape[0], -1, LAYER_WIDTH)
+                return (Z - Z.mean(2, keepdim=True)).reshape(Y.shape[0], -1), w
             if name == 'tokres20':
                 ok = cnt[t] >= 20
                 return (x - mu(t))[ok], None
