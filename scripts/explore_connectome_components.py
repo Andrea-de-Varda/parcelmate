@@ -48,6 +48,7 @@ PROSE = DATASETS[:4]
 SEQ = 1024
 CHUNK = 64
 LAYER_WIDTH = None   # set from the model
+SHARED_MIN = 5
 
 
 def load_portions(tokenizer, n_tok, seed, take, ref_mult=1):
@@ -187,11 +188,32 @@ def main():
         nu_tab /= torch.clamp(nu_cnt, min=1)[:, None]
         nu = lambda t: nu_tab[look[t].clamp(min=0)]
         stderr('  reference statistics: %d types, %d windows, %.0f s\n' % (len(types), n_win, time.time() - t0))
+        # Shared vocabulary (iteration 3): token types seen at least SHARED_MIN times in the
+        # reference portion of EVERY prose dataset.
+        ref_cnt = torch.stack([torch.bincount(data[d]['ref'].reshape(-1).to(dev), minlength=V) for d in PROSE])
+        shared = (ref_cnt >= SHARED_MIN).all(0)
+        stderr('  shared vocabulary: %d types\n' % int(shared.sum()))
+        target_sh = torch.where(shared, ref_cnt.float().sum(0), torch.zeros(V, device=dev))
+        target_sh = target_sh / target_sh.sum()
         target = torch.tensor(np.mean([uni[d] for d in PROSE], 0), device=dev, dtype=torch.float32)
 
         def chunk_res(Y):
             Z = Y.reshape(-1, CHUNK, N)
             return (Z - Z.mean(1, keepdim=True)).reshape(-1, N)
+
+        def residual(name, x, t):
+            """Full-length residual and the mask of tokens it is defined for."""
+            seen = cnt[t] >= args.min_count
+            if name in ('tokres', 'tokres+posres'):
+                R, m = x - mu(t), seen
+            elif name in ('ctxres', 'ctxres+posres'):
+                prev = torch.roll(t, 1)
+                R, m = x - mu(t) - nu(prev), seen & (cnt[prev] >= args.min_count) & (pos > 0)
+            else:
+                raise ValueError(name)
+            if name.endswith('+posres'):
+                R = R - pos_mu[pos] + pos_mu.mean(0)
+            return R, m
 
         def variant(name, d, p):
             x, t = X[(d, p)].float(), T[(d, p)]
@@ -207,6 +229,26 @@ def main():
                 Y, w = variant(name[3:], d, p)
                 Z = Y.float().reshape(Y.shape[0], -1, LAYER_WIDTH)
                 return (Z - Z.mean(2, keepdim=True)).reshape(Y.shape[0], -1), w
+            if name.startswith('sh:') or name.startswith('shfm:') or name.endswith('+winres') and name.startswith('ctx'):
+                # Iteration 3 modifiers on a residual variant (tokres, ctxres, with or
+                # without +posres): sh: keep only shared-vocabulary tokens; shfm: also reweight
+                # them to the pooled shared-type frequencies (weights capped at 5); +winres:
+                # remove each unit's mean per 64-token chunk from the residual.
+                prefix, base_name = (name.split(':', 1) if ':' in name else ('', name))
+                win = base_name.endswith('+winres')
+                if win:
+                    base_name = base_name[:-len('+winres')]
+                R, m = residual(base_name, x, t)
+                if win:
+                    R = chunk_res(R * m[:, None])
+                if prefix in ('sh', 'shfm'):
+                    m = m & shared[t] & (pos > 0)
+                w = None
+                if prefix == 'shfm':
+                    tt = t[m]
+                    ht = torch.bincount(tt, minlength=V).float()
+                    w = torch.clamp(target_sh[tt] / (ht[tt] / len(tt)), max=5.0)
+                return R[m], w
             if name == 'tokres20':
                 ok = cnt[t] >= 20
                 return (x - mu(t))[ok], None
