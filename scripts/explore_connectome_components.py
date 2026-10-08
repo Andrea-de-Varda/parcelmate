@@ -49,18 +49,19 @@ SEQ = 1024
 CHUNK = 64
 
 
-def load_portions(tokenizer, n_tok, seed, take):
+def load_portions(tokenizer, n_tok, seed, take, ref_mult=1):
     out = {}
     for d in DATASETS:
         kw = domain_data_kwargs(d)
         kw['tokenizer'] = tokenizer
-        ids, mask = get_dataset(n_tokens=3 * n_tok, seq_len=SEQ, take=take.get(d, 20000), seed=derive_seed(seed, 'data', d),
-                                verbose=False, **kw)
+        ids, mask = get_dataset(n_tokens=(2 + ref_mult) * n_tok, seq_len=SEQ, take=take.get(d, 20000),
+                                seed=derive_seed(seed, 'data', d), verbose=False, **kw)
         ids = ids[mask.sum(1) == SEQ]
         n = n_tok // SEQ
-        assert len(ids) >= 3 * n, '%s: only %d full windows' % (d, len(ids))
-        out[d] = {'A': ids[:n], 'B': ids[n:2 * n], 'ref': ids[2 * n:3 * n]}
-        stderr('  %s: %d windows per portion\n' % (d, n))
+        n_ref = min(ref_mult * n, len(ids) - 2 * n)
+        assert n_ref >= n, '%s: only %d full windows' % (d, len(ids))
+        out[d] = {'A': ids[:n], 'B': ids[n:2 * n], 'ref': ids[2 * n:2 * n + n_ref]}
+        stderr('  %s: %d windows per half, %d reference windows\n' % (d, n, n_ref))
     return out
 
 
@@ -110,6 +111,7 @@ def main():
     ap.add_argument('--tokens', type=int, default=40960)
     ap.add_argument('--pairs', type=int, default=2_000_000)
     ap.add_argument('--min-count', type=int, default=3)
+    ap.add_argument('--ref-mult', type=int, default=1, help='reference portion = this many halves')
     ap.add_argument('--variants', nargs='+', default=None)
     ap.add_argument('--seed', type=int, default=42)
     ap.add_argument('--out', required=True)
@@ -118,7 +120,8 @@ def main():
     torch.backends.cuda.matmul.allow_tf32 = False
     t0 = time.time()
     _, tok = get_model_and_tokenizer(args.model, revision='step%s' % args.steps[-1])
-    data = load_portions(tok, args.tokens, args.seed, {'wikitext': 60000, 'codeparrot': 3000})
+    data = load_portions(tok, args.tokens, args.seed, {'wikitext': 150000, 'codeparrot': 8000, 'agnews': 60000,
+                                                       'tldr17': 40000, 'bookcorpus': 60000}, args.ref_mult)
     stderr('data loaded, %.0f s\n' % (time.time() - t0))
 
     # token classes for C6 (alphabetic word tokens)
@@ -133,7 +136,7 @@ def main():
     for step in args.steps:
         model, _ = get_model_and_tokenizer(args.model, revision='step%s' % step)
         model.to(dev).eval()
-        X = {(d, p): activations(model, data[d][p], dev) for d in DATASETS for p in ('A', 'B', 'ref')}
+        X = {(d, p): activations(model, data[d][p], dev) for d in DATASETS for p in ('A', 'B')}
         T = {(d, p): data[d][p].reshape(-1).to(dev) for d in DATASETS for p in ('A', 'B', 'ref')}
         pos = torch.arange(SEQ, device=dev).repeat(args.tokens // SEQ)
         N = X[(DATASETS[0], 'A')].shape[1]
@@ -144,29 +147,43 @@ def main():
         pi, pj = pi[keep].to(dev), pj[keep].to(dev)
         stderr('step %s: activations %.0f s, %d units\n' % (step, time.time() - t0, N))
 
-        # reference statistics: per-type means pooled over all datasets' reference portions,
-        # per-type means per dataset, per-position means
+        # Reference statistics, streamed over the reference windows (never stored):
+        # per-type means pooled over all datasets (first pass), per-position means, and the
+        # mean residual (x - type mean) by PREVIOUS token type (second pass).
         ref_ids = torch.cat([T[(d, 'ref')] for d in DATASETS])
-        ref_x = torch.cat([X[(d, 'ref')] for d in DATASETS]).float()
-
-        def type_means(ids, x):
-            """Per-type means over the types present, as a lookup: (index of every vocab id
-            into the table or -1, table, counts per vocab id)."""
-            types, inv = torch.unique(ids, return_inverse=True)
-            tab = torch.zeros(len(types), N, device=dev).index_add_(0, inv, x)
-            c = torch.bincount(inv, minlength=len(types)).float()
-            tab /= c[:, None]
-            look = torch.full((V,), -1, dtype=torch.long, device=dev)
-            look[types] = torch.arange(len(types), device=dev)
-            counts = torch.zeros(V, device=dev)
-            counts[types] = c
-            return look, tab, counts
-
-        look, tab, cnt = type_means(ref_ids, ref_x)
+        types, inv = torch.unique(ref_ids, return_inverse=True)
+        look = torch.full((V,), -1, dtype=torch.long, device=dev)
+        look[types] = torch.arange(len(types), device=dev)
+        cnt = torch.zeros(V, device=dev)
+        cnt[types] = torch.bincount(inv, minlength=len(types)).float()
+        tab = torch.zeros(len(types), N, device=dev)
+        pos_sum = torch.zeros(SEQ, N, device=dev)
+        n_win = 0
+        for d in DATASETS:
+            ids = data[d]['ref']
+            for i in range(0, len(ids), 8):
+                x = activations(model, ids[i:i + 8], dev).float()
+                t = ids[i:i + 8].reshape(-1).to(dev)
+                tab.index_add_(0, look[t], x)
+                pos_sum += x.reshape(-1, SEQ, N).sum(0)
+                n_win += x.shape[0] // SEQ
+        tab /= torch.clamp(cnt[types], min=1)[:, None]
+        pos_mu = pos_sum / n_win
         mu = lambda t: tab[look[t].clamp(min=0)]
-        own = {d: type_means(T[(d, 'ref')], X[(d, 'ref')].float()) for d in DATASETS}
-        pos_mu = ref_x.reshape(-1, SEQ, N).mean(0)
-        del ref_x
+        nu_tab = torch.zeros(len(types), N, device=dev)
+        nu_cnt = torch.zeros(len(types), device=dev)
+        for d in DATASETS:
+            ids = data[d]['ref']
+            for i in range(0, len(ids), 8):
+                x = activations(model, ids[i:i + 8], dev).float().reshape(-1, SEQ, N)
+                t = ids[i:i + 8].to(dev)
+                r = (x - mu(t.reshape(-1)).reshape(x.shape))[:, 1:].reshape(-1, N)
+                prev = look[t[:, :-1].reshape(-1)]
+                nu_tab.index_add_(0, prev, r)
+                nu_cnt += torch.bincount(prev, minlength=len(types)).float()
+        nu_tab /= torch.clamp(nu_cnt, min=1)[:, None]
+        nu = lambda t: nu_tab[look[t].clamp(min=0)]
+        stderr('  reference statistics: %d types, %d windows, %.0f s\n' % (len(types), n_win, time.time() - t0))
         target = torch.tensor(np.mean([uni[d] for d in PROSE], 0), device=dev, dtype=torch.float32)
 
         def chunk_res(Y):
@@ -180,10 +197,29 @@ def main():
                 return x, None
             if name == 'tokres':
                 return (x - mu(t))[seen], None
-            if name == 'tokres_own':
-                lk, tb, cn = own[d]
-                ok = cn[t] >= args.min_count
-                return (x - tb[lk[t].clamp(min=0)])[ok], None
+            if name == 'tokres20':
+                ok = cnt[t] >= 20
+                return (x - mu(t))[ok], None
+            if name in ('ctxres', 'ctxres+posres', 'ctxres+freqmatch'):
+                prev = torch.roll(t, 1)
+                first = pos == 0
+                ok = seen & (cnt[prev] >= args.min_count) & ~first
+                r = x - mu(t) - nu(prev)
+                if name == 'ctxres+posres':
+                    r = r - pos_mu[pos] + pos_mu.mean(0)
+                w = None
+                if name == 'ctxres+freqmatch':
+                    ht = torch.bincount(t[ok], minlength=V).float()
+                    w = torch.clamp(target[t[ok]] / (ht[t[ok]] / ok.sum()), max=20.0)
+                return r[ok], w
+            if name == 'tokres+freqmatch':
+                ht = torch.bincount(t[seen], minlength=V).float()
+                w = torch.clamp(target[t[seen]] / (ht[t[seen]] / seen.sum()), max=20.0)
+                return (x - mu(t))[seen], w
+            if name == 'tokres+posres+freqmatch':
+                ht = torch.bincount(t[seen], minlength=V).float()
+                w = torch.clamp(target[t[seen]] / (ht[t[seen]] / seen.sum()), max=20.0)
+                return (x - mu(t) - pos_mu[pos] + pos_mu.mean(0))[seen], w
             if name == 'tokmean':
                 return mu(t)[seen], None
             if name == 'freqmatch':
@@ -211,8 +247,9 @@ def main():
                 return (x - mu(t))[m], None
             raise ValueError(name)
 
-        names = args.variants or ['base', 'tokmean', 'tokres', 'tokres_own', 'freqmatch', 'posres', 'winres', 'rank',
-                                  'wordonly', 'tokres+winres', 'tokres+posres', 'tokres+rank', 'tokres+wordonly']
+        names = args.variants or ['base', 'tokmean', 'tokres', 'tokres20', 'freqmatch', 'posres', 'winres', 'rank',
+                                  'wordonly', 'tokres+winres', 'tokres+posres', 'tokres+rank', 'tokres+wordonly',
+                                  'tokres+freqmatch', 'tokres+posres+freqmatch', 'ctxres', 'ctxres+posres', 'ctxres+freqmatch']
         for name in names:
             vec = {}
             for d in DATASETS:
@@ -235,8 +272,13 @@ def main():
             ac = np.mean([x['r'] for x in pr if x['kind'] == 'across' and 'codeparrot' in (x['fit'], x['eval'])])
             stderr('  step %-6s %-16s prose within %.3f across %.3f (ratio %.2f) | code within %.3f, prose<->code %.3f   [%.0f s]\n' % (
                 step, name, w, a, a / w, wc, ac, time.time() - t0))
-        del X, tab, own
+        del X, tab, nu_tab
         torch.cuda.empty_cache()
+        os.makedirs(os.path.dirname(args.out), exist_ok=True)
+        with open(args.out, 'w', newline='') as f:
+            wr = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+            wr.writeheader()
+            wr.writerows(rows)
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
     with open(args.out, 'w', newline='') as f:
         wr = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
