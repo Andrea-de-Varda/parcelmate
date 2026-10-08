@@ -1168,7 +1168,16 @@ Findings. (a) **The ordinary connectome is a token-identity connectome**: replac
 
 **Reading.** Within/across asymmetry = the connectome is dominated by which tokens occur and how often (a shallow, tf-like component present at initialisation), plus position. The context-dependent co-activation left after removing them (the "residual connectome") is the candidate object for the networks: trained-specific, reliable within a dataset (0.98) and largely shared across prose datasets (0.80). The remaining across gap (0.98 vs 0.80) could not be reduced by frequency or vocabulary controls and may be genuine genre-specific processing.
 
-**4.** Codeparrot excluded from the consensus and stability definitions (kept elsewhere with the reliability caveat). **2** retained: co-membership and label-transfer fidelity as the stability metrics. **5** (patching against consensus networks) not yet run.
+**4.** Codeparrot excluded from the consensus and stability definitions (kept elsewhere with the reliability caveat). **2** retained: co-membership and label-transfer fidelity as the stability metrics. **5** run, see below.
+
+**5. Patching circuits against the cross-dataset consensus networks** ([parcelmate/bin/consensus_tree.py](../parcelmate/bin/consensus_tree.py) writes the half-A and half-B consensus labels, real and null, as a partition tree with text domain `consensus`; job 17755945: `compare_circuits` and `graded_circuits` unchanged; `paired_circuits` and held-out enrichment run locally; `results/qwen35/consensus_2b_prose_tree/circuits/`). Qwen3.5-2B, 27 tasks, 0.1% circuits unless noted, real against null-partition consensus:
+- Concentration against layer-matched chance: real median z -2.7 and -1.9 (59-70% of tasks), but the null consensus is as concentrated (-3.2 and -2.6, 59-74%); **the paired real - null test fails** (22-37% of tasks real < null), as on the pooled networks (Iteration 33), so the entropy measure again cannot separate the two.
+- Shared structure (non-shared units): Spearman 0.48 and 0.46 real against 0.29 and 0.34 null; same-domain excess 0.10 and 0.09 against 0.07 and 0.09. Real above null, but the null consensus is less of a floor than the null partitions of single datasets (0.08-0.24).
+- Enriched task x network pairs (1%): 115 and 112 real against 70 and 60 null.
+- Graded, all units: real explains attribution beyond layer for 44-48% of tasks against 7-22% null; real > null for 78-85% of tasks (p 0.007 and 0.0005).
+- Held-out enrichment (top 5 networks): Language 2.73x (null 2.02x), Formal 2.12x (2.04x), Social 1.69x (1.22x), Physical 2.66x (1.95x).
+
+Reading: the consensus networks carry the circuits about as well as the single-dataset networks (relational, enrichment and graded measures real above null; Language and Physical held-out enrichment as high as before), but not better; the null-partition consensus is a stronger competitor than single-dataset null partitions, because a consensus of null partitions also averages out their noise and keeps what is common to them: neuron-level properties.
 
 ## Decisions made
 
@@ -1452,6 +1461,8 @@ Every code change to the repo, newest last. Format: date — files — what and 
 - 2026-10-07 -- **Iteration 37**: [scripts/diag_partition_fragility_1.py](../scripts/diag_partition_fragility_1.py), [scripts/diag_partition_fragility_2.py](../scripts/diag_partition_fragility_2.py) (new, local diagnostics on the GPT-2 final arm), [parcelmate/bin/stability.py](../parcelmate/bin/stability.py) (`--datasets`); `results/qwen35/stability_2b_prose/` (job 17751005) and its circuit test.
 
 - 2026-10-07 -- **Iteration 38**: [parcelmate/bin/restart_consensus.py](../parcelmate/bin/restart_consensus.py) (new), `restart_consensus` in [parcelmate/stability.py](../parcelmate/stability.py), [tests/verify_iter18_stability.py](../tests/verify_iter18_stability.py) (15), [scripts/explore_connectome_components.py](../scripts/explore_connectome_components.py) (new), [scripts/launch_explore.sh](../scripts/launch_explore.sh) (new), [figures/explore_connectome_run1.csv](../figures/explore_connectome_run1.csv), `run2`, `run3`, [figures/consensus_2b_prose_summary.csv](../figures/consensus_2b_prose_summary.csv). Runs 17754869 (OOM in the rank transform, fixed by chunking) and 17754918, 17755142, 17755521; consensus 17754876.
+
+- 2026-10-07 -- [parcelmate/bin/consensus_tree.py](../parcelmate/bin/consensus_tree.py) (new); item 5 of Iteration 38 run (17755945), results recorded.
 
 ## Cluster
 
