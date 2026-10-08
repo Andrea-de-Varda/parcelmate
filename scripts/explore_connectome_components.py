@@ -98,6 +98,34 @@ def connectome_vec(X, pair_i, pair_j, w=None):
     return v.cpu().numpy()
 
 
+def partition(X, k=100, n_init=4, seed=0, w=None):
+    """The confirmed pipeline on a full |r| connectome of the columns of X (iteration 4):
+    Fisher, zero diagonal, row z-score, top 10% per row, PCA-100 unwhitened, k-means."""
+    from sklearn.cluster import KMeans
+    X = X.float()
+    if w is None:
+        Xc = X - X.mean(0)
+        C = Xc.T @ Xc
+    else:
+        w = w.float() / w.sum()
+        Xc = X - (w[:, None] * X).sum(0)
+        C = (Xc * w[:, None]).T @ Xc
+    del Xc
+    dg = torch.sqrt(torch.clamp(torch.diag(C), min=1e-12))
+    C = (C / dg[:, None] / dg[None, :]).abs_().clamp_(max=1 - 1e-3)
+    C = torch.atanh(C)
+    C.fill_diagonal_(0)
+    C = (C - C.mean(1, keepdim=True)) / (C.std(1, keepdim=True) + 1e-8)
+    thr = torch.quantile(C[:, ::4], 0.9, dim=1, keepdim=True)
+    C = torch.where(C >= thr, C, torch.zeros_like(C))
+    C = C - C.mean(0)
+    U, S, _ = torch.pca_lowrank(C, q=100, center=False, niter=2)
+    Z = (U * S).cpu().numpy()
+    del C, U
+    torch.cuda.empty_cache()
+    return KMeans(k, n_init=n_init, random_state=seed).fit_predict(Z)
+
+
 def rank_cols(X, step=512):
     out = torch.empty(X.shape, dtype=torch.float16, device=X.device)
     for s in range(0, X.shape[1], step):
@@ -115,6 +143,7 @@ def main():
     ap.add_argument('--min-count', type=int, default=3)
     ap.add_argument('--ref-mult', type=int, default=1, help='reference portion = this many halves')
     ap.add_argument('--variants', nargs='+', default=None)
+    ap.add_argument('--cluster', nargs='+', default=[], help='variants whose full connectome is also partitioned (k = 100)')
     ap.add_argument('--seed', type=int, default=42)
     ap.add_argument('--out', required=True)
     args = ap.parse_args()
@@ -134,7 +163,7 @@ def main():
     V = len(tok)
     uni = {d: np.bincount(data[d]['ref'].ravel().numpy(), minlength=V) / data[d]['ref'].numel() for d in DATASETS}
 
-    rows = []
+    rows, part_rows = [], []
     for step in args.steps:
         model, _ = get_model_and_tokenizer(args.model, revision='step%s' % step)
         model.to(dev).eval()
@@ -311,6 +340,23 @@ def main():
             def r(a, b):
                 ok = np.isfinite(a) & np.isfinite(b)
                 return float(np.corrcoef(a[ok], b[ok])[0, 1])
+            if name in args.cluster:
+                from sklearn.metrics import adjusted_rand_score
+                labs = {}
+                for d in PROSE:
+                    for p in ('A', 'B'):
+                        Y, w = variant(name, d, p)
+                        labs[(d, p)] = partition(Y, w=w)
+                aw = [adjusted_rand_score(labs[(d, 'A')], labs[(d, 'B')]) for d in PROSE]
+                aa = [adjusted_rand_score(labs[(d1, 'A')], labs[(d2, 'B')]) for d1 in PROSE for d2 in PROSE if d1 != d2]
+                part_rows.append(dict(step=step, variant=name, ari_within=float(np.mean(aw)), ari_across=float(np.mean(aa)),
+                                      ari_within_min=float(np.min(aw)), ari_across_min=float(np.min(aa))))
+                stderr('  step %-6s %-16s PARTITIONS (k = 100) ARI within %.3f across %.3f (ratio %.2f)   [%.0f s]\n' % (
+                    step, name, np.mean(aw), np.mean(aa), np.mean(aa) / np.mean(aw), time.time() - t0))
+                with open(args.out.replace('.csv', '_partitions.csv'), 'w', newline='') as f:
+                    wr = csv.DictWriter(f, fieldnames=list(part_rows[0].keys()))
+                    wr.writeheader()
+                    wr.writerows(part_rows)
             for d1 in DATASETS:
                 for d2 in DATASETS:
                     rows.append(dict(step=step, variant=name, fit=d1, eval=d2,
