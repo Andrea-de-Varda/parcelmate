@@ -166,6 +166,20 @@ check('stable-set enrichment: exact layer-matched expectation, a circuit inside 
       abs(e_in['expected'] - 0.4) < 1e-9 and e_in['ratio'] > 2 and e_in['p'] < 0.01 and e_rand['p'] > 0.01
       and gi['p'] < 0.01 and gi['rank_diff'] > 0 and g0['p'] > 0.01)
 
+# restart consensus (Iteration 38): planted shared structure across 3 'datasets' plus noise
+from parcelmate.stability import restart_consensus, adjusted_rand as _ari
+rs8 = np.random.RandomState(21)
+truth = np.repeat(np.arange(10), 60)
+def noisy(lab, p):
+    out = lab.copy(); m = rs8.rand(len(lab)) < p
+    out[m] = rs8.randint(0, 10, m.sum()); return rs8.permutation(10)[out]
+labs = np.stack([noisy(truth, 0.45) for _ in range(3 * 20)])
+c1, f1 = restart_consensus(labs[::2], 10, n_components=20, n_init=5, seed=0)
+c2, f2 = restart_consensus(labs[1::2], 10, n_components=20, n_init=5, seed=1)
+check('restart consensus recovers a structure shared by noisy labelings (ARI with truth > 0.95) and reproduces across restart sets',
+      _ari(c1, truth) > 0.95 and _ari(c1, c2) > 0.95 and np.median([_ari(l, truth) for l in labs]) < 0.4
+      and f1.min() > 0 and f1.max() <= 1)
+
 # CLI
 for d in datasets:
     for tree, sfx in (('real', ''), ('null', '_null')):

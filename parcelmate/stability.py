@@ -292,3 +292,36 @@ def set_graded(attribution, in_set, width, n_layers, n_perm=1000, rng=None):
     null = np.array([diff(np.stack([rng.permutation(row) for row in S])) for _ in range(n_perm)])
     return dict(rank_diff=float(obs), null_sd=float(np.nanstd(null)),
                 p=float((1 + (null >= obs).sum()) / (1 + n_perm)))
+
+
+# ---------------------------------------------------------------------------- restart consensus
+
+def restart_consensus(labelings, k, k_out=None, n_components=100, n_init=10, seed=0):
+    """Consensus partition of many hard labelings of the same units (Iteration 38): the
+    stored k-means restarts of several datasets, each fitted within its own dataset.
+
+    The co-association matrix (share of labelings in which two units share a label) is
+    N x N, too large at 147k units; its leading eigenvectors are those of the one-hot design
+    X (units x labelings*k, one 1 per labeling), since co-association = X X^T / n_labelings.
+    So: truncated SVD of X (randomized), then k-means with `n_init` restarts on the unit
+    scores. Returns the consensus labels and each unit's confidence: the mean, over the
+    labelings, of the share of its consensus network's members that share its label there.
+    """
+    from scipy import sparse
+    from sklearn.cluster import KMeans
+    from sklearn.decomposition import TruncatedSVD
+    L = np.asarray(labelings, dtype=np.int64)            # (n_labelings, N)
+    m, N = L.shape
+    k_out = k_out or k
+    cols = (L + (np.arange(m) * k)[:, None]).T.ravel()
+    X = sparse.csr_matrix((np.ones(N * m, dtype=np.float32), (np.repeat(np.arange(N), m), cols)), shape=(N, m * k))
+    Z = TruncatedSVD(n_components=min(n_components, m * k - 1), algorithm='randomized', n_iter=5,
+                     random_state=seed).fit_transform(X)
+    c = KMeans(k_out, n_init=n_init, random_state=seed).fit_predict(Z)
+    size = np.bincount(c, minlength=k_out).astype(np.float64)
+    conf = np.zeros(N)
+    for row in L:
+        M = np.zeros((k_out, k))
+        np.add.at(M, (c, row), 1.0)
+        conf += M[c, row] / size[c]
+    return c, conf / m
