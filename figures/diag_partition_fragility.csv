@@ -1,0 +1,6 @@
+measure,within,across,source
+connectome |r|,0.989,0.513,scripts/diag_partition_fragility_1.py D1
+connectome without unit strength,0.986,0.460,scripts/diag_partition_fragility_1.py D1
+profiles as clustered,0.971,0.465,scripts/diag_partition_fragility_1.py D2
+top-10% partners (Jaccard),0.843,0.259,scripts/diag_partition_fragility_1.py D2
+partitions (ARI),0.617,0.099,scripts/diag_partition_fragility_1.py D3

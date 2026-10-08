@@ -1,0 +1,8 @@
+connectome_r,noise,ari
+1.0,same matrix other seed,0.454
+0.90,iid,0.404
+0.90,lowrank,0.423
+0.70,iid,0.264
+0.70,lowrank,0.250
+0.50,iid,0.161
+0.50,lowrank,0.133
