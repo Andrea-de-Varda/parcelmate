@@ -95,8 +95,12 @@ def connectome_vec(X, pair_i, pair_j, w=None):
     return v.cpu().numpy()
 
 
-def rank_cols(X):
-    return torch.argsort(torch.argsort(X.float(), dim=0), dim=0).float()
+def rank_cols(X, step=512):
+    out = torch.empty(X.shape, dtype=torch.float16, device=X.device)
+    for s in range(0, X.shape[1], step):
+        x = X[:, s:s + step].float()
+        out[:, s:s + step] = torch.argsort(torch.argsort(x, dim=0), dim=0).half()
+    return out
 
 
 def main():
