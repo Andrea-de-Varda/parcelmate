@@ -83,6 +83,13 @@ def main():
         comp += mu[r].sum(0)
     b1 /= nwin
     comp /= nwin
+    # the same average of token profiles, but from tokens drawn at random positions of the
+    # reference (same number per position): structured like comp, unrelated to position
+    flat = look[ref.to(dev).reshape(-1)]
+    flat = flat[flat >= 0]
+    gen = torch.Generator(device=dev).manual_seed(2)
+    comp_rand = torch.stack([mu[flat[torch.randint(0, len(flat), (nwin,), device=dev, generator=gen)]].mean(0)
+                             for _ in range(L)])
     b1c = b1 - b1.mean(0)
     stderr('position effects: var across positions (median over units): raw pi %.3g, joint b %.3g, b1 %.3g, '
            'token composition %.3g\n' % (pi.var(0).median(), b.var(0).median(), b1.var(0).median(), comp.var(0).median()))
@@ -118,6 +125,7 @@ def main():
                 'token + position, joint least squares': X - a[r] - b[pos],
                 'joint + reference token composition by position': X - a[r] - b[pos] - (comp[pos] - comp.mean(0)),
                 'joint + RANDOM per-position pattern (same spread)': X - a[r] - b[pos] - g[pos],
+                'joint + token composition of RANDOM positions': X - a[r] - b[pos] - (comp_rand[pos] - comp_rand.mean(0)),
             }
             for k, v in V.items():
                 out.setdefault(k, {})[(d, h)] = vec(v[ok])
