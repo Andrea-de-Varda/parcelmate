@@ -58,9 +58,23 @@ Take one MLP neuron and one token in context. Its activation can be written as a
 
 **activation = (typical activation for this token) + (shift due to the previous token) + (shift due to the position in the window) + residual**
 
-- The first three terms are averages, each estimated on a separate reference portion of text (pooled over datasets), never on the text being analysed. *Typical activation for a token* is the neuron's mean activation over every occurrence of that token type, for example every occurrence of " the".
 - The **residual** is what the neuron does on this particular occasion beyond those averages: its response to the context.
 - A connectome is then the correlation, across tokens, between neurons' activations. The **ordinary connectome** correlates the full activations; the **residual connectome** correlates only the residuals.
+
+**How the residual is computed.**
+
+*Data for the averages.* Every dataset contributes a reference portion of 320 windows of 1,024 tokens (327,680 tokens, four times an analysed half), separate from the two halves that are compared. The five reference portions are pooled (about 1.64 million tokens, 36,447 token types, codeparrot included), and every average below is computed on that pool only, so the halves stay independent.
+
+*The three averages*, subtracted in this order, for every neuron:
+1. **Current token**, μ(t): the neuron's mean activation over all reference occurrences of token type t (for example every " the").
+2. **Previous token**, ν(p): on the reference, take each token's leftover after step 1 (activation − μ of its own type) and average it by the type of the token *before* it. This is not the previous token's own activation. It is how the current position's activation shifts, beyond what the current token predicts, when the previous token is p (for example how a neuron's response to " cat" shifts after " the"): spillover of the previous token, measured where it lands.
+3. **Position**, π(k): the neuron's mean activation at position k of the window (k = 1 ... 1,023), over the 1,600 reference windows, minus its mean over positions, so only the position-dependent part is removed.
+
+**residual = activation − μ(current token) − ν(previous token) − π(position)**
+
+Tokens are dropped when their own type or the previous token's type occurs fewer than 3 times in the reference (requiring 20 gives the same results), and so is the first token of each window, which has no previous token.
+
+*Caveat.* The three terms are estimated one after the other, not jointly; the position term is estimated on raw activations. Where token types and positions are correlated the terms overlap slightly. A joint fit (repeating the three subtractions until they stop changing) would be cleaner and is planned before this is computed for Qwen.
 
 ### Why the ordinary connectome differs across datasets
 
