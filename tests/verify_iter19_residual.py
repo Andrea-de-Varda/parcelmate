@@ -24,7 +24,7 @@ import torch
 from transformers import AutoTokenizer, GPTNeoXConfig, GPTNeoXModel
 
 from parcelmate.model import get_model_and_tokenizer, get_timecourses, run_connectivity
-from parcelmate.residual import fit_token_position, reference_inputs, residualize_timecourses
+from parcelmate.residual import fit_token_position, fit_token_position_large, reference_inputs, residualize_timecourses
 
 failures = []
 n_checks = [0]
@@ -75,6 +75,11 @@ check('backfitting on sufficient statistics equals explicit least squares (fitte
       worst < 1e-4)
 check('a type seen fewer than min_count times is dropped; every type seen >= 3 times is kept',
       int(fit.look[49999]) == -1 and all(int(fit.look[t]) >= 0 for t in vocab if (flat == t).sum() >= 3))
+
+fit_l = fit_token_position_large(model, ids, mask, V, batch_size=8, min_count=3, verbose=False, tol=1e-7, unit_chunk=50)
+fl = (fit_l.a.float()[fit_l.look[torch.as_tensor(flat[keep])]] + fit_l.b[torch.as_tensor(pk)]).numpy()
+check('the memory-lean fit (layer-wise float32 sums, unit chunks) equals the original fit',
+      np.array_equal(fit_l.look.numpy(), fit.look.numpy()) and np.allclose(fl, fitted_bf, atol=1e-5, rtol=1e-4))
 
 # ---------------------------------------------------------------- residualize_timecourses
 tc = out['timecourses'].copy()
@@ -156,13 +161,31 @@ st = h5py.File(os.path.join(resid, 'connectivity', 'connectivity_random_halfB.h5
 okb = np.isfinite(st) & np.isfinite(halves['random']['halfB'])
 check('the dynamics measures build the same residual connectome as the connectivity step',
       np.allclose(np.abs(halves['random']['halfB'][okb]), np.abs(st[okb]), atol=1e-4) and len(rows) > 0)
-try:
-    run_connectivity(output_dir=os.path.join(tmp, 'z'), null_output_dir=os.path.join(tmp, 'z_null'),
-                     residualize='token_position', storage='tiled_fp16', **COMMON)
-    refused = False
-except AssertionError:
-    refused = True
-check('residualize refuses the tiled path', refused)
+tiled = os.path.join(tmp, 'tiled')
+run_connectivity(output_dir=tiled, null_output_dir=tiled + '_null', residualize='token_position',
+                 residual_ref_tokens=512, residual_min_count=2, storage='tiled_fp16', **COMMON)
+from parcelmate.bigconn import TiledMatrix
+ok_t, worst_t = True, 0.0
+for tree in ('', '_null'):
+    for h in ('halfA', 'halfB'):
+        d_ = h5py.File(os.path.join(resid + tree, 'connectivity', 'connectivity_random_%s.h5' % h), 'r')
+        Rd = np.abs(np.nan_to_num(d_['connectivity'][()]))
+        nd = int(d_['n_obs'][()])
+        d_.close()
+        # The tiny random model has neurons that token type and position explain exactly
+        # (residual ~1e-9): dead in the tiled path, float noise in the dense one. Compare the
+        # live ones (non-zero rows of the tiled matrix).
+        tl = h5py.File(os.path.join(tiled + tree, 'connectivity', 'connectivity_random_%s.h5' % h), 'r')
+        live = tl['unit_stds'][()] > 0
+        tl.close()
+        Tm = TiledMatrix(os.path.join(tiled + tree, 'connectivity', 'connectivity_random_%s.h5' % h))
+        Rt = Tm[0:Tm.shape[0]]
+        nt = int(h5py.File(Tm.path, 'r')['n_obs'][()])
+        Tm.close()
+        Rd, Rt = Rd[np.ix_(live, live)], Rt[np.ix_(live, live)]
+        worst_t = max(worst_t, float(np.abs(Rd - Rt).max()))
+        ok_t &= np.allclose(Rd, Rt, atol=5e-3) and nd == nt and live.sum() > 10
+check('out of core: the tiled residual connectome equals the dense one on live units in both trees, same tokens (worst |diff| %.1e)' % worst_t, ok_t)
 
 shutil.rmtree(tmp)
 print('\n%d checks, %d failure(s)' % (n_checks[0], len(failures)))

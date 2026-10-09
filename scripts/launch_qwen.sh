@@ -67,7 +67,7 @@ generate() {
     local CPU=configs/cluster/sc-cpu.yml
     local GPU=configs/cluster/sc.yml
     local name cfg d
-    for name in ${NAMES:-qwen3.5-2b qwen3.5-4b qwen3.5-2b-pool5 qwen3.5-4b-pool5 qwen3.5-2b-rest qwen3.5-4b-rest}; do
+    for name in ${NAMES:-qwen3.5-2b qwen3.5-4b qwen3.5-2b-pool5 qwen3.5-4b-pool5 qwen3.5-2b-rest qwen3.5-4b-rest qwen3.5-2b-resid}; do
         cfg=configs/qwen35/$name.yml
         # One parcellation job per (domain, tree, half): the streamed PCA takes four passes
         # over a half, measured at 33 min per pass at 147k units (17559496) and four times
@@ -76,7 +76,7 @@ generate() {
         case "$name" in
             # Pooled runs: the same tokens per half as one single-domain run (5 x 40,960
             # against 2 x ~100k), so the same sizes; scoring has no across-domain pairs.
-            qwen3.5-2b|qwen3.5-2b-pool5|qwen3.5-2b-rest) GPU_OPTS="-t 6 -m 160"; PAR="-t 8 -m 32"; SCO="-t 24 -m 32" ;;
+            qwen3.5-2b|qwen3.5-2b-pool5|qwen3.5-2b-rest|qwen3.5-2b-resid) GPU_OPTS="-t 6 -m 160"; PAR="-t 8 -m 32"; SCO="-t 24 -m 32" ;;
             # 24 h for the 4B parcellations: one pooled half timed out at 14 h on a slow node.
             qwen3.5-4b-rest) GPU_OPTS="-t 10 -m 200 -P sphinx -G a100"; PAR="-t 24 -m 48"; SCO="-t 48 -m 48" ;;
             qwen3.5-4b|qwen3.5-4b-pool5) GPU_OPTS="-t 10 -m 200 -P sphinx -G a100"; PAR="-t 14 -m 48"; SCO="-t 36 -m 48" ;;

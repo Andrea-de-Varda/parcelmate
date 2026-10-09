@@ -38,6 +38,11 @@ MODELS = {
                              domains=['wikitext', 'bookcorpus', 'agnews', 'tldr17', 'codeparrot']),
     'qwen3.5-4b-pool5': dict(model='Qwen/Qwen3.5-4B', layers=32, neurons=9216, pool_as='pooled',
                              domains=['wikitext', 'bookcorpus', 'agnews', 'tldr17', 'codeparrot']),
+    # The residual connectome (Iteration 40): token type and position fitted jointly on a
+    # reference portion of every prose domain (pooled) and removed before correlating; one
+    # partition per domain as before, compared with the patching circuits.
+    'qwen3.5-2b-resid': dict(model='Qwen/Qwen3.5-2B', layers=24, neurons=6144, resid=True,
+                             domains=['wikitext', 'bookcorpus', 'agnews', 'tldr17']),
     # Coarse networks, 2B only (Iteration 35, Andrea 2026-09-30): the same pipeline at k = 10
     # and 20 as variants. wikitext/bookcorpus and the pool recompute their connectivity
     # (purged) into their own `-coarse` trees; the -rest datasets reuse their connectivity in
@@ -129,6 +134,8 @@ def config(name, spec):
         ),
         parcellation_variants=dict(COARSE_VARIANTS) if spec.get('coarse') else {'final': {}},
     )
+    if spec.get('resid'):
+        cfg['connectivity'].update(residualize='token_position', residual_ref_tokens=None, residual_min_count=3)
     if spec.get('pool_as'):
         cfg['connectivity']['pool_as'] = spec['pool_as']
         cfg['score'] = dict(domains=[spec['pool_as']])

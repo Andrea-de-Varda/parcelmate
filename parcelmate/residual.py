@@ -177,3 +177,97 @@ def reference_inputs(load, domains, n_analysed, n_reference):
         ids_all.append(ids[n_win:])
         mask_all.append(mask[n_win:])
     return torch.cat(ids_all), torch.cat(mask_all)
+
+
+@torch.no_grad()
+def fit_token_position_large(model, input_ids, attention_mask, vocab_size, batch_size=8, min_count=3,
+                             max_iter=50, tol=1e-5, unit_chunk=8192, device=None, verbose=True, indent=0):
+    """`fit_token_position` for models whose types x units table does not fit twice on a GPU
+    in float64 (Qwen3.5: 147k-295k units; Iteration 40). Same least-squares solution:
+
+    - per-type and per-position sums accumulated layer by layer, in float32 (relative error
+      about 1e-4 at a million tokens, far below the residuals' scale);
+    - the backfitting solved independently for each chunk of `unit_chunk` units (the two-factor
+      model is separate per unit, and C, n, m are shared), so only one chunk's tables are
+      ever duplicated;
+    - a and b are returned in float32 (a float16 a added rounding noise of about 1e-3 of the
+      token effects to every residual).
+    """
+    device = device or ('cuda:0' if torch.cuda.is_available() else 'cpu')
+    model = model.to(device).eval()
+    seq_len = input_ids.shape[1]
+    ids_all = input_ids[attention_mask.bool()]
+    cnt_all = torch.bincount(ids_all.reshape(-1), minlength=vocab_size)
+    keep_ids = torch.nonzero(cnt_all >= min_count).reshape(-1)
+    look = torch.full((vocab_size,), -1, dtype=torch.long)
+    look[keep_ids] = torch.arange(len(keep_ids))
+    look_d = look.to(device)
+    U = len(keep_ids)
+    hooks, captured = _mlp_capture(model)
+    S = P = None
+    offsets = None
+    n = torch.zeros(U, dtype=torch.float64, device=device)
+    m = torch.zeros(seq_len, dtype=torch.float64, device=device)
+    C = torch.zeros(U, seq_len, dtype=torch.float64, device=device)
+    n_tok = 0
+    pos_grid = torch.arange(seq_len, device=device)
+    for i in range(0, input_ids.shape[0], batch_size):
+        ids = input_ids[i:i + batch_size].to(device)
+        mask = attention_mask[i:i + batch_size].to(device).bool()
+        captured.clear()
+        model(input_ids=ids, attention_mask=mask.long())
+        rows = look_d[ids]
+        sel = mask & (rows >= 0)
+        r = rows[sel]
+        p = pos_grid.expand_as(ids)[sel]
+        if S is None:
+            widths = [int(captured[l].shape[-1]) for l in range(len(captured))]
+            offsets = np.concatenate([[0], np.cumsum(widths)])
+            S = torch.zeros(U, int(offsets[-1]), dtype=torch.float32, device=device)
+            P = torch.zeros(seq_len, int(offsets[-1]), dtype=torch.float32, device=device)
+        for l in range(len(offsets) - 1):
+            x = captured[l][sel].float()
+            S[:, offsets[l]:offsets[l + 1]].index_add_(0, r, x)
+            P[:, offsets[l]:offsets[l + 1]].index_add_(0, p, x)
+            del x
+        n += torch.bincount(r, minlength=U).double()
+        m += torch.bincount(p, minlength=seq_len).double()
+        C.index_put_((r, p), torch.ones_like(r, dtype=torch.float64), accumulate=True)
+        n_tok += int(sel.sum())
+        captured.clear()
+    for h in hooks:
+        h.remove()
+    model.to('cpu')
+    torch.cuda.empty_cache()
+    C, n, m = C.float(), n.float(), m.float()
+    mm = torch.clamp(m, min=1.0)[:, None]
+    N = S.shape[1]
+    a_out = torch.empty(U, N, dtype=torch.float32)
+    b_out = torch.empty(seq_len, N, dtype=torch.float32)
+    worst, iters = 0.0, 0
+    for c0 in range(0, N, unit_chunk):
+        c1 = min(c0 + unit_chunk, N)
+        Sc, Pc = S[:, c0:c1], P[:, c0:c1]
+        b = torch.zeros_like(Pc)
+        a = Sc / n[:, None]
+        change = float('inf')
+        for it in range(1, max_iter + 1):
+            a_new = (Sc - C @ b) / n[:, None]
+            b_new = (Pc - C.T @ a_new) / mm
+            b_new -= (m[:, None] * b_new).sum(0, keepdim=True) / m.sum()
+            a_new = (Sc - C @ b_new) / n[:, None]
+            change = float(torch.max(torch.abs(a_new - a)).item())
+            a, b = a_new, b_new
+            if change < tol:
+                break
+        worst, iters = max(worst, change), max(iters, it)
+        a_out[:, c0:c1] = a.cpu()
+        b_out[:, c0:c1] = b.cpu()
+        del a, b, a_new, b_new
+    del S, P, C
+    torch.cuda.empty_cache()
+    if verbose:
+        stderr('%sresidual fit (large): %d reference tokens, %d token types (>= %d occurrences), %d units, '
+               'backfitting converged in at most %d iterations (max change %.1e)\n'
+               % (' ' * indent, n_tok, U, min_count, N, iters, worst))
+    return TokenPositionFit(look, a_out, b_out, cnt_all, iters, worst, n_tok, min_count)

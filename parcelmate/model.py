@@ -1270,10 +1270,10 @@ def run_connectivity(
     residual_fit = None
     if residualize:
         assert residualize == 'token_position', 'residualize must be token_position, got %r' % (residualize,)
-        assert not tiled and not pool_as, 'residualize is implemented for the dense path'
+        assert not pool_as, 'residualize is not implemented for pooled connectivity'
         assert unit_type == 'mlp' and not units_per_layer, 'residualize is for all MLP units'
         assert not (timecourse_pca_components or timecourse_ica_components or highpass or lowpass)
-        from parcelmate.residual import fit_token_position, reference_inputs
+        from parcelmate.residual import fit_token_position, fit_token_position_large, reference_inputs
         n_ref = int(residual_ref_tokens or n_tokens * n_samples // 2)
 
         def _load(d, n_tok):
@@ -1284,8 +1284,11 @@ def run_connectivity(
         if verbose:
             stderr('%sFitting token and position effects on %d reference tokens per domain\n' % (' ' * indent, n_ref))
         ref_ids, ref_mask = reference_inputs(_load, domains, n_tokens * n_samples, n_ref)
-        residual_fit = fit_token_position(model, ref_ids, ref_mask, len(tokenizer), batch_size=batch_size,
-                                          min_count=residual_min_count, verbose=verbose, indent=indent + 2)
+        # The out-of-core path (Qwen3.5, Iteration 40) needs the memory-lean fit; the dense
+        # path keeps the original one (identical solution, float64 sums).
+        _fit = fit_token_position_large if tiled else fit_token_position
+        residual_fit = _fit(model, ref_ids, ref_mask, len(tokenizer), batch_size=batch_size,
+                            min_count=residual_min_count, verbose=verbose, indent=indent + 2)
         provenance.update(residual_fit.provenance())
         del ref_ids, ref_mask
 
@@ -1367,7 +1370,7 @@ def run_connectivity(
                 n_samples, domain, connectivity_dir, null_connectivity_dir if null_model else None,
                 seed, null_model=null_model, batch_size=batch_size, eps=eps,
                 provenance=dict(provenance, seq_len=int(seq_len), n_samples=int(n_samples)),
-                verbose=verbose, indent=indent)
+                verbose=verbose, indent=indent, residual_fit=residual_fit)
             indent -= 2
             continue
 

@@ -128,14 +128,41 @@ def _mlp_hooks(model, captured):
     return [p.register_forward_pre_hook(make_hook(l)) for l, p in projections], len(projections)
 
 
-def zscored_timecourses(model, input_ids, attention_mask, batch_size=8, verbose=True, indent=0):
+def zscored_timecourses(model, input_ids, attention_mask, batch_size=8, verbose=True, indent=0,
+                        residual_fit=None):
     """Two passes over the inputs: exact per-unit mean and std, then z-scored fp16 rows.
 
     Returns dict(z=(N, T) float16, unit_means, unit_stds, n_obs, coordinates). Units are
     all MLP neurons of every block in layer order, coordinates (layer, neuron index).
+
+    With `residual_fit` (a `residual.TokenPositionFit`, Iteration 40) every activation first
+    has a(token type) + b(position) subtracted, layer by layer, and tokens of types the fit
+    dropped are skipped; the statistics and z-scores are then those of the residuals.
     """
     device = next(model.parameters()).device
-    T = int(attention_mask.sum())
+    seq_len = input_ids.shape[1]
+    if residual_fit is not None:
+        r_look = residual_fit.look.to(device)
+        r_a = residual_fit.a.to(device)
+        r_b = residual_fit.b.to(device).float()
+        r_pos = torch.arange(seq_len, device=device)
+        T = int((attention_mask.bool() & (residual_fit.look[input_ids] >= 0)).sum())
+    else:
+        T = int(attention_mask.sum())
+
+    def token_mask(ids, mask):
+        m = mask.bool()
+        if residual_fit is None:
+            return m, None, None
+        rows = r_look[ids]
+        m = m & (rows >= 0)
+        return m, rows[m], r_pos.expand_as(ids)[m]
+
+    def layer_values(l, m, rows, pos, sl):
+        x = captured[l][m].double()
+        if residual_fit is not None:
+            x = x - r_a[rows, sl].double() - r_b[pos, sl].double()
+        return x
     captured = {}
     hooks, n_layers = _mlp_hooks(model, captured)
     widths = None
@@ -153,7 +180,7 @@ def zscored_timecourses(model, input_ids, attention_mask, batch_size=8, verbose=
         with torch.no_grad():
             captured.clear()
             model(input_ids=ids, attention_mask=mask)
-            m = mask.bool()
+            m, rows, pos = token_mask(ids, mask)
             if widths is None:
                 widths = [int(captured[l].shape[-1]) for l in range(n_layers)]
                 N = sum(widths)
@@ -163,8 +190,8 @@ def zscored_timecourses(model, input_ids, attention_mask, batch_size=8, verbose=
             n_b = int(m.sum())
             tot = count + n_b
             for l in range(n_layers):
-                x = captured[l][m].double()          # tokens x width
                 sl = slice(int(offsets[l]), int(offsets[l + 1]))
+                x = layer_values(l, m, rows, pos, sl)          # tokens x width
                 b_mean = x.mean(0)
                 b_m2 = ((x - b_mean) ** 2).sum(0)
                 delta = b_mean - mean[sl]
@@ -182,6 +209,10 @@ def zscored_timecourses(model, input_ids, attention_mask, batch_size=8, verbose=
     # Real post-nonlinearity activations have spreads of 1e-2 to 1e1, far above this.
     std = torch.sqrt(m2 / max(count, 1))
     ok = std > 1e-6 * torch.clamp(mean.abs(), min=1.0)
+    if residual_fit is not None:
+        # A unit that token type and position explain exactly has a residual of float
+        # rounding only (about 1e-7 to 1e-6): dead, as a constant unit is.
+        ok &= std > 1e-5
     inv = torch.where(ok, 1.0 / torch.where(ok, std, torch.ones_like(std)), torch.zeros_like(std))
     std = torch.where(ok, std, torch.zeros_like(std))
     if verbose:
@@ -196,11 +227,11 @@ def zscored_timecourses(model, input_ids, attention_mask, batch_size=8, verbose=
         with torch.no_grad():
             captured.clear()
             model(input_ids=ids, attention_mask=mask)
-            m = mask.bool()
+            m, rows, pos = token_mask(ids, mask)
             n_b = int(m.sum())
             for l in range(n_layers):
                 sl = slice(int(offsets[l]), int(offsets[l + 1]))
-                z = ((captured[l][m].double() - mean[sl]) * inv[sl]).T.to(torch.float16).cpu().numpy()
+                z = ((layer_values(l, m, rows, pos, sl) - mean[sl]) * inv[sl]).T.to(torch.float16).cpu().numpy()
                 Z[sl, t:t + n_b] = z
                 del z
             captured.clear()
@@ -212,6 +243,9 @@ def zscored_timecourses(model, input_ids, attention_mask, batch_size=8, verbose=
         stderr('  (%.0f s)\n' % (time.time() - t0))
     for h in hooks:
         h.remove()
+    if residual_fit is not None:
+        del r_a, r_b
+        torch.cuda.empty_cache()
     coordinates = np.zeros((N, 2), dtype=np.int32)
     h = 0
     for layer, w in enumerate(widths):
@@ -359,7 +393,7 @@ def write_tiled_half(zs, offsets, out_real, out_null, stats, provenance, eps=1e-
 
 def write_tiled_domain(model, input_ids, attention_mask, n_samples, domain, connectivity_dir,
                        null_connectivity_dir, seed, null_model='circshift', batch_size=8, eps=1e-3,
-                       block=DEFAULT_BLOCK, provenance=None, verbose=True, indent=0):
+                       block=DEFAULT_BLOCK, provenance=None, verbose=True, indent=0, residual_fit=None):
     """The `outputs: [halves]` layout for one domain, out of core.
 
     Samples 1..n/2 form half A and n/2+1..n half B, as `run_split_halves` defines them.
@@ -369,12 +403,12 @@ def write_tiled_domain(model, input_ids, attention_mask, n_samples, domain, conn
     write_tiled_pooled(model, [(domain, input_ids, attention_mask)], n_samples, domain,
                        connectivity_dir, null_connectivity_dir, seed, null_model=null_model,
                        batch_size=batch_size, eps=eps, block=block, provenance=provenance,
-                       verbose=verbose, indent=indent)
+                       verbose=verbose, indent=indent, residual_fit=residual_fit)
 
 
 def write_tiled_pooled(model, parts, n_samples, name, connectivity_dir, null_connectivity_dir,
                        seed, null_model='circshift', batch_size=8, eps=1e-3, block=DEFAULT_BLOCK,
-                       provenance=None, verbose=True, indent=0):
+                       provenance=None, verbose=True, indent=0, residual_fit=None):
     """Split halves Fisher-averaged over the samples of one or several domains (LOG.md
     Iteration 31), written as the pseudo-domain `name`.
 
@@ -402,7 +436,7 @@ def write_tiled_pooled(model, parts, n_samples, name, connectivity_dir, null_con
                     stderr('%sSample %d/%d of %s (%s)\n' % (' ' * indent, k + 1, n_samples, domain, half_name))
                 tc = zscored_timecourses(model, input_ids[k * n:(k + 1) * n],
                                          attention_mask[k * n:(k + 1) * n], batch_size=batch_size,
-                                         verbose=verbose, indent=indent + 2)
+                                         verbose=verbose, indent=indent + 2, residual_fit=residual_fit)
                 zs.append(tc['z'])
                 means.append(tc['unit_means'])
                 stds.append(tc['unit_stds'])
