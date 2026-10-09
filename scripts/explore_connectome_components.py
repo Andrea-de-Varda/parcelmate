@@ -168,6 +168,22 @@ def main():
     for step in args.steps:
         model, _ = get_model_and_tokenizer(args.model, revision='step%s' % step)
         model.to(dev).eval()
+        # (fitted before the activations are held, so its working tables fit a 24 GB card)
+        # Joint fit of token type and position: the pipeline's exact least-squares fit
+        # (parcelmate/residual.py, sufficient statistics over the same reference windows). An
+        # earlier backfit over activations here did not satisfy the least-squares conditions
+        # (LOG.md Iteration 39) and is replaced.
+        jtab, jpos = None, None
+        if any('joint' in v for v in (args.variants or [])):
+            from parcelmate.residual import fit_token_position
+            ref_all = torch.cat([data[d]['ref'] for d in DATASETS])
+            jfit = fit_token_position(model, ref_all, torch.ones_like(ref_all), V, batch_size=8,
+                                      min_count=args.min_count, device=dev)
+            model.to(dev)
+            torch.cuda.empty_cache()
+            jlook, jtab, jpos = jfit.look.to(dev), jfit.a.to(dev), jfit.b.to(dev)
+            jmu = lambda t: jtab[jlook[t].clamp(min=0)]
+            jseen = lambda t: jlook[t] >= 0
         X = {(d, p): activations(model, data[d][p], dev) for d in DATASETS for p in ('A', 'B')}
         T = {(d, p): data[d][p].reshape(-1).to(dev) for d in DATASETS for p in ('A', 'B', 'ref')}
         pos = torch.arange(SEQ, device=dev).repeat(args.tokens // SEQ)
@@ -204,9 +220,10 @@ def main():
         tab /= torch.clamp(cnt[types], min=1)[:, None]
         pos_mu = pos_sum / n_win
         mu = lambda t: tab[look[t].clamp(min=0)]
-        nu_tab = torch.zeros(len(types), N, device=dev)
-        nu_cnt = torch.zeros(len(types), device=dev)
-        for d in DATASETS:
+        need_ctx = any('ctx' in v for v in (args.variants or ['ctx']))
+        nu_tab = torch.zeros(len(types) if need_ctx else 1, N, device=dev)
+        nu_cnt = torch.zeros(len(types) if need_ctx else 1, device=dev)
+        for d in (DATASETS if need_ctx else []):
             ids = data[d]['ref']
             for i in range(0, len(ids), 8):
                 x = activations(model, ids[i:i + 8], dev).float().reshape(-1, SEQ, N)
@@ -218,20 +235,6 @@ def main():
         nu_tab /= torch.clamp(nu_cnt, min=1)[:, None]
         nu = lambda t: nu_tab[look[t].clamp(min=0)]
         stderr('  reference statistics: %d types, %d windows, %.0f s\n' % (len(types), n_win, time.time() - t0))
-        # Joint fit of token type and position: the pipeline's exact least-squares fit
-        # (parcelmate/residual.py, sufficient statistics over the same reference windows). An
-        # earlier backfit over activations here did not satisfy the least-squares conditions
-        # (LOG.md Iteration 39) and is replaced.
-        jtab, jpos = None, None
-        if any('joint' in v for v in (args.variants or [])):
-            from parcelmate.residual import fit_token_position
-            ref_all = torch.cat([data[d]['ref'] for d in DATASETS])
-            jfit = fit_token_position(model, ref_all, torch.ones_like(ref_all), V, batch_size=8,
-                                      min_count=args.min_count, device=dev)
-            model.to(dev)
-            jlook, jtab, jpos = jfit.look.to(dev), jfit.a.to(dev), jfit.b.to(dev)
-            jmu = lambda t: jtab[jlook[t].clamp(min=0)]
-            jseen = lambda t: jlook[t] >= 0
         # Shared vocabulary (iteration 3): token types seen at least SHARED_MIN times in the
         # reference portion of EVERY prose dataset.
         ref_cnt = torch.stack([torch.bincount(data[d]['ref'].reshape(-1).to(dev), minlength=V) for d in PROSE])
