@@ -372,9 +372,14 @@ def checkpoint_measures(cfg, out_dir, step=None, variant='final', n_sub=4096, ke
             ph['cls_sum'] = s_ if ph['cls_sum'] is None else ph['cls_sum'] + s_
             ph['cls_cnt'] = c_ if ph['cls_cnt'] is None else ph['cls_cnt'] + c_
             ph['n'] += X.shape[1]
+            conn_coords = coordinates
             if residual_fit is not None:
                 from parcelmate.residual import residualize_timecourses
                 X, _ = residualize_timecourses(residual_fit, X, ids, mask)
+                if residual_fit.live is not None and not residual_fit.live.all():
+                    # the units the connectivity step drops (fully explained by token and position)
+                    X = np.ascontiguousarray(X[residual_fit.live])
+                    conn_coords = coordinates[residual_fit.live]
             ph['R'].append(get_connectivity(X))
             del X
             lm.to(device)
@@ -384,9 +389,13 @@ def checkpoint_measures(cfg, out_dir, step=None, variant='final', n_sub=4096, ke
             lm.to('cpu')
             torch.cuda.empty_cache()
         N = coordinates.shape[0]
-        # Fixed subsample of units: the same units at every checkpoint (same seed, same N).
+        # Fixed subsample of units: the same units at every checkpoint (same seed, same N),
+        # drawn over ALL units; a drawn unit absent from the connectome (dropped by the
+        # residual fit) gets a NaN row and column in the stored subsample.
         sub = np.sort(np.random.RandomState(derive_seed(seed, 'dynamics_subsample') % (2 ** 32))
                       .choice(N, size=min(n_sub, N), replace=False))
+        row_of = {tuple(c): i for i, c in enumerate(np.asarray(conn_coords).tolist())}
+        sub_rows = np.array([row_of.get(tuple(c), -1) for c in np.asarray(coordinates)[sub].tolist()])
         halves = {}
         for h in HALF_NAMES:
             R = fisher_average(*per_half[h]['R'], eps=conn.get('eps', 1e-3))
@@ -439,7 +448,10 @@ def checkpoint_measures(cfg, out_dir, step=None, variant='final', n_sub=4096, ke
             for name, v in coupling_measures(A, seed=derive_seed(seed, 'dynamics_pairs', domain, h)).items():
                 row(domain, h, '-', h, name, v)
             with h5py.File(os.path.join(out_dir, 'subsample_step%d_%s_%s.h5' % (step, domain, h)), 'w') as f:
-                f.create_dataset('absr', data=A[np.ix_(sub, sub)].astype(np.float16))
+                Asub = np.full((len(sub), len(sub)), np.nan, dtype=np.float32)
+                okr = sub_rows >= 0
+                Asub[np.ix_(okr, okr)] = A[np.ix_(sub_rows[okr], sub_rows[okr])]
+                f.create_dataset('absr', data=Asub.astype(np.float16))
                 f.create_dataset('units', data=sub)
             halves[h] = A
         for h in HALF_NAMES:
@@ -450,9 +462,15 @@ def checkpoint_measures(cfg, out_dir, step=None, variant='final', n_sub=4096, ke
                     continue
                 with h5py.File(p, 'r') as f:
                     P = np.asarray(f['parcellation'])
-                labels, k_ = hard_labels(P), P.shape[1]
+                    pc = np.asarray(f['coordinates'])
+                # align the partition's units with the connectome's rows by (layer, neuron)
+                lab_of = dict(zip(map(tuple, pc.tolist()), hard_labels(P)))
+                rows_ = np.array([i for i, c in enumerate(np.asarray(conn_coords).tolist()) if tuple(c) in lab_of])
+                labels = np.array([lab_of[tuple(c)] for c in np.asarray(conn_coords)[rows_].tolist()])
+                k_ = P.shape[1]
                 for eval_key in (h, other):
-                    for name, v in segregation(halves[eval_key], labels, k_).items():
+                    Ae = halves[eval_key] if len(rows_) == halves[eval_key].shape[0] else halves[eval_key][np.ix_(rows_, rows_)]
+                    for name, v in segregation(Ae, labels, k_).items():
                         row(domain, h, tree, eval_key, name, v)
         del halves
         if verbose:

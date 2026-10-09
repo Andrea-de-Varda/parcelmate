@@ -1469,9 +1469,17 @@ def run_connectivity(
                 if residual_fit is not None:
                     from parcelmate.residual import residualize_timecourses
                     timecourses, n_drop = residualize_timecourses(residual_fit, timecourses, _input_ids, _attention_mask)
+                    if residual_fit.live is not None and not residual_fit.live.all():
+                        # Units that token type and position explain exactly carry only float
+                        # rounding: drop them, in every sample, half, domain and tree alike.
+                        live = residual_fit.live
+                        timecourses = np.ascontiguousarray(timecourses[live])
+                        coordinates = coordinates[live]
+                        out = dict(out, coordinates=coordinates, unit_means=np.asarray(out['unit_means'])[live],
+                                   unit_stds=np.asarray(out['unit_stds'])[live])
                     if verbose:
-                        stderr('%sResidualized (token type + position); %d of %d tokens dropped (rare types)\n'
-                               % (' ' * indent, n_drop, n_drop + timecourses.shape[1]))
+                        stderr('%sResidualized (token type + position); %d of %d tokens dropped (rare types); %d units\n'
+                               % (' ' * indent, n_drop, n_drop + timecourses.shape[1], timecourses.shape[0]))
                 if null_model == 'circshift':
                     # Before the real one: get_connectivity centers and normalizes its
                     # input in place, so it consumes whichever array it is handed.

@@ -151,22 +151,26 @@ def cmd_combine(args):
         vecs = {}
         for s in steps:
             with h5py.File(paths[s], 'r') as f:
-                vecs[s] = _upper(np.asarray(f['absr']))
+                vecs[s] = _upper(np.asarray(f['absr'], dtype=np.float64))
+
+        def corr(a, b):
+            ok = np.isfinite(a) & np.isfinite(b)   # units dropped by the residual fit are NaN
+            return float(np.corrcoef(a[ok], b[ok])[0, 1])
         final = steps[-1]
         for a, b in zip(steps[:-1], steps[1:]):
             rows.append(dict(domain=domain, key=key, step=b, measure='similarity_to_previous',
-                             value=float(np.corrcoef(vecs[a], vecs[b])[0, 1])))
+                             value=corr(vecs[a], vecs[b])))
         for s in steps:
             rows.append(dict(domain=domain, key=key, step=s, measure='similarity_to_final',
-                             value=float(np.corrcoef(vecs[s], vecs[final])[0, 1])))
+                             value=corr(vecs[s], vecs[final])))
         if key == HALF_NAMES[0]:
             other = by.get((domain, HALF_NAMES[1]), {})
             for s in steps:
                 if s in other:
                     with h5py.File(other[s], 'r') as f:
-                        vb = _upper(np.asarray(f['absr']))
+                        vb = _upper(np.asarray(f['absr'], dtype=np.float64))
                     rows.append(dict(domain=domain, key='-', step=s, measure='similarity_between_halves',
-                                     value=float(np.corrcoef(vecs[s], vb)[0, 1])))
+                                     value=corr(vecs[s], vb)))
     write_rows(os.path.join(args.out, 'similarity.csv'), rows)
     # Token-class selectivity of the networks, from the per-unit class means and the stored
     # partitions (which live next to the dynamics directory, one level up).
@@ -178,12 +182,17 @@ def cmd_combine(args):
         with h5py.File(p, 'r') as f:
             classes = f.attrs['token_classes'].split(', ')
             means = {h: np.asarray(f['class_mean_%s' % h]) for h in HALF_NAMES}
+            ucoords = np.asarray(f['coordinates'])
+        row_of = {tuple(c): i for i, c in enumerate(ucoords.tolist())}
         for h in HALF_NAMES:
             for tree in ('real', 'null'):
                 got = load_partition(root, step, tree, args.variant, domain, h)
                 if got is None:
                     continue
-                for name, v in network_selectivity(means[h], hard_labels(got[0]), got[0].shape[1],
+                # class means are stored for every unit; the partition may cover fewer (units
+                # dropped by the residual fit), so align by (layer, neuron)
+                idx = np.array([row_of[tuple(c)] for c in np.asarray(got[1]).tolist()])
+                for name, v in network_selectivity(means[h][idx], hard_labels(got[0]), got[0].shape[1],
                                                    classes).items():
                     sel_rows.append(dict(step=step, domain=domain, key=h, tree=tree, measure=name,
                                          value=float(v)))

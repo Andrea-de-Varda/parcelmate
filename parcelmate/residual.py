@@ -31,7 +31,8 @@ from parcelmate.util import stderr
 class TokenPositionFit:
     """Fitted a(type) and b(position) for every unit, and the vocabulary that was fitted."""
 
-    def __init__(self, look, a, b, counts, n_iter, change, n_ref_tokens, min_count):
+    def __init__(self, look, a, b, counts, n_iter, change, n_ref_tokens, min_count, unexplained=None,
+                 dead_threshold=1e-6):
         self.look = look            # (V,) long: row of `a` for every vocabulary id, -1 if dropped
         self.a = a                  # (types, units) float32
         self.b = b                  # (seq_len, units) float32
@@ -40,11 +41,20 @@ class TokenPositionFit:
         self.change = change
         self.n_ref_tokens = n_ref_tokens
         self.min_count = min_count
+        # Per unit: share of its reference variance that token type and position leave
+        # unexplained (RSS / TSS). A unit below `dead_threshold` is a function of the token and
+        # the position alone (Pythia's first MLP, which in the parallel GPT-NeoX block sees only
+        # the token embedding): its residual is float rounding, so it is dropped (Iteration 41).
+        self.unexplained = unexplained
+        self.live = None if unexplained is None else (unexplained > dead_threshold)
 
     def provenance(self):
-        return dict(residualize='token_position', residual_ref_tokens=int(self.n_ref_tokens),
-                    residual_types=int(self.a.shape[0]), residual_min_count=int(self.min_count),
-                    residual_backfit_iterations=int(self.n_iter), residual_backfit_change=float(self.change))
+        out = dict(residualize='token_position', residual_ref_tokens=int(self.n_ref_tokens),
+                   residual_types=int(self.a.shape[0]), residual_min_count=int(self.min_count),
+                   residual_backfit_iterations=int(self.n_iter), residual_backfit_change=float(self.change))
+        if self.live is not None:
+            out['residual_dead_units'] = int((~self.live).sum())
+        return out
 
 
 def _mlp_capture(model):
@@ -77,7 +87,7 @@ def fit_token_position(model, input_ids, attention_mask, vocab_size, batch_size=
     look_d = look.to(device)
     U = len(keep_ids)
     hooks, captured = _mlp_capture(model)
-    S = P = None
+    S = P = Q = None
     n = torch.zeros(U, dtype=torch.float64, device=device)
     m = torch.zeros(seq_len, dtype=torch.float64, device=device)
     C = torch.zeros(U, seq_len, dtype=torch.float64, device=device)
@@ -99,6 +109,7 @@ def fit_token_position(model, input_ids, attention_mask, vocab_size, batch_size=
             P = torch.zeros(seq_len, x.shape[1], dtype=torch.float64, device=device)
         S.index_add_(0, r, x.double())
         P.index_add_(0, p, x.double())
+        Q = (x.double() ** 2).sum(0) if Q is None else Q + (x.double() ** 2).sum(0)
         n += torch.bincount(r, minlength=U).double()
         m += torch.bincount(p, minlength=seq_len).double()
         C.index_put_((r, p), torch.ones_like(r, dtype=torch.float64), accumulate=True)
@@ -108,6 +119,7 @@ def fit_token_position(model, input_ids, attention_mask, vocab_size, batch_size=
         h.remove()
     # Backfitting on the sufficient statistics, in float32 (the float64 sums are exact; at
     # 160m a float64 types x units table is 9 GB), b constrained to zero mean over tokens.
+    S64, P64 = S, P
     S, P, C, n, m = S.float(), P.float(), C.float(), n.float(), m.float()
     b = torch.zeros_like(P)
     a = S / n[:, None]
@@ -128,8 +140,17 @@ def fit_token_position(model, input_ids, attention_mask, vocab_size, batch_size=
                'backfitting converged in %d iterations (max change %.1e)\n'
                % (' ' * indent, n_tok, U, min_count, it, change))
     model.to('cpu')
-    fit = TokenPositionFit(look, a.float().cpu(), b.float().cpu(), cnt_all, it, change, n_tok, min_count)
-    del S, P, C
+    # At the least-squares solution sum(x * fitted) = sum(fitted^2), so RSS = sum x^2 - sum_t a_t S_t
+    # - sum_k b_k P_k, exactly, from the float64 sums.
+    rss = Q - (a.double() * S64).sum(0) - (b.double() * P64).sum(0)
+    tss = Q - P64.sum(0) ** 2 / n_tok
+    unexplained = torch.where(tss > 0, rss / torch.clamp(tss, min=1e-300), torch.zeros_like(tss)).clamp(min=0).cpu().numpy()
+    fit = TokenPositionFit(look, a.float().cpu(), b.float().cpu(), cnt_all, it, change, n_tok, min_count,
+                           unexplained=unexplained)
+    if verbose:
+        stderr('%s%d of %d units fully explained by token type and position (dropped)\n'
+               % (' ' * indent, int((~fit.live).sum()), len(fit.live)))
+    del S, P, C, S64, P64
     torch.cuda.empty_cache()
     return fit
 

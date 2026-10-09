@@ -73,6 +73,11 @@ fitted_bf = (fit.a[fit.look[torch.as_tensor(flat[keep])]] + fit.b[torch.as_tenso
 worst = float(np.abs(fitted_ols - fitted_bf).max())
 check('backfitting on sufficient statistics equals explicit least squares (fitted values, worst |diff| %.1e)' % worst,
       worst < 1e-4)
+layer_of = out['coordinates'][:, 0]
+check('units fully explained by token and position are found exactly: the first MLP of the parallel GPT-NeoX block '
+      '(sees only the embedding) is dead, every other unit is live',
+      (~fit.live[layer_of == 0]).all() and fit.live[layer_of > 0].all()
+      and fit.unexplained[layer_of == 0].max() < 1e-6 and fit.unexplained[layer_of > 0].min() > 1e-3)
 check('a type seen fewer than min_count times is dropped; every type seen >= 3 times is kept',
       int(fit.look[49999]) == -1 and all(int(fit.look[t]) >= 0 for t in vocab if (flat == t).sum() >= 3))
 
@@ -125,7 +130,11 @@ check('provenance records the residual fit', attrs.get('residualize') == 'token_
       and int(attrs.get('residual_ref_tokens')) > 0 and int(attrs.get('residual_min_count')) == 2)
 check('the residual run sees the same tokens, minus only the dropped ones',
       0 < int(f['n_obs'][()]) <= int(g['n_obs'][()]))
-check('the residual connectome differs from the ordinary one', not np.allclose(f['connectivity'][()], g['connectivity'][()]))
+fc, gc = f['coordinates'][()], g['coordinates'][()]
+rows_g = np.array([np.flatnonzero((gc == c).all(1))[0] for c in fc])
+check('the residual connectome covers the live units (layer 0 dropped) and differs from the ordinary one on them',
+      (fc[:, 0] > 0).all() and len(fc) == int((gc[:, 0] > 0).sum()) and int(attrs.get('residual_dead_units')) == int((gc[:, 0] == 0).sum())
+      and not np.allclose(f['connectivity'][()], g['connectivity'][()][np.ix_(rows_g, rows_g)]))
 f.close(); g.close()
 
 # by hand: refit on the same reference, residualize sample 1 (half A is sample 1 alone)
@@ -136,11 +145,13 @@ s_ids, s_mask = small_vocab_dataset(1024, 32, seed=pm.derive_seed(7, 'data', 'ra
 s_ids, s_mask = s_ids[:16], s_mask[:16]
 tc2 = get_timecourses(model, s_ids, s_mask, batch_size=4, unit_type='mlp', verbose=False)['timecourses']
 r2, _ = residualize_timecourses(fit2, tc2.copy(), s_ids, s_mask)
+r2 = r2[fit2.live]
 by_hand = np.corrcoef(r2)
 stored = h5py.File(os.path.join(resid, 'connectivity', 'connectivity_random_halfA.h5'), 'r')['connectivity'][()]
 ok = np.isfinite(by_hand)
-check('the stored residual connectome equals correlating the residuals by hand (Fisher eps aside)',
-      np.allclose(np.tanh(np.arctanh(by_hand[ok] * (1 - 1e-3))), stored[ok], atol=1e-4))
+check('the stored residual connectome covers the live units only and equals correlating their residuals by hand',
+      stored.shape[0] == int(fit2.live.sum()) < len(fit2.live)
+      and np.allclose(np.tanh(np.arctanh(by_hand[ok] * (1 - 1e-3))), stored[ok], atol=1e-4))
 
 # the dynamics measures on the same config: their halves equal the stored ones
 import parcelmate.dynamics as dyn
@@ -171,6 +182,7 @@ for tree in ('', '_null'):
         d_ = h5py.File(os.path.join(resid + tree, 'connectivity', 'connectivity_random_%s.h5' % h), 'r')
         Rd = np.abs(np.nan_to_num(d_['connectivity'][()]))
         nd = int(d_['n_obs'][()])
+        dcoords = d_['coordinates'][()]
         d_.close()
         # The tiny random model has neurons that token type and position explain exactly
         # (residual ~1e-9): dead in the tiled path, float noise in the dense one. Compare the
@@ -182,10 +194,20 @@ for tree in ('', '_null'):
         Rt = Tm[0:Tm.shape[0]]
         nt = int(h5py.File(Tm.path, 'r')['n_obs'][()])
         Tm.close()
-        Rd, Rt = Rd[np.ix_(live, live)], Rt[np.ix_(live, live)]
-        worst_t = max(worst_t, float(np.abs(Rd - Rt).max()))
-        ok_t &= np.allclose(Rd, Rt, atol=5e-3) and nd == nt and live.sum() > 10
-check('out of core: the tiled residual connectome equals the dense one on live units in both trees, same tokens (worst |diff| %.1e)' % worst_t, ok_t)
+        # the dense path drops the dead units; the tiled one keeps them as zero rows
+        tco = h5py.File(Tm.path, 'r')['coordinates'][()]
+        rows_t = np.array([np.flatnonzero((tco == c).all(1))[0] for c in dcoords])
+        Rt = Rt[np.ix_(rows_t, rows_t)]
+        assert Rd.shape == Rt.shape, (Rd.shape, Rt.shape)
+        if tree == '':
+            worst_t = max(worst_t, float(np.abs(Rd - Rt).max()))
+            ok_t &= np.allclose(Rd, Rt, atol=5e-3) and nd == nt and len(dcoords) > 10
+        else:
+            # the null's per-unit shifts are drawn over the units each path keeps (the dense
+            # path has dropped the dead ones), so the draws differ: same distribution only
+            iu = np.triu_indices(len(Rd), 1)
+            ok_t &= abs(Rd[iu].mean() / Rt[iu].mean() - 1) < 0.2 and nd == nt
+check('out of core: the tiled residual connectome equals the dense one on the live units (real tree; worst |diff| %.1e), the null alike in distribution' % worst_t, ok_t)
 
 shutil.rmtree(tmp)
 print('\n%d checks, %d failure(s)' % (n_checks[0], len(failures)))
