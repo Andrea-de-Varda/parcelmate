@@ -142,6 +142,7 @@ def main():
     ap.add_argument('--pairs', type=int, default=2_000_000)
     ap.add_argument('--min-count', type=int, default=3)
     ap.add_argument('--backfit', type=int, default=6, help='backfitting iterations for the joint token + position fit')
+    ap.add_argument('--ref-prose-only', action='store_true', help='estimate removed statistics on the prose datasets only (as the pipeline does)')
     ap.add_argument('--ref-mult', type=int, default=1, help='reference portion = this many halves')
     ap.add_argument('--variants', nargs='+', default=None)
     ap.add_argument('--cluster', nargs='+', default=[], help='variants whose full connectome is also partitioned (k = 100)')
@@ -176,7 +177,7 @@ def main():
         jtab, jpos = None, None
         if any('joint' in v for v in (args.variants or [])):
             from parcelmate.residual import fit_token_position
-            ref_all = torch.cat([data[d]['ref'] for d in DATASETS])
+            ref_all = torch.cat([data[d]['ref'] for d in (PROSE if args.ref_prose_only else DATASETS)])
             jfit = fit_token_position(model, ref_all, torch.ones_like(ref_all), V, batch_size=8,
                                       min_count=args.min_count, device=dev)
             model.to(dev)
@@ -200,7 +201,8 @@ def main():
         # Reference statistics, streamed over the reference windows (never stored):
         # per-type means pooled over all datasets (first pass), per-position means, and the
         # mean residual (x - type mean) by PREVIOUS token type (second pass).
-        ref_ids = torch.cat([T[(d, 'ref')] for d in DATASETS])
+        REF_DS = PROSE if args.ref_prose_only else DATASETS
+        ref_ids = torch.cat([T[(d, 'ref')] for d in REF_DS])
         types, inv = torch.unique(ref_ids, return_inverse=True)
         look = torch.full((V,), -1, dtype=torch.long, device=dev)
         look[types] = torch.arange(len(types), device=dev)
@@ -209,7 +211,7 @@ def main():
         tab = torch.zeros(len(types), N, device=dev)
         pos_sum = torch.zeros(SEQ, N, device=dev)
         n_win = 0
-        for d in DATASETS:
+        for d in REF_DS:
             ids = data[d]['ref']
             for i in range(0, len(ids), 8):
                 x = activations(model, ids[i:i + 8], dev).float()
