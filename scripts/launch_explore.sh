@@ -11,7 +11,7 @@ umask 002
 WORK=${WORK:-/juice6/u/nlp/climblab/devarda/parcelmate}
 CONDA_SH=${CONDA_SH:-/juice6/u/nlp/climblab/devarda/miniforge3/etc/profile.d/conda.sh}
 CONDA_ENV=${CONDA_ENV:-parcelmate}
-EXCLUDE=${EXCLUDE:-jagupard32}
+EXCLUDE=${EXCLUDE:-jagupard19,jagupard20,jagupard32}   # any GPU of at least 24 GB (Titan V is 12 GB; jagupard32 bad)
 NAME=$1; HOURS=$2; shift 2
 cd "$WORK"
 mkdir -p jobs logs
@@ -26,7 +26,7 @@ cat > jobs/explore.$NAME.pbs <<EOF
 #SBATCH --cpus-per-task=8
 #SBATCH --account=nlp
 #SBATCH --partition=jag-standard
-#SBATCH --gres=gpu:a6000:1
+#SBATCH --gres=gpu:1
 #SBATCH --exclude=$EXCLUDE
 set -e
 umask 002
