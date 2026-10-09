@@ -86,6 +86,11 @@ def main():
     b1c = b1 - b1.mean(0)
     stderr('position effects: var across positions (median over units): raw pi %.3g, joint b %.3g, b1 %.3g, '
            'token composition %.3g\n' % (pi.var(0).median(), b.var(0).median(), b1.var(0).median(), comp.var(0).median()))
+    # a random per-position pattern with the per-unit spread of the reference's token
+    # composition: if subtracting it raises cross-dataset agreement, the sequential gain is
+    # an injected shared pattern, not structure in the data
+    g = torch.randn(L, N, device=dev, generator=torch.Generator(device=dev).manual_seed(1))
+    g = g * (comp - comp.mean(0)).std(0, keepdim=True)
     rs = np.random.RandomState(0)
     pi_i = torch.as_tensor(rs.randint(0, N, 1_000_000), device=dev)
     pj_i = torch.as_tensor(rs.randint(0, N, 1_000_000), device=dev)
@@ -112,6 +117,7 @@ def main():
                 'token + position, one backfit step': X - mu[r] - b1c[pos],
                 'token + position, joint least squares': X - a[r] - b[pos],
                 'joint + reference token composition by position': X - a[r] - b[pos] - (comp[pos] - comp.mean(0)),
+                'joint + RANDOM per-position pattern (same spread)': X - a[r] - b[pos] - g[pos],
             }
             for k, v in V.items():
                 out.setdefault(k, {})[(d, h)] = vec(v[ok])
