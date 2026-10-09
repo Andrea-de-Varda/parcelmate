@@ -141,6 +141,7 @@ def main():
     ap.add_argument('--tokens', type=int, default=40960)
     ap.add_argument('--pairs', type=int, default=2_000_000)
     ap.add_argument('--min-count', type=int, default=3)
+    ap.add_argument('--backfit', type=int, default=6, help='backfitting iterations for the joint token + position fit')
     ap.add_argument('--ref-mult', type=int, default=1, help='reference portion = this many halves')
     ap.add_argument('--variants', nargs='+', default=None)
     ap.add_argument('--cluster', nargs='+', default=[], help='variants whose full connectome is also partitioned (k = 100)')
@@ -217,6 +218,34 @@ def main():
         nu_tab /= torch.clamp(nu_cnt, min=1)[:, None]
         nu = lambda t: nu_tab[look[t].clamp(min=0)]
         stderr('  reference statistics: %d types, %d windows, %.0f s\n' % (len(types), n_win, time.time() - t0))
+        # Joint fit of token type and position (iteration 6): least squares of
+        # x = a(token type) + b(position) on the reference, by backfitting (alternate the
+        # token means of x - b and the position means of x - a until they stop changing).
+        # Equal to the sequential subtraction when type and position are uncorrelated.
+        jtab, jpos = None, None
+        if any('joint' in v for v in (args.variants or [])):
+            jpos = torch.zeros(SEQ, N, device=dev)
+            for it in range(args.backfit):
+                new_tab = torch.zeros(len(types), N, device=dev)
+                new_pos = torch.zeros(SEQ, N, device=dev)
+                for d in DATASETS:
+                    ids = data[d]['ref']
+                    for i in range(0, len(ids), 8):
+                        x = activations(model, ids[i:i + 8], dev).float().reshape(-1, SEQ, N)
+                        t = ids[i:i + 8].to(dev)
+                        new_tab.index_add_(0, look[t.reshape(-1)], (x - jpos[None]).reshape(-1, N))
+                new_tab /= torch.clamp(cnt[types], min=1)[:, None]
+                for d in DATASETS:
+                    ids = data[d]['ref']
+                    for i in range(0, len(ids), 8):
+                        x = activations(model, ids[i:i + 8], dev).float().reshape(-1, SEQ, N)
+                        t = ids[i:i + 8].to(dev)
+                        new_pos += (x - new_tab[look[t]]).sum(0)
+                new_pos /= n_win
+                change = 0.0 if jtab is None else float((new_tab - jtab).abs().max())
+                jtab, jpos = new_tab, new_pos
+                stderr('  backfit iteration %d: max change in token means %.2e\n' % (it + 1, change))
+            jmu = lambda t: jtab[look[t].clamp(min=0)]
         # Shared vocabulary (iteration 3): token types seen at least SHARED_MIN times in the
         # reference portion of EVERY prose dataset.
         ref_cnt = torch.stack([torch.bincount(data[d]['ref'].reshape(-1).to(dev), minlength=V) for d in PROSE])
@@ -278,6 +307,8 @@ def main():
                     ht = torch.bincount(tt, minlength=V).float()
                     w = torch.clamp(target_sh[tt] / (ht[tt] / len(tt)), max=5.0)
                 return R[m], w
+            if name == 'tokpos_joint':
+                return (x - jmu(t) - jpos[pos])[seen], None
             if name == 'tokres20':
                 ok = cnt[t] >= 20
                 return (x - mu(t))[ok], None
