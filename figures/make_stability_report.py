@@ -159,15 +159,49 @@ def fig_consensus():
     save(fig, 'fig2_consensus')
 
 
-# ---------------------------------------------------------------- 3. components (item 3)
-VARIANT_LABEL = {'base': 'ordinary', 'tokmean': 'token means only', 'freqmatch': 'frequency-matched',
-                 'tokres': '− token', 'ctxres': '− token, prev. token', 'tokres+posres': '− token, position',
-                 'ctxres+posres': '− token, prev. token, position', 'ctxres+posres+winres': '… − slow drift',
-                 'sh:ctxres+posres': '… shared vocabulary', 'tokres+rank': 'rank residual',
-                 'cm:tokres+rank': 'rank residual − layer gain'}
+# ---------------------------------------------------------------- 3. the residual connectome (item 3)
+STEPS3 = (('0', 'untrained', UNTRAINED), ('143000', 'trained', TRAINED))
+KEEP = (('base', 'ordinary\n(control)'), ('tokres', 'token removed\n(intermediate)'), ('ctxres+posres', 'residual\n(kept)'))
 
 
-SHORT_V = {'base': 'ordinary', 'freqmatch': 'freq.-\nmatched', 'tokres': '− token', 'ctxres+posres': 'residual'}
+def fig_residual():
+    """One run (Pythia-70m, run 4, 81,920 tokens per half) for both panels."""
+    rows = rd(os.path.join(HERE, 'explore_connectome_run4.csv'))
+    parts = rd(os.path.join(HERE, 'explore_connectome_run4_partitions.csv'))
+    fig, axes = plt.subplots(1, 2, figsize=(10 * .85, 3.5 * .85))
+    plt.subplots_adjust(wspace=0.3)
+
+    def bars(ax, get, ylab, ylim):
+        for j, (v, _) in enumerate(KEEP):
+            for k, (step, _, col) in enumerate(STEPS3):
+                w, a = get(step, v)
+                x0 = j + (k - 0.5) * 0.4
+                for dx, val, hatch in ((-0.09, w, None), (0.09, a, '///')):
+                    ax.bar(x0 + dx, val, width=0.17, color=col, edgecolor='black', lw=0.6, hatch=hatch, zorder=3)
+                    ax.text(x0 + dx, val + 0.012, '%.2f' % val, ha='center', fontsize=6, rotation=90, va='bottom')
+        ax.set_xticks(range(len(KEEP)))
+        ax.set_xticklabels([lab for _, lab in KEEP], fontsize=8)
+        ax.set_ylabel(ylab, fontsize=9)
+        ax.set_ylim(*ylim)
+        ax.axvspan(1.5, 2.5, color='#fff3d6', zorder=0)
+        style(ax)
+
+    bars(axes[0], lambda st, v: explore_means(rows, st, v), 'connectome similarity (r)', (0, 1.15))
+    letter(axes[0], 'A')
+    axes[0].set_title('Connectomes', fontsize=9, weight='bold')
+
+    def part(st, v):
+        r = [x for x in parts if x['step'] == st and x['variant'] == v][0]
+        return float(r['ari_within']), float(r['ari_across'])
+    bars(axes[1], part, 'partition agreement (ARI, k = 100)', (0, 0.72))
+    letter(axes[1], 'B')
+    axes[1].set_title('Networks (partitions)', fontsize=9, weight='bold')
+    axes[1].legend(handles=[mpl.patches.Patch(fc=UNTRAINED, ec='black', label='untrained'),
+                            mpl.patches.Patch(fc=TRAINED, ec='black', label='trained'),
+                            mpl.patches.Patch(fc='white', ec='black', label='within dataset'),
+                            mpl.patches.Patch(fc='white', ec='black', hatch='///', label='across datasets')],
+                   frameon=False, fontsize=7, loc='upper left', bbox_to_anchor=(1.0, 1.0))
+    save(fig, 'fig3_residual')
 
 
 def explore_means(rows, step, variant):
@@ -175,109 +209,6 @@ def explore_means(rows, step, variant):
     w = np.mean([float(r['r']) for r in R if r['kind'] == 'within' and r['fit'] in PROSE])
     a = np.mean([float(r['r']) for r in R if r['kind'] == 'across' and r['fit'] in PROSE and r['eval'] in PROSE])
     return w, a
-
-
-def fig_components():
-    r2 = rd(os.path.join(HERE, 'explore_connectome_run2.csv'))
-    r3 = rd(os.path.join(HERE, 'explore_connectome_run3.csv'))
-    fig, axes = plt.subplots(1, 2, figsize=(11 * .85, 4.2 * .85), gridspec_kw=dict(width_ratios=[1.25, 1]))
-    plt.subplots_adjust(wspace=0.35)
-    ax = axes[0]
-    show = [('base', r2), ('tokmean', r2), ('freqmatch', r2), ('tokres', r2), ('ctxres', r2), ('ctxres+posres', r3),
-            ('ctxres+posres+winres', r3), ('tokres+rank', r2), ('cm:tokres+rank', r2)]
-    y = np.arange(len(show))[::-1]
-    for yi, (v, rows) in zip(y, show):
-        for step, col, off in (('0', UNTRAINED, 0.16), ('143000', TRAINED, -0.16)):
-            w, a = explore_means(rows, step, v)
-            ax.plot([a, w], [yi + off] * 2, color=col, lw=2.5, alpha=0.45, zorder=2)
-            ax.scatter(w, yi + off, s=28, marker='o', color=col, edgecolors='black', lw=0.4, zorder=3)
-            ax.scatter(a, yi + off, s=34, marker='D', color=col, edgecolors='black', lw=0.4, zorder=3)
-    hl = [i for i, (v, _) in enumerate(show) if v == 'ctxres+posres'][0]
-    ax.axhspan(y[hl] - 0.45, y[hl] + 0.45, color='#fff3d6', zorder=0)
-    ax.set_yticks(y)
-    ax.set_yticklabels([VARIANT_LABEL[v] for v, _ in show], fontsize=8)
-    ax.set_xlim(0.4, 1.01)
-    ax.set_xlabel('connectome similarity (r)', fontsize=9)
-    style(ax, grid='x')
-    letter(ax, 'A', x=-0.42)
-    ax.legend(handles=[Line2D([], [], marker='o', ls='', mfc='white', mec='black', label='within dataset'),
-                       Line2D([], [], marker='D', ls='', mfc='white', mec='black', label='across datasets'),
-                       Line2D([], [], color=UNTRAINED, lw=3, label='untrained (step 0)'),
-                       Line2D([], [], color=TRAINED, lw=3, label='trained (step 143k)')],
-              frameon=False, fontsize=7, loc='lower left', bbox_to_anchor=(0.0, 1.0), ncol=2)
-
-    ax = axes[1]
-    steps = ['0', '64', '1000', '16000', '143000']
-    xs = np.arange(len(steps))
-    for v, col, rows in (('base', '0.55', r2), ('freqmatch', '#7fa7c9', r2), ('tokres', '#c9a05a', r2), ('ctxres+posres', '#b03a2e', r2)):
-        W = [explore_means(rows, s, v)[0] for s in steps]
-        A = [explore_means(rows, s, v)[1] for s in steps]
-        ax.plot(xs, A, color=col, lw=2, marker='D', ms=5, label=VARIANT_LABEL[v], zorder=3)
-        ax.plot(xs, W, color=col, lw=1.2, ls=':', marker='o', ms=3.5, zorder=2)
-    ax.set_xticks(xs)
-    ax.set_xticklabels(['init', '64', '1k', '16k', '143k'], fontsize=8)
-    ax.set_xlabel('training step (Pythia-70m)', fontsize=9)
-    ax.set_ylabel('connectome similarity (r)', fontsize=9)
-    ax.set_ylim(0.4, 1.01)
-    style(ax)
-    letter(ax, 'B')
-    ax.legend(frameon=False, fontsize=7, loc='lower right', title='across (solid), within (dotted)', title_fontsize=7)
-    save(fig, 'fig3_components')
-
-
-# ---------------------------------------------------------------- 4. residual: partitions and 160m
-def fig_residual():
-    p4 = os.path.join(HERE, 'explore_connectome_run4_partitions.csv')
-    p5 = os.path.join(HERE, 'explore_connectome_run5_160m.csv')
-    if not (os.path.exists(p4) and os.path.exists(p5)):
-        print('skip fig4 (run4/run5 not pulled)')
-        return
-    fig, axes = plt.subplots(1, 2, figsize=(10 * .85, 3.4 * .85))
-    plt.subplots_adjust(wspace=0.35)
-    ax = axes[0]
-    P = rd(p4)
-    vs = ['base', 'tokres', 'ctxres+posres']
-    for j, v in enumerate(vs):
-        for step, dx, col in (('0', -0.18, UNTRAINED), ('143000', 0.18, TRAINED)):
-            rr = [r for r in P if r['variant'] == v and r['step'] == step]
-            if not rr:
-                continue
-            w, a = float(rr[0]['ari_within']), float(rr[0]['ari_across'])
-            ax.bar(j + dx - 0.07, w, width=0.14, color=col, edgecolor='black', lw=0.6, zorder=3)
-            ax.bar(j + dx + 0.07, a, width=0.14, color=col, edgecolor='black', lw=0.6, hatch='///', zorder=3)
-    ax.set_xticks(range(len(vs)))
-    ax.set_xticklabels([SHORT_V[v] for v in vs], fontsize=8)
-    ax.set_ylabel('partition ARI (k = 100)', fontsize=9)
-    ax.set_ylim(0, 0.75)
-    style(ax)
-    letter(ax, 'A')
-    ax.legend(handles=[mpl.patches.Patch(fc='white', ec='black', label='within dataset'),
-                       mpl.patches.Patch(fc='white', ec='black', hatch='///', label='across datasets'),
-                       mpl.patches.Patch(fc=UNTRAINED, ec='black', label='untrained'),
-                       mpl.patches.Patch(fc=TRAINED, ec='black', label='trained')],
-              frameon=False, fontsize=7, loc='upper left', ncol=2)
-    ax.set_title('Pythia-70m: partitions', fontsize=9, weight='bold')
-
-    ax = axes[1]
-    R5 = rd(p5)
-    vs = ['base', 'freqmatch', 'tokres', 'ctxres+posres']
-    for j, v in enumerate(vs):
-        for step, dx, col in (('0', -0.18, UNTRAINED), ('143000', 0.18, TRAINED)):
-            w, a = explore_means(R5, step, v)
-            ax.plot([j + dx] * 2, [a, w], color=col, lw=3, alpha=0.5, zorder=2)
-            ax.scatter(j + dx, w, s=28, marker='o', color=col, edgecolors='black', lw=0.4, zorder=3)
-            ax.scatter(j + dx, a, s=34, marker='D', color=col, edgecolors='black', lw=0.4, zorder=3)
-    ax.set_xticks(range(len(vs)))
-    ax.set_xticklabels([SHORT_V[v] for v in vs], fontsize=8)
-    ax.set_ylabel('connectome similarity (r)', fontsize=9)
-    ax.set_ylim(0.2, 1.02)
-    style(ax)
-    letter(ax, 'B')
-    ax.set_title('Pythia-160m replication', fontsize=9, weight='bold')
-    ax.legend(handles=[Line2D([], [], marker='o', ls='', mfc='white', mec='black', label='within'),
-                       Line2D([], [], marker='D', ls='', mfc='white', mec='black', label='across')],
-              frameon=False, fontsize=7, loc='lower left')
-    save(fig, 'fig4_residual_partitions')
 
 
 # ---------------------------------------------------------------- 5. circuits vs consensus (item 5)
@@ -333,12 +264,11 @@ def fig_consensus_circuits():
     axes[2].legend(handles=[Line2D([], [], marker='o', ls='', mfc=REAL, mec='black', label='real networks'),
                             Line2D([], [], marker='o', ls='', mfc=NULL, mec='black', label='null partition')],
                    frameon=False, fontsize=7, loc='upper left', bbox_to_anchor=(1.0, 1.0))
-    save(fig, 'fig5_consensus_circuits')
+    save(fig, 'fig4_consensus_circuits')
 
 
 if __name__ == '__main__':
     fig_diagnosis()
     fig_consensus()
-    fig_components()
     fig_residual()
     fig_consensus_circuits()
