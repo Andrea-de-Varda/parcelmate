@@ -10,6 +10,7 @@ reproducible from the repository alone; this script is the record of how they we
 """
 
 import os
+import sys
 
 import yaml
 
@@ -45,11 +46,20 @@ HEADER = """# Pythia training dynamics (LOG.md Iteration 22): %(model)s at train
 """
 
 
-def config(size, step):
+RESID_HEADER = """#
+# RESIDUAL CONNECTOME (LOG.md Iteration 39): before correlating, every unit's activation has
+# what token type and position predict removed (a joint least-squares fit, on a reference
+# portion of every domain pooled over the four domains, disjoint from the analysed text;
+# parcelmate/residual.py). The analysed documents, samples, halves and every later step are
+# exactly those of configs/pythia/.
+"""
+
+
+def config(size, step, resid=False):
     spec = SIZES[size]
     model = 'EleutherAI/pythia-%s' % size
     units = spec['layers'] * spec['neurons']
-    out_dir = 'results/pythia/pythia-%s/step%d' % (size, step)
+    out_dir = 'results/%s/pythia-%s/step%d' % ('pythia_resid' if resid else 'pythia', size, step)
     cfg = dict(
         output_dir=out_dir,
         seed=42,
@@ -97,21 +107,29 @@ def config(size, step):
         ),
         parcellation_variants={'final': {}},
     )
+    if resid:
+        cfg['connectivity'].update(residualize='token_position', residual_ref_tokens=None,
+                                   residual_min_count=3)
     header = HEADER % dict(model=model, step=step, layers=spec['layers'],
                            neurons=spec['neurons'], units=units,
                            gb=4 * 2 * units * units * 4 / 1e9)
+    if resid:
+        header += RESID_HEADER
     return header + yaml.safe_dump(cfg, sort_keys=False, default_flow_style=False)
 
 
-def config_name(size, step):
-    return 'pythia-%s_step%d.yml' % (size, step)
+def config_name(size, step, resid=False):
+    return '%s-%s_step%d.yml' % ('pythia_resid' if resid else 'pythia', size, step)
 
 
 if __name__ == '__main__':
-    os.makedirs(OUT, exist_ok=True)
+    # `--resid` writes the residual-connectome twins into configs/pythia_resid/.
+    resid = '--resid' in sys.argv
+    out = OUT + ('_resid' if resid else '')
+    os.makedirs(out, exist_ok=True)
     for size in SIZES:
         for step in STEPS:
-            path = os.path.join(OUT, config_name(size, step))
+            path = os.path.join(out, config_name(size, step, resid))
             with open(path, 'w') as f:
-                f.write(config(size, step))
+                f.write(config(size, step, resid))
             print(os.path.relpath(path, os.path.join(HERE, '..')))

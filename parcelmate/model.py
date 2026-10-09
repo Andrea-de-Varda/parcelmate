@@ -1133,6 +1133,9 @@ def run_connectivity(
         outputs=('samples', 'avg'),
         storage='dense',
         pool_as=None,
+        residualize=None,
+        residual_ref_tokens=None,
+        residual_min_count=3,
         seed=None,
         overwrite=False,
         verbose=True,
@@ -1152,6 +1155,14 @@ def run_connectivity(
     the pseudo-domain `pool_as`, Fisher-averaged over the samples of every domain in
     `domains` (`bigconn.write_tiled_pooled`); no per-domain file is written. Each domain
     gets its usual data seed, so its documents are the ones a single-domain run would draw.
+
+    `residualize='token_position'` (LOG.md Iteration 39, dense path only) removes from every
+    unit's activation what token type and position predict, fitted jointly by least squares on
+    a reference portion of every domain (`residual_ref_tokens` tokens each, default one half's
+    worth, the windows following the analysed ones), pooled over `domains`; see
+    `parcelmate.residual`. Tokens of types seen fewer than `residual_min_count` times in the
+    reference are dropped. The null is the circular shift of the residual timecourses. The
+    stored unit_means / unit_stds stay those of the raw activations.
 
     `outputs` says which files to write per domain (LOG.md Iteration 22):
       'samples'  one file per sample (the cache the `split_halves` step reads);
@@ -1255,6 +1266,28 @@ def run_connectivity(
 
     if isinstance(domains, str):
         domains = (domains,)
+
+    residual_fit = None
+    if residualize:
+        assert residualize == 'token_position', 'residualize must be token_position, got %r' % (residualize,)
+        assert not tiled and not pool_as, 'residualize is implemented for the dense path'
+        assert unit_type == 'mlp' and not units_per_layer, 'residualize is for all MLP units'
+        assert not (timecourse_pca_components or timecourse_ica_components or highpass or lowpass)
+        from parcelmate.residual import fit_token_position, reference_inputs
+        n_ref = int(residual_ref_tokens or n_tokens * n_samples // 2)
+
+        def _load(d, n_tok):
+            kw = domain_data_kwargs(d, data_kwargs)
+            kw['tokenizer'] = tokenizer
+            return get_dataset(n_tokens=n_tok, split=split, take=take, seq_len=seq_len, wrap=wrap,
+                               shuffle=shuffle, seed=derive_seed(seed, 'data', d), verbose=False, **kw)
+        if verbose:
+            stderr('%sFitting token and position effects on %d reference tokens per domain\n' % (' ' * indent, n_ref))
+        ref_ids, ref_mask = reference_inputs(_load, domains, n_tokens * n_samples, n_ref)
+        residual_fit = fit_token_position(model, ref_ids, ref_mask, len(tokenizer), batch_size=batch_size,
+                                          min_count=residual_min_count, verbose=verbose, indent=indent + 2)
+        provenance.update(residual_fit.provenance())
+        del ref_ids, ref_mask
 
     if pool_as:
         assert tiled, 'pool_as needs storage: tiled_fp16'
@@ -1430,6 +1463,12 @@ def run_connectivity(
                 )
                 timecourses = out['timecourses']
                 coordinates = out['coordinates']
+                if residual_fit is not None:
+                    from parcelmate.residual import residualize_timecourses
+                    timecourses, n_drop = residualize_timecourses(residual_fit, timecourses, _input_ids, _attention_mask)
+                    if verbose:
+                        stderr('%sResidualized (token type + position); %d of %d tokens dropped (rare types)\n'
+                               % (' ' * indent, n_drop, n_drop + timecourses.shape[1]))
                 if null_model == 'circshift':
                     # Before the real one: get_connectivity centers and normalizes its
                     # input in place, so it consumes whichever array it is handed.

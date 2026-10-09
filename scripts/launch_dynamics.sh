@@ -26,6 +26,8 @@ CONDA_ENV=${CONDA_ENV:-parcelmate}
 MODE=${1:-}
 SIZE=${2:-}
 MAX_GPU=${MAX_GPU:-4}
+# TREE=pythia_resid: the residual-connectome twins (LOG.md Iteration 39).
+TREE=${TREE:-pythia}
 # Nodes to avoid (comma-separated). jagupard32 had a GPU held by a stale 43 GB process on
 # 2026-09-23 that killed three jobs (LOG.md Iteration 28).
 EXCLUDE=${EXCLUDE:-jagupard32}
@@ -43,7 +45,7 @@ case "$SIZE" in
     *) echo "size must be 70m or 160m" >&2; exit 2 ;;
 esac
 cd "$WORK"
-OUT=results/pythia/pythia-$SIZE/dynamics
+OUT=results/$TREE/pythia-$SIZE/dynamics
 
 header() {
     # $1 name, $2 hours, $3 GB, $4 cpus, $5 partition, $6 gres line or empty
@@ -85,41 +87,49 @@ generate() {
     mkdir -p jobs logs
     local step name
     for step in $STEPS; do
-        name=dynamics.pythia-$SIZE.step$step
+        name=dynamics.$TREE-$SIZE.step$step
         { header $name $GPU_T $GPU_M $GPU_C jag-standard "#SBATCH --gres=gpu:a6000:1${EXCLUDE:+
 #SBATCH --exclude=$EXCLUDE}"
-          echo "python -m parcelmate.bin.dynamics checkpoint configs/pythia/pythia-${SIZE}_step${step}.yml --out $OUT"
+          echo "python -m parcelmate.bin.dynamics checkpoint configs/$TREE/$TREE-${SIZE}_step${step}.yml --out $OUT"
         } > jobs/$name.pbs
     done
-    name=dynamics.pythia-$SIZE.partitions
+    name=dynamics.$TREE-$SIZE.partitions
     { header $name 2 16 4 john ""
-      echo "python -m parcelmate.bin.dynamics partitions --root results/pythia/pythia-$SIZE --out $OUT"
+      echo "python -m parcelmate.bin.dynamics partitions --root results/$TREE/pythia-$SIZE --out $OUT"
     } > jobs/$name.pbs
-    name=dynamics.pythia-$SIZE.combine
+    name=dynamics.$TREE-$SIZE.combine
     { header $name 1 16 2 john ""
       echo "python -m parcelmate.bin.dynamics combine --out $OUT"
     } > jobs/$name.pbs
-    ls -1 jobs/dynamics.pythia-$SIZE.*.pbs
+    ls -1 jobs/dynamics.$TREE-$SIZE.*.pbs
 }
 
 submit() {
     mkdir -p logs
     echo "code at $(git log --oneline | head -1)"
-    local step id ids="" queue=()
+    # If launch_pythia.sh submitted this tree's chains, each checkpoint job waits for its
+    # step's parcellation (the segregation measures read the stored partitions).
+    local pfile=logs/$TREE-$SIZE.parcellation_ids
+    local step id ids="" queue=() all_parc=""
     for step in $STEPS; do
-        dep=""
-        if [ ${#queue[@]} -ge "$MAX_GPU" ]; then
-            dep="--dependency=afterany:${queue[$(( ${#queue[@]} - MAX_GPU ))]}"
+        deps=""
+        if [ -f "$pfile" ]; then
+            p=$(awk -v s=$step '$1 == s {print $2}' $pfile)
+            [ -n "$p" ] && deps="afterok:$p" && all_parc="$all_parc:$p"
         fi
-        id=$(sbatch --parsable $dep jobs/dynamics.pythia-$SIZE.step$step.pbs)
-        echo "pythia-$SIZE step$step -> $id ${dep:+($dep)}"
+        if [ ${#queue[@]} -ge "$MAX_GPU" ]; then
+            deps="${deps:+$deps,}afterany:${queue[$(( ${#queue[@]} - MAX_GPU ))]}"
+        fi
+        id=$(sbatch --parsable ${deps:+--dependency=$deps} jobs/dynamics.$TREE-$SIZE.step$step.pbs)
+        echo "$TREE-$SIZE step$step -> $id ${deps:+($deps)}"
         queue+=("$id")
         ids="$ids:$id"
     done
-    id=$(sbatch --parsable jobs/dynamics.pythia-$SIZE.partitions.pbs)
-    echo "pythia-$SIZE partitions -> $id"
-    id=$(sbatch --parsable --dependency=afterok$ids jobs/dynamics.pythia-$SIZE.combine.pbs)
-    echo "pythia-$SIZE combine -> $id"
+    id=$(sbatch --parsable ${all_parc:+--dependency=afterok$all_parc} jobs/dynamics.$TREE-$SIZE.partitions.pbs)
+    echo "$TREE-$SIZE partitions -> $id"
+    ids="$ids:$id"
+    id=$(sbatch --parsable --dependency=afterok$ids jobs/dynamics.$TREE-$SIZE.combine.pbs)
+    echo "$TREE-$SIZE combine -> $id"
 }
 
 case "$MODE" in

@@ -318,6 +318,26 @@ def checkpoint_measures(cfg, out_dir, step=None, variant='final', n_sub=4096, ke
         rows.append(dict(model=model_name, step=step, domain=domain, key=key, partition=partition,
                          eval_key=eval_key, measure=measure, value=float(value)))
 
+    # Residual connectome (Iteration 39): the same fit as the connectivity step (same
+    # reference windows, same settings), so the descriptive measures and the partitions they
+    # are read against come from the same connectome. Activation measures (firing rate,
+    # token-class means, loss) stay on the raw activations.
+    residual_fit = None
+    if conn.get('residualize'):
+        from parcelmate.residual import fit_token_position, reference_inputs
+        n_ref = int(conn.get('residual_ref_tokens') or n_tokens * n_samples // 2)
+
+        def _load(d, n_tok):
+            kw_ = domain_data_kwargs(d, conn.get('data_kwargs'))
+            kw_['tokenizer'] = tokenizer
+            return get_dataset(n_tokens=n_tok, split=conn.get('split', 'train'), take=conn.get('take', 100000),
+                               seq_len=seq_len, wrap=conn.get('wrap', True), shuffle=conn.get('shuffle', True),
+                               seed=derive_seed(seed, 'data', d), verbose=False, **kw_)
+        ref_ids, ref_mask = reference_inputs(_load, conn['domains'], n_tokens * n_samples, n_ref)
+        residual_fit = fit_token_position(base, ref_ids, ref_mask, len(tokenizer), batch_size=batch_size,
+                                          min_count=int(conn.get('residual_min_count', 3)), verbose=verbose)
+        del ref_ids, ref_mask
+
     for domain in conn['domains']:
         t0 = time.time()
         if verbose:
@@ -352,6 +372,9 @@ def checkpoint_measures(cfg, out_dir, step=None, variant='final', n_sub=4096, ke
             ph['cls_sum'] = s_ if ph['cls_sum'] is None else ph['cls_sum'] + s_
             ph['cls_cnt'] = c_ if ph['cls_cnt'] is None else ph['cls_cnt'] + c_
             ph['n'] += X.shape[1]
+            if residual_fit is not None:
+                from parcelmate.residual import residualize_timecourses
+                X, _ = residualize_timecourses(residual_fit, X, ids, mask)
             ph['R'].append(get_connectivity(X))
             del X
             lm.to(device)
