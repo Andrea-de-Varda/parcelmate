@@ -41,7 +41,9 @@ case "$SIZE" in
     70m)  GPU_T=2; GPU_M=32; GPU_C=4 ;;
     # 160m: 36 GB measured at the eigenvalue step (17573835). 8 cores and 6 h in case the
     # eigenvalues fall back to LAPACK on the CPU (10-20 min per matrix, 8 matrices): 8 h.
-    160m) GPU_T=8; GPU_M=64; GPU_C=8 ;;
+    # 160m residual twins (Iteration 39): three jobs ran out of memory at 64 GB (17768887,
+    # 17768890, 17768894: the reference fit and the residualized sample on top): 128 GB.
+    160m) GPU_T=8; GPU_M=128; GPU_C=8 ;;
     *) echo "size must be 70m or 160m" >&2; exit 2 ;;
 esac
 cd "$WORK"
