@@ -218,34 +218,20 @@ def main():
         nu_tab /= torch.clamp(nu_cnt, min=1)[:, None]
         nu = lambda t: nu_tab[look[t].clamp(min=0)]
         stderr('  reference statistics: %d types, %d windows, %.0f s\n' % (len(types), n_win, time.time() - t0))
-        # Joint fit of token type and position (iteration 6): least squares of
-        # x = a(token type) + b(position) on the reference, by backfitting (alternate the
-        # token means of x - b and the position means of x - a until they stop changing).
-        # Equal to the sequential subtraction when type and position are uncorrelated.
+        # Joint fit of token type and position: the pipeline's exact least-squares fit
+        # (parcelmate/residual.py, sufficient statistics over the same reference windows). An
+        # earlier backfit over activations here did not satisfy the least-squares conditions
+        # (LOG.md Iteration 39) and is replaced.
         jtab, jpos = None, None
         if any('joint' in v for v in (args.variants or [])):
-            jpos = torch.zeros(SEQ, N, device=dev)
-            for it in range(args.backfit):
-                new_tab = torch.zeros(len(types), N, device=dev)
-                new_pos = torch.zeros(SEQ, N, device=dev)
-                for d in DATASETS:
-                    ids = data[d]['ref']
-                    for i in range(0, len(ids), 8):
-                        x = activations(model, ids[i:i + 8], dev).float().reshape(-1, SEQ, N)
-                        t = ids[i:i + 8].to(dev)
-                        new_tab.index_add_(0, look[t.reshape(-1)], (x - jpos[None]).reshape(-1, N))
-                new_tab /= torch.clamp(cnt[types], min=1)[:, None]
-                for d in DATASETS:
-                    ids = data[d]['ref']
-                    for i in range(0, len(ids), 8):
-                        x = activations(model, ids[i:i + 8], dev).float().reshape(-1, SEQ, N)
-                        t = ids[i:i + 8].to(dev)
-                        new_pos += (x - new_tab[look[t]]).sum(0)
-                new_pos /= n_win
-                change = 0.0 if jtab is None else float((new_tab - jtab).abs().max())
-                jtab, jpos = new_tab, new_pos
-                stderr('  backfit iteration %d: max change in token means %.2e\n' % (it + 1, change))
-            jmu = lambda t: jtab[look[t].clamp(min=0)]
+            from parcelmate.residual import fit_token_position
+            ref_all = torch.cat([data[d]['ref'] for d in DATASETS])
+            jfit = fit_token_position(model, ref_all, torch.ones_like(ref_all), V, batch_size=8,
+                                      min_count=args.min_count, device=dev)
+            model.to(dev)
+            jlook, jtab, jpos = jfit.look.to(dev), jfit.a.to(dev), jfit.b.to(dev)
+            jmu = lambda t: jtab[jlook[t].clamp(min=0)]
+            jseen = lambda t: jlook[t] >= 0
         # Shared vocabulary (iteration 3): token types seen at least SHARED_MIN times in the
         # reference portion of EVERY prose dataset.
         ref_cnt = torch.stack([torch.bincount(data[d]['ref'].reshape(-1).to(dev), minlength=V) for d in PROSE])
@@ -308,7 +294,7 @@ def main():
                     w = torch.clamp(target_sh[tt] / (ht[tt] / len(tt)), max=5.0)
                 return R[m], w
             if name == 'tokpos_joint':
-                return (x - jmu(t) - jpos[pos])[seen], None
+                return (x - jmu(t) - jpos[pos])[jseen(t)], None
             if name == 'tokres20':
                 ok = cnt[t] >= 20
                 return (x - mu(t))[ok], None
