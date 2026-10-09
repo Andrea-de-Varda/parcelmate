@@ -161,14 +161,16 @@ def fig_consensus():
 
 # ---------------------------------------------------------------- 3. the residual connectome (item 3)
 STEPS3 = (('0', 'untrained', UNTRAINED), ('143000', 'trained', TRAINED))
-KEEP = (('base', 'ordinary\n(control)'), ('tokres', 'token removed\n(intermediate)'), ('ctxres+posres', 'residual\n(kept)'))
+KEEP = (('base', 'ordinary\n(control)'), ('posres', 'position\nremoved'), ('tokres', 'token\nremoved'),
+        ('tokpos_joint', 'token + position\nremoved (kept)'))
 
 
 def fig_residual():
-    """One run (Pythia-70m, run 4, 81,920 tokens per half) for both panels."""
-    rows = rd(os.path.join(HERE, 'explore_connectome_run4.csv'))
-    parts = rd(os.path.join(HERE, 'explore_connectome_run4_partitions.csv'))
-    fig, axes = plt.subplots(1, 2, figsize=(10 * .85, 3.5 * .85))
+    """One run (Pythia-70m, run 9: 40,960 tokens per half, reference pooled over the four prose
+    datasets as in the pipeline, joint least-squares fit) for both panels."""
+    rows = rd(os.path.join(HERE, 'explore_connectome_run9.csv'))
+    parts = rd(os.path.join(HERE, 'explore_connectome_run9_partitions.csv'))
+    fig, axes = plt.subplots(1, 2, figsize=(12.5 * .85, 3.6 * .85))
     plt.subplots_adjust(wspace=0.3)
 
     def bars(ax, get, ylab, ylim):
@@ -180,10 +182,10 @@ def fig_residual():
                     ax.bar(x0 + dx, val, width=0.17, color=col, edgecolor='black', lw=0.6, hatch=hatch, zorder=3)
                     ax.text(x0 + dx, val + 0.012, '%.2f' % val, ha='center', fontsize=6, rotation=90, va='bottom')
         ax.set_xticks(range(len(KEEP)))
-        ax.set_xticklabels([lab for _, lab in KEEP], fontsize=8)
+        ax.set_xticklabels([lab for _, lab in KEEP], fontsize=7.5)
         ax.set_ylabel(ylab, fontsize=9)
         ax.set_ylim(*ylim)
-        ax.axvspan(1.5, 2.5, color='#fff3d6', zorder=0)
+        ax.axvspan(len(KEEP) - 1.5, len(KEEP) - 0.5, color='#fff3d6', zorder=0)
         style(ax)
 
     bars(axes[0], lambda st, v: explore_means(rows, st, v), 'connectome similarity (r)', (0, 1.15))

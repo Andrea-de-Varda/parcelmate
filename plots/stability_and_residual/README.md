@@ -6,7 +6,7 @@ A summary of the work since 2026-10-07, when Andrea set five items: (1) a cross-
 
 - **The problem was in the partition, not in the connectome.** Connectomes of different prose datasets correlate about 0.5 (GPT-2) or 0.3 (Qwen3.5-2B), but hard k = 100 partitions of them agree at ARI 0.1 or less. Hard partitions are fragile: random noise that leaves a connectome correlated 0.5 with the original produces the same drop.
 - **The ordinary connectome is a token-identity connectome.** It equals the connectome of each token type's mean activation, weighted by how often each type occurs. That makes it equally reproducible in untrained models, and makes datasets disagree in proportion to their word frequencies.
-- **The residual connectome is what Andrea asked for.** It is what remains of each activation after subtracting what the current token, the previous token and the position predict. In trained Pythia-70m it agrees within a dataset at 0.98 and across datasets at 0.81 (ordinary connectome: 0.56); in the untrained model it is less reliable and less shared (0.74 within, 0.58 across). Its networks (k = 100) agree across datasets at ARI 0.38, against 0.17 for ordinary networks, and only after training. The pattern holds in Pythia-160m, more weakly.
+- **The residual connectome needs training, but is only modestly more shared.** It is what remains of each activation after a joint least-squares fit of what the token type and the position predict. In the untrained Pythia-70m it is unreliable (within 0.54, across 0.39), unlike the ordinary connectome (0.99 / 0.53); in the trained model it is reliable (0.95) and somewhat more shared across datasets than the ordinary one (0.63 against 0.55). Its networks are not more shared (ARI across 0.15 against 0.14). An earlier, larger gain (0.81, networks 0.38) was an artifact of subtracting position averages taken on raw activations; it is corrected below.
 - **A cross-dataset consensus of the existing Qwen partitions replicates** (ARI 0.41 between independent data halves, null 0.18). But it does not match the patching circuits better than single-dataset networks do.
 
 ## 1. The diagnosis (before the five items)
@@ -50,65 +50,60 @@ Kept as the standard: **co-membership** (if two units share a network in one dat
 
 ### The question
 
-The ordinary connectome is almost perfectly reproducible within a dataset (r = 0.99) but only half-shared across datasets (r ≈ 0.5), and this is already true in an untrained model. An untrained model has learned nothing, so whatever makes datasets differ there must come from the text itself, not from language processing. The goal was to remove that part and keep a connectome that (a) is reliable within a dataset, (b) is shared across datasets, and (c) needs training to show both.
+The ordinary connectome is almost perfectly reproducible within a dataset (r = 0.99) but only half-shared across datasets (r ≈ 0.5), and this is already true in an untrained model. An untrained model has learned nothing, so whatever makes datasets differ there comes from the text itself, not from language processing. The goal was a connectome that (a) is reliable within a dataset, (b) is shared across datasets, and (c) needs training to show both.
 
-### The idea: split each activation into what the input predicts and what is left
+### The idea: separate what the input predicts from what is left
 
-Take one MLP neuron and one token in context. Its activation can be written as a sum:
+Take one MLP neuron and one token in context. Its activation can be written as
 
-**activation = (typical activation for this token) + (shift due to the previous token) + (shift due to the position in the window) + residual**
+**activation = a(token type) + b(position in the window) + residual**
 
-- The **residual** is what the neuron does on this particular occasion beyond those averages: its response to the context.
-- A connectome is then the correlation, across tokens, between neurons' activations. The **ordinary connectome** correlates the full activations; the **residual connectome** correlates only the residuals.
+- **a(token type)** is the neuron's typical activation for that token type (for example every " the"), **b(position)** its typical shift at that position of the 1,024-token window (b has zero mean over tokens).
+- The **residual** is what the neuron does on this occasion beyond those two: its response to the context.
+- A connectome is the correlation across tokens between neurons. The **ordinary connectome** correlates the full activations; the **residual connectome** correlates only the residuals.
 
-**How the residual is computed.**
+**How a and b are estimated.**
+- *Data.* Each dataset gives a reference portion: the text that follows the analysed text in the same document stream, never overlapping it. The four prose datasets' portions are pooled, and a and b are fitted on that pool only, so the two halves that are compared stay independent. (In the exploration below: 4 × 163,840 tokens. In the training-dynamics rerun: 4 × 196,608 tokens.)
+- *Fit.* a and b are estimated jointly by ordinary least squares, the regression of the activation on token-type and position dummy variables, for every neuron. It is exact and cheap: the regression only needs per-type sums, per-position sums and a type-by-position count table, collected in one pass over the reference, then solved by alternating the two closed-form updates until they stop changing (4-7 iterations). A test checks it against an explicit regression with dummy variables (equal to 3 × 10⁻⁸).
+- *Rare tokens.* Token types seen fewer than 3 times in the reference are dropped from the fit and from the analysed text: 2-5% of tokens.
 
-*Data for the averages.* Every dataset contributes a reference portion of 320 windows of 1,024 tokens (327,680 tokens, four times an analysed half), separate from the two halves that are compared. The five reference portions are pooled (about 1.64 million tokens, 36,447 token types, codeparrot included), and every average below is computed on that pool only, so the halves stay independent.
-
-*The three averages*, subtracted in this order, for every neuron:
-1. **Current token**, μ(t): the neuron's mean activation over all reference occurrences of token type t (for example every " the").
-2. **Previous token**, ν(p): on the reference, take each token's leftover after step 1 (activation − μ of its own type) and average it by the type of the token *before* it. This is not the previous token's own activation. It is how the current position's activation shifts, beyond what the current token predicts, when the previous token is p (for example how a neuron's response to " cat" shifts after " the"): spillover of the previous token, measured where it lands.
-3. **Position**, π(k): the neuron's mean activation at position k of the window (k = 1 ... 1,023), over the 1,600 reference windows, minus its mean over positions, so only the position-dependent part is removed.
-
-**residual = activation − μ(current token) − ν(previous token) − π(position)**
-
-Tokens are dropped when their own type or the previous token's type occurs fewer than 3 times in the reference (requiring 20 gives the same results), and so is the first token of each window, which has no previous token.
-
-*Caveat.* The three terms are estimated one after the other, not jointly; the position term is estimated on raw activations. Where token types and positions are correlated the terms overlap slightly. A joint fit (repeating the three subtractions until they stop changing) would be cleaner and is planned before this is computed for Qwen.
+**Why a joint fit, and not two subtractions.** A first version subtracted raw token means and then raw position means. That inflated the cross-dataset agreement (to 0.80) and is wrong. Raw position means are not only a position effect: each also contains the average token profile of the few hundred reference tokens that happen to sit at that position. That average is sampling noise, but it is shaped like the token-identity connectome, and the same pattern was subtracted from every dataset. Building that average from tokens taken at *random* positions reproduces the entire gain (0.79), while a random pattern without that shape produces none (0.73, the same as the joint fit). The joint fit separates the two factors and is the method used from here on. The previous-token term of the earlier version is also gone: adding it changed nothing (Iteration 39 of the LOG).
 
 ### Why the ordinary connectome differs across datasets
 
-If every activation is replaced by its token's typical activation, the connectome barely changes: it is essentially a *token-identity connectome*. Two neurons correlate because they respond to the same token types, and how strongly is weighted by how often those token types occur in the text. Different datasets use different words at different rates (wikitext has numbers and markup, Reddit has "I" and informal spelling), so they weight the token types differently and give different connectomes, even through random weights. One check confirms this: reweighting tokens so that every dataset has the same word-frequency profile raises the untrained model's across-dataset agreement from 0.53 to 0.87. After training it only reaches 0.64, so in a trained model something beyond word frequency differs between datasets.
+If every activation is replaced by its token type's typical activation, the connectome barely changes: it is essentially a *token-identity connectome*. Two neurons correlate because they respond to the same token types, weighted by how often those types occur in the text. Datasets use different words at different rates (wikitext has numbers and markup, Reddit has "I" and informal spelling), so they weight the token types differently and give different connectomes, even through random weights. Reweighting tokens so that every dataset has the same word-frequency profile raises the untrained model's across-dataset agreement from 0.53 to 0.87; after training it only reaches 0.64, so in a trained model something beyond word frequency differs between datasets.
 
 ### Result
 
 ![residual](fig3_residual.png)
 
-Pythia-70m (12,288 MLP neurons), four prose datasets, 81,920 tokens per half, one run for both panels. Grey = untrained, blue = trained (final checkpoint); plain bars = within a dataset, hatched = across datasets (mean over dataset pairs).
+Pythia-70m (12,288 MLP neurons), four prose datasets, 40,960 tokens per half; one run for both panels (run 9). Grey = untrained, blue = trained (final checkpoint); plain bars = within a dataset, hatched = across datasets (mean over dataset pairs).
 
 | | untrained, within / across | trained, within / across |
 |---|---|---|
 | **A. connectome (r)** | | |
-| ordinary (control) | 0.99 / 0.53 | 0.99 / 0.56 |
-| token removed (intermediate) | 0.90 / 0.68 | 0.99 / 0.70 |
-| residual (kept) | 0.74 / 0.58 | **0.98 / 0.81** |
+| ordinary (control) | 0.99 / 0.53 | 0.98 / 0.55 |
+| position removed | 0.99 / 0.53 | 0.98 / 0.55 |
+| token removed | 0.87 / 0.74 | 0.99 / 0.78 |
+| **token + position removed (kept)** | **0.54 / 0.39** | **0.95 / 0.63** |
 | **B. networks (ARI, k = 100)** | | |
-| ordinary (control) | 0.43 / 0.09 | 0.51 / 0.17 |
-| token removed (intermediate) | 0.16 / 0.05 | 0.50 / 0.13 |
-| residual (kept) | 0.23 / 0.17 | **0.54 / 0.38** |
+| ordinary (control) | 0.42 / 0.09 | 0.49 / 0.14 |
+| position removed | 0.41 / 0.09 | 0.46 / 0.16 |
+| token removed | 0.24 / 0.13 | 0.51 / 0.20 |
+| **token + position removed (kept)** | **0.12 / 0.04** | **0.51 / 0.15** |
 
 How to read it:
-1. **Ordinary (control).** Perfectly reliable whether or not the model is trained, and half-shared across datasets in both cases. Training makes almost no difference, which is the problem: this connectome mostly reflects the input.
-2. **Token removed (intermediate).** Removing the token's typical activation makes the connectome more shared across datasets (0.56 → 0.70). But the untrained model gains just as much (0.53 → 0.68), so this step removes dataset differences without isolating anything learned. Its networks also do not transfer (ARI 0.13).
-3. **Residual (kept).** Also removing the previous token and the position changes the picture. The untrained model becomes less reliable (0.74) and less shared (0.58): what was left there was mostly a positional pattern that the random network produces identically for any text. The trained model stays reliable (0.98) and becomes the most shared (0.81). Its networks agree across datasets at ARI 0.38, 70% of their within-dataset agreement, against 34% for ordinary networks. In the untrained model the residual networks are unreliable (0.23). All three criteria (a)-(c) are met.
+1. **Ordinary (control).** Perfectly reliable whether or not the model is trained, and half-shared across datasets either way. Training makes almost no difference, which is the problem: this connectome mostly reflects the input.
+2. **Position removed.** Changes nothing: position effects are small next to token effects.
+3. **Token removed.** Makes connectomes more shared across datasets (0.55 → 0.78), but the untrained model gains just as much (0.53 → 0.74). So the extra agreement is not learned. What is left once the token is removed still contains position effects, which are the same in every dataset, and they make datasets look alike.
+4. **Token + position removed (kept).** In the untrained model this connectome is unreliable (0.54 within, 0.39 across): once token and position are accounted for, a random network has little reproducible structure left. In the trained model it is reliable (0.95) and somewhat more shared than the ordinary connectome (0.63 against 0.55). Its networks are as reliable within a dataset as ordinary networks (0.51 against 0.49) but not more shared across datasets (0.15 against 0.14).
 
-Over training the residual's across-dataset agreement rises from 0.58 (initialisation) to 0.72 (step 1,000) to 0.81 (final). In Pythia-160m (fewer tokens per half, so lower values overall) the ordering is the same: the trained residual is 0.88 within and 0.65 across, against 0.93 and 0.48 for the ordinary connectome, and the untrained residual is unreliable (0.36 within).
+**Bottom line.** Criterion (c) is met clearly: the residual connectome is a property of the trained model, not of the text passed through random weights. Criterion (b) is met only modestly at the connectome level and not at the level of networks. The cross-dataset differences of the ordinary connectome are largely word frequencies; what remains after removing token and position is context-driven co-activation, still partly dataset-specific.
 
 ### What remains open
 
-- Even the residual connectome is less shared across datasets (0.81) than within (0.98). Restricting to words common to all datasets, or matching their frequencies, did not close this gap. It may reflect genuine differences in how the model processes different genres.
-- Early in training (step 64, the phase where dimensionality collapses), the residual connectome is shared across datasets even more than at the end (0.87). So cross-dataset agreement alone does not show that a connectome reflects language processing; the contrast with the untrained model and the training trajectory are what support that.
-- Other components were tested and not kept, because they made the untrained model look as stable as the trained one (removing slow drift within documents) or reflected architecture rather than language (a gain shared by all neurons of a layer). They are documented in `info/LOG.md`, Iteration 38.
+- The size of the residual connectome's cross-dataset gain varies with the text sampled: on a different draw of documents it was 0.73 against 0.66 for token removal. The ordering untrained < trained and residual > ordinary held in every sample; the comparison with "token removed" did not. The training-dynamics rerun (in progress) uses the full pipeline and four times more text per half, and will give firmer numbers.
+- The trained residual connectome is still much less shared across datasets (0.63) than within (0.95).
 
 ## 5. Item 4: codeparrot
 
@@ -129,12 +124,10 @@ The consensus networks carry the circuits about as well as single-dataset networ
 
 ## What this suggests
 
-1. **Parcellate the residual connectome.** It is the object that is reliable, shared across datasets, and dependent on training, and its networks transfer across datasets more than twice as well. Next steps:
-   - compute it for Qwen3.5-2B (one extra pass per dataset to estimate per-token-type means: about 1 GPU-hour each), then the usual clustering;
-   - compare those networks with the patching circuits.
+1. **The residual connectome is the training-dependent part of the connectome**, and the training-dynamics rerun on it is in progress (Pythia-70m and 160m, full pipeline). Whether its networks are worth using for the circuit comparison depends on that rerun: here they are not more shared across datasets than ordinary networks.
 2. **Measure stability with graded metrics** (co-membership, label transfer), never by identical labels.
-3. **The consensus of existing partitions is reproducible but adds nothing for the circuits.** It is not worth pursuing further unless built on residual connectomes.
-4. **Open:** the remaining within/across gap of the residual connectome (0.98 vs 0.81); whether the 160m effect strengthens with more tokens; the step-64 peak.
+3. **The consensus of existing partitions is reproducible but adds nothing for the circuits.**
+4. **Open:** what makes the trained residual connectome still dataset-specific; whether more text per half stabilises the numbers.
 
 ## Cluster state (2026-10-08)
 
