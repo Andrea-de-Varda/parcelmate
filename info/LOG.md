@@ -1522,6 +1522,8 @@ Every code change to the repo, newest last. Format: date — files — what and 
 
 - 2026-10-09 -- **Iteration 41**: [parcelmate/residual.py](../parcelmate/residual.py) (`unexplained`, `live`), [parcelmate/model.py](../parcelmate/model.py) (dense path drops dead units), [parcelmate/dynamics.py](../parcelmate/dynamics.py), [parcelmate/bin/dynamics.py](../parcelmate/bin/dynamics.py) (coordinate alignment, NaN-aware similarity), [tests/verify_iter19_residual.py](../tests/verify_iter19_residual.py) (12).
 
+- 2026-10-09 -- [figures/make_circuits_residual_figure.py](../figures/make_circuits_residual_figure.py) (new), [plots/circuits_vs_networks/residual_vs_ordinary.svg](../plots/circuits_vs_networks/residual_vs_ordinary.svg), [figures/circuits_residual_vs_ordinary.csv](../figures/circuits_residual_vs_ordinary.csv); section 7 and a summary bullet added to [plots/circuits_vs_networks/README.md](../plots/circuits_vs_networks/README.md) (Qwen3.5-2B circuits against residual-connectome networks). Pythia residual 70m and 160m resubmitted at commit `a2c744e` (Iteration 41).
+
 ## Cluster
 
 Compute for this project runs on the Stanford SC cluster (NLP group, CLiMB lab). Connection, storage layout, SLURM conventions, cluster profiles and job-launching instructions are in [CLUSTER.md](CLUSTER.md).

@@ -8,6 +8,7 @@ Do two very different ways of finding functional units in a language model find 
 - **But the networks carry the circuits' organisation.** Tasks whose circuits overlap also send their *other* neurons to similar networks (Spearman 0.26-0.70 on the real networks against 0.08-0.24 on the null partition, all eight network sets). A left-out task puts about a quarter of its circuit into the five networks its sibling tasks use most: 2.6-2.8 times chance for Language, Formal and Physical, against about 1.5 times for a partition that keeps only properties of individual neurons.
 - **Language and Formal are the clearest domains; Social is the weakest everywhere**, already on the patching side, where its tasks barely share circuit neurons.
 - **The fine networks (k = 100) carry the signal**; coarser ones (k = 10, 20) lose most of it, except on bookcorpus.
+- **New (2026-10-09): networks built from the residual connectome match the circuits better on two of four datasets.** When what the token type and its position predict is removed from every activation before correlating (section 7), a left-out task puts up to 4.5 times chance of its circuit into its domain's top networks (ordinary networks: 2.2-2.6), on wikitext and Reddit; on news and books the gain is smaller or the null partition catches up.
 
 ## Setup
 
@@ -85,6 +86,28 @@ Concentration asks *how few* networks a circuit occupies. It summarises all circ
 
 **The networks and the circuits are not the same objects, but they are organised alike:** related tasks recruit related networks, the patching domains reappear in network space beyond layers and neuron properties, and a domain's circuits concentrate partly (about a quarter of their neurons) in a few shared networks.
 
+## 7. Networks from the residual connectome (new, 2026-10-09)
+
+![residual vs ordinary](residual_vs_ordinary.png)
+
+**What changed.** Everything above uses the *ordinary* connectome: correlations between neurons' raw activations. Much of that connectome reflects which tokens occur: two neurons correlate because they respond to the same words, weighted by how often each word appears in the dataset (shown on Pythia, `plots/stability_and_residual/README.md`, section 4). The *residual connectome* removes that first. For every neuron, its typical activation for each token type and its typical shift at each position in the window are fitted by least squares on separate reference text, pooled over the four prose datasets, and subtracted; the residuals are then correlated as before. Everything else is identical: same text, same pipeline (k = 100 per dataset and half), same circuits, same tests. Qwen3.5-2B, four prose datasets (`results/qwen35/qwen3.5-2b-resid/`).
+
+**What the figure shows** (grey: ordinary networks, blue: residual networks, black bars: each one's null partition, 0.1% circuits, means of the two halves):
+
+| | wiki | book | news | tldr |
+|---|---|---|---|---|
+| **A.** tasks more concentrated on real than null networks (ordinary → residual) | 0.85 → **0.96** | 0.85 → 0.63 | 0.93 → 0.81 | 0.74 → **0.89** |
+| **B.** held-out enrichment, × chance (null) | 2.2 → **4.5** (1.8) | 2.4 → 3.2 (2.7) | 2.4 → 3.2 (1.5) | 2.6 → **3.9** (1.7) |
+| **C.** tasks explained beyond layer, all neurons (null) | 0.37 → **0.54** (0.13) | 0.24 → 0.43 (0.28) | 0.50 → 0.57 (0.13) | 0.31 → **0.56** (0.24) |
+| **D.** shared circuits → shared networks, ρ (null) | 0.44 → **0.56** (0.19) | 0.43 → 0.51 (0.47) | 0.41 → 0.22 (0.26) | 0.46 → 0.51 (0.24) |
+
+**Reading.**
+- **wikitext and tldr17: the residual networks match the circuits clearly better on every measure.** A left-out task's circuit lands in its domain's top networks at 4.5 and 3.9 times chance, against 2.2 and 2.6 with ordinary networks; nearly every task is more concentrated on the real networks than on the null partition.
+- **agnews and bookcorpus: mixed.** Enrichment and the graded test still improve, but on bookcorpus the residual null partition also enriches circuits strongly (2.7×) and matches the shared-structure measure (0.47 against 0.51); on agnews the shared-structure measure drops below its null.
+- **Caveat.** Four datasets, two halves each; the improvement is consistent on two datasets and inconsistent on two, so it is suggestive, not established. The residual results for Qwen3.5-4B, and the Pythia training dynamics on the residual connectome, are still running.
+
+Made by `figures/make_circuits_residual_figure.py`; values in `figures/circuits_residual_vs_ordinary.csv`.
+
 ## Caveats and open items
 
 - 4B rests on two network sets so far; four more 4B single-dataset sets are running. The coarse pooled 2B networks are running.
@@ -101,4 +124,4 @@ Concentration asks *how few* networks a circuit occupies. It summarises all circ
 | runs | `parcelmate/bin/compare_circuits.py`, `graded_circuits.py`, `paired_circuits.py`; cluster jobs `scripts/launch_circuits.sh`; networks `scripts/launch_qwen.sh`, `scripts/launch_coarse.sh`, configs `configs/qwen35/` |
 | tables | `results/qwen35/<tree>/circuits*/` |
 | figures | `figures/export_circuit_figdata.py` (worked-example data, `figures/circuits_example_2b_wikitext.npz`), `figures/make_circuits_explained.py` (measures diagram, figs. 1-5 and 3b), `figures/make_circuits_extra_figures.py` (schematic, graded, granularity); the earlier multi-panel overview is in `supplementary/` |
-| record | `info/LOG.md`, Iterations 30-36 |
+| record | `info/LOG.md`, Iterations 30-36; residual connectome Iterations 38-41 |
