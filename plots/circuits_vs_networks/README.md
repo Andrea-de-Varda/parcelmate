@@ -1,6 +1,6 @@
 # Patching circuits against connectivity networks (Qwen3.5-2B and 4B)
 
-Do two very different ways of finding functional units in a language model find the same neurons? **Attribution patching** finds, for each task, the neurons that most drive the model's correct answer (a *circuit*). **Connectivity parcellation** (this project's pipeline) groups all MLP neurons into *networks* by how they co-activate on ordinary text, with no tasks involved. This page summarises every analysis comparing the two (LOG.md Iterations 30-36, 2026-09-23 to 2026-10-01). Four further 4B single-dataset network sets and the coarse pooled 2B networks were still running when it was written.
+Do two very different ways of finding functional units in a language model find the same neurons? **Attribution patching** finds, for each task, the neurons that most drive the model's correct answer (a *circuit*). **Connectivity parcellation** (this project's pipeline) groups all MLP neurons into *networks* by how they co-activate on ordinary text, with no tasks involved. This page summarises every analysis comparing the two (LOG.md Iterations 30-36, 2026-09-23 to 2026-10-01). Section 8 (2026-10-12) adds the four remaining 4B single-dataset network sets.
 
 ## In short
 
@@ -8,6 +8,7 @@ Do two very different ways of finding functional units in a language model find 
 - **But the networks carry the circuits' organisation.** Tasks whose circuits overlap also send their *other* neurons to similar networks (Spearman 0.26-0.70 on the real networks against 0.08-0.24 on the null partition, all eight network sets). A left-out task puts about a quarter of its circuit into the five networks its sibling tasks use most: 2.6-2.8 times chance for Language, Formal and Physical, against about 1.5 times for a partition that keeps only properties of individual neurons.
 - **Language and Formal are the clearest domains; Social is the weakest everywhere**, already on the patching side, where its tasks barely share circuit neurons.
 - **The fine networks (k = 100) carry the signal**; coarser ones (k = 10, 20) lose most of it, except on bookcorpus.
+- **New (2026-10-12): 4B replicates on all five datasets** (section 8): held-out reuse 2.0-2.6 times chance (null 1.2-1.6), shared structure ρ 0.53-0.69, larger than at 2B.
 - **New (2026-10-09): networks built from the residual connectome match the circuits better on two of four datasets.** When what the token type and its position predict is removed from every activation before correlating (section 7), a left-out task puts up to 4.5 times chance of its circuit into its domain's top networks (ordinary networks: 2.2-2.6), on wikitext and Reddit; on news and books the gain is smaller or the null partition catches up.
 
 ## Setup
@@ -104,13 +105,28 @@ Concentration asks *how few* networks a circuit occupies. It summarises all circ
 **Reading.**
 - **wikitext and tldr17: the residual networks match the circuits clearly better on every measure.** A left-out task's circuit lands in its domain's top networks at 4.5 and 3.9 times chance, against 2.2 and 2.6 with ordinary networks; nearly every task is more concentrated on the real networks than on the null partition.
 - **agnews and bookcorpus: mixed.** Enrichment and the graded test still improve, but on bookcorpus the residual null partition also enriches circuits strongly (2.7×) and matches the shared-structure measure (0.47 against 0.51); on agnews the shared-structure measure drops below its null.
-- **Caveat.** Four datasets, two halves each; the improvement is consistent on two datasets and inconsistent on two, so it is suggestive, not established. The residual results for Qwen3.5-4B, and the Pythia training dynamics on the residual connectome, are still running.
+- **Caveat.** Four datasets, two halves each; the improvement is consistent on two datasets and inconsistent on two, so it is suggestive, not established. Qwen3.5-4B was not run on the residual connectome. The Pythia training dynamics on the residual connectome are in `plots/stability_and_residual/README.md`, section 7.
 
 Made by `figures/make_circuits_residual_figure.py`; values in `figures/circuits_residual_vs_ordinary.csv`.
 
+## 8. Qwen3.5-4B on the other four datasets (new, 2026-10-12)
+
+The four remaining 4B single-dataset network sets (bookcorpus, agnews, tldr17, codeparrot; `results/qwen35/qwen3.5-4b-rest/`) finished, so 4B now has all five datasets, as 2B does. Same measures, ordinary connectome, 0.1% circuits, 38 tasks, means of the two halves (null partition in brackets):
+
+| | wiki | book | news | tldr | code |
+|---|---|---|---|---|---|
+| held-out enrichment, × chance, 4B | 2.6 (1.6) | 2.1 (1.2) | 2.4 (1.4) | 2.6 (1.6) | 2.0 (1.5) |
+| same, 2B | 2.2 (1.6) | 2.4 (1.4) | 2.4 (1.3) | 2.6 (1.6) | 2.8 (1.6) |
+| tasks explained beyond layer, all neurons, 4B | 0.39 (0.33) | 0.21 (0.22) | 0.38 (0.20) | 0.29 (0.21) | 0.43 (0.07) |
+| same, 2B | 0.37 (0.09) | 0.24 (0.07) | 0.50 (0.15) | 0.31 (0.13) | 0.30 (0.06) |
+| shared circuits → shared networks, ρ, 4B | 0.69 (0.17) | 0.55 (0.35) | 0.69 (0.24) | 0.61 (0.50) | 0.53 (-0.13) |
+| same, 2B | 0.44 (0.08) | 0.43 (0.17) | 0.41 (0.19) | 0.46 (0.24) | 0.26 (0.08) |
+
+**Reading.** The 2B picture replicates at 4B on every dataset: the networks of a domain's tasks are reused by a left-out task at 2.0-2.6 times chance (null partition 1.2-1.6), and tasks that share circuit neurons send their other neurons to similar networks (ρ 0.53-0.69, above the null partition everywhere, though by little on tldr17). The shared-structure effect is larger at 4B than at 2B on all five datasets. The graded test is weaker at 4B: on bookcorpus the real networks explain attribution beyond layer for no more tasks than the null partition. The paired real-against-null concentration test (section 2) has not been run on these four 4B sets. Values computed with the same code as the figure of section 7 (`parcelmate.circuits.heldout_enrichment` on `enrichment.csv`, `graded_summary.csv`, `structure.csv`).
+
 ## Caveats and open items
 
-- 4B rests on two network sets so far; four more 4B single-dataset sets are running. The coarse pooled 2B networks are running.
+- The paired real-against-null concentration test is missing for the four 4B sets of section 8. The coarse pooled 2B networks are done (section 6).
 - The pooled null partition's entropy behaviour is explained only by hypothesis; testing it needs per-dataset neuron statistics (forward passes only, about 1 GPU-hour per model).
 - Social reasoning lacks a shared circuit on the patching side, so the comparison has little to work with there.
 - Social and Physical have 5-9 tasks each, so their per-domain statistics have little power.

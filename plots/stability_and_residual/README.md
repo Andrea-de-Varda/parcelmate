@@ -7,6 +7,7 @@ A summary of the work since 2026-10-07, when Andrea set five items: (1) a cross-
 - **The problem was in the partition, not in the connectome.** Connectomes of different prose datasets correlate about 0.5 (GPT-2) or 0.3 (Qwen3.5-2B), but hard k = 100 partitions of them agree at ARI 0.1 or less. Hard partitions are fragile: random noise that leaves a connectome correlated 0.5 with the original produces the same drop.
 - **The ordinary connectome is a token-identity connectome.** It equals the connectome of each token type's mean activation, weighted by how often each type occurs. That makes it equally reproducible in untrained models, and makes datasets disagree in proportion to their word frequencies.
 - **The residual connectome needs training, but is only modestly more shared.** It is what remains of each activation after a joint least-squares fit of what the token type and the position predict. In the untrained Pythia-70m it is unreliable (within 0.54, across 0.39), unlike the ordinary connectome (0.99 / 0.53); in the trained model it is reliable (0.95) and somewhat more shared across datasets than the ordinary one (0.63 against 0.55). Its networks are not more shared (ARI across 0.15 against 0.14). An earlier, larger gain (0.81, networks 0.38) was an artifact of subtracting position averages taken on raw activations; it is corrected below.
+- **New (2026-10-12): with the full pipeline, the residual networks are built by training** (Pythia-70m, section 7). Split-half agreement of the networks is 0.19 untrained and 0.76 trained (ordinary networks: 0.78 at both ends); across datasets 0.03 untrained and 0.19 trained (ordinary 0.12 and 0.22). Their modularity triples over training and they become strongly layer-local; the token-class coherence that ordinary networks show at initialisation is absent from the residual ones until training builds it.
 - **A cross-dataset consensus of the existing Qwen partitions replicates** (ARI 0.41 between independent data halves, null 0.18). But it does not match the patching circuits better than single-dataset networks do.
 
 ## 1. The diagnosis (before the five items)
@@ -102,7 +103,7 @@ How to read it:
 
 ### What remains open
 
-- The size of the residual connectome's cross-dataset gain varies with the text sampled: on a different draw of documents it was 0.73 against 0.66 for token removal. The ordering untrained < trained and residual > ordinary held in every sample; the comparison with "token removed" did not. The training-dynamics rerun (in progress) uses the full pipeline and four times more text per half, and will give firmer numbers.
+- The size of the residual connectome's cross-dataset gain varies with the text sampled: on a different draw of documents it was 0.73 against 0.66 for token removal. The ordering untrained < trained and residual > ordinary held in every sample; the comparison with "token removed" did not. The training-dynamics rerun with the full pipeline and more text is in section 7.
 - The trained residual connectome is still much less shared across datasets (0.63) than within (0.95).
 
 ## 5. Item 4: codeparrot
@@ -122,14 +123,54 @@ The consensus labels were written as an ordinary partition (`parcelmate/bin/cons
 
 The consensus networks carry the circuits about as well as single-dataset networks, not better. The null consensus is a stronger competitor than single-dataset null partitions, because averaging many null partitions removes their noise and keeps what they share: neuron-level properties.
 
+## 7. The training dynamics on the residual connectome (Pythia-70m, full pipeline; 2026-10-12)
+
+The training-dynamics analyses (eleven checkpoints from initialisation to step 143,000, all MLP neurons, four prose datasets, two halves each, the confirmed pipeline) were rerun on the residual connectome: token type and position removed by the joint least-squares fit of section 4, fitted on 786,432 reference tokens per checkpoint. The first MLP layer is excluded: in Pythia it sees only the token embedding, so token type explains its neurons exactly and nothing is left after the fit (2,048 of 12,288 neurons; LOG.md Iteration 41). Pythia-160m is still running.
+
+**Network reliability now needs training** (prose means; ARI of the partitions of two independent data halves, null partition 0.00-0.02 throughout):
+
+| step | 0 | 16 | 64 | 256 | 1,000 | 4,000 | 16,000 | 143,000 |
+|---|---|---|---|---|---|---|---|---|
+| ordinary, within a dataset | 0.78 | 0.77 | 0.71 | 0.73 | 0.73 | 0.73 | 0.76 | 0.80 |
+| residual, within a dataset | **0.19** | 0.19 | 0.23 | 0.49 | 0.63 | 0.72 | 0.73 | **0.76** |
+| ordinary, across datasets | 0.12 | 0.11 | 0.16 | 0.13 | 0.09 | 0.08 | 0.13 | 0.22 |
+| residual, across datasets | **0.03** | 0.03 | 0.06 | 0.06 | 0.12 | 0.14 | 0.16 | **0.19** |
+
+The residual connectome itself shows the same: its two halves correlate 0.76 at initialisation and 0.98-0.99 from step 256 on (ordinary: 1.00 at every step). The ordinary networks of a random model are as reproducible as those of the trained one, because they are token-identity networks; the residual ones are not, so their reliability measures what training built. Criteria (a) and (c) of section 4 hold at the level of networks; (b) does not improve (across datasets 0.19 against 0.22 at the end).
+
+![dynamics compare](../dynamics_compare_70m.png)
+
+**The descriptive measures** (left of each pair: ordinary; right: residual; dashed: null partition):
+- **Same timeline.** The collapse of dimensionality at step 64 (255 to 78 dimensions), its expansion after step 1,000 (to 690 by step 16,000, then 520 at the end), the transient rise of mean |r| at steps 64-256 and its fall to about half the initial value: all as in the ordinary connectome, at about twice its dimensionality.
+- **Sparsification is unchanged by construction.** The firing rate is computed on raw activations: 50% of tokens until step 256, 30% at step 1,000, 17% at the end.
+- **Segregation grows more.** Held-out modularity triples (0.008 to 0.024; ordinary 0.014 to 0.029, a doubling), far above its null partition at every trained step; each neuron's connections concentrate on its strongest partners (top-1% share 0.037 to 0.053; ordinary 0.036 to 0.047).
+- **Networks become strongly layer-local.** From 4.6 effective layers per network (of 5; null partition 4.9) to a minimum of 2.1 at step 1,000 and 2.8 at the end (null partition 4.4). The ordinary networks go from 5.9 to 4.1 of 6 layers, close to their null partition. The ceilings differ (5 against 6 layers), so compare each with its own null.
+- **Token-class coherence is learned.** Residual networks start at the null partition's level (0.17 against 0.17) and rise above it (0.38 against 0.21 at the end). Ordinary networks start well above their null (0.38 against 0.16), because a random model's neurons already respond to token identity.
+
+![timing](../dynamics_timing_compare_70m.png)
+
+**Timing** (each measure rescaled from initialisation, 0, to the final checkpoint, 1). On the residual connectome, modularity and concentration track the loss and the sparsification closely: most of their change happens between steps 256 and 4,000, together with the steepest part of the loss curve and the fall of the firing rate. On the ordinary connectome modularity lags, with most of its rise after step 4,000. The layer-locality of residual networks overshoots (progress 1.4 at step 1,000) and partly recovers.
+
+**Cross-checkpoint agreement** is unchanged in shape: partitions of steps 0-16 agree (ARI 0.47-0.98 between consecutive steps), the step-64 reorganisation erases them (0.02), and consecutive partitions agree again only late (ARI 0.05, 0.15, 0.19 and 0.29 at steps 4,000, 16,000, 64,000 and 143,000; ordinary 0.04, 0.11, 0.19 and 0.30).
+
+Made by `figures/make_dynamics_compare.py`; tables in `figures/dynamics_pythia_resid-70m/` and `figures/pythia_resid_70m_scores_all.csv`.
+
+## 8. Do networks stay cohesive on another dataset's connectome? (Qwen3.5-4B, analysis D; 2026-10-12)
+
+For each network fitted on one dataset's half A, its cohesion (mean |r| inside the network minus mean |r| to the rest) was measured on every dataset's half B connectome (`parcelmate/bin/network_generality.py`; bookcorpus, agnews, tldr17, codeparrot; 100 networks each). On its own dataset (held out) the median network has cohesion 0.023. On another prose dataset's connectome the same networks keep a median of 20% of that (10th-90th percentile 2-58%; median cohesion 0.004), and are positively cohesive in 92% of network × dataset pairs, against 61% for the null partition and 49% for random partitions. So networks are not dataset-specific artefacts: most remain detectable elsewhere, but much weaker, which is what the low cross-dataset ARI and Dice (sections 1-3) measure.
+
 ## What this suggests
 
-1. **The residual connectome is the training-dependent part of the connectome**, and the training-dynamics rerun on it is in progress (Pythia-70m and 160m, full pipeline). Whether its networks are worth using for the circuit comparison depends on that rerun: here they are not more shared across datasets than ordinary networks.
+1. **The residual connectome is the training-dependent part of the connectome**, and section 7 confirms it on the full pipeline: its networks are unreliable at initialisation and reliable after training, unlike ordinary networks. They are not more shared across datasets than ordinary networks, but on Qwen3.5-2B they match the patching circuits better on two of four datasets (circuits README, section 7).
 2. **Measure stability with graded metrics** (co-membership, label transfer), never by identical labels.
 3. **The consensus of existing partitions is reproducible but adds nothing for the circuits.**
 4. **Open:** what makes the trained residual connectome still dataset-specific; whether more text per half stabilises the numbers.
 
-## Cluster state (2026-10-08)
+## Cluster state (2026-10-12)
+
+- Pythia-160m residual: 7 of 11 checkpoints done; 4 connectivity jobs ran out of memory at 64 GB (peak 65 GB) and were resubmitted at 128 GB with their parcellation, scoring and descriptive measures. The 4B score of bookcorpus, agnews, tldr17 and codeparrot timed out at 48 h (7 of 12 cross-dataset pairs done) and was resubmitted at 96 h; its connectivity (1.3 TB) is purged when it ends.
+
+Earlier (2026-10-08):
 
 - 4B: bookcorpus, agnews and tldr17 are done; codeparrot is clustering, followed automatically by the cross-dataset cohesion analysis (D), scoring, and the 4B circuit comparison.
 - The 4B agnews connectivity failed on a 40 GB GPU, which I caught five days late; it was fixed (memory-adaptive tiles) and rerun successfully.
@@ -146,4 +187,6 @@ The consensus networks carry the circuits about as well as single-dataset networ
 | consensus | `parcelmate/bin/restart_consensus.py`, `figures/consensus_2b_prose_summary.csv` |
 | components and residual connectome | `scripts/explore_connectome_components.py`, `figures/explore_connectome_run{1..5}*.csv` |
 | consensus vs circuits | `parcelmate/bin/consensus_tree.py`, `results/qwen35/consensus_2b_prose_tree/circuits/` |
-| tests | `tests/verify_iter18_stability.py` (15 checks) |
+| residual training dynamics (section 7) | `parcelmate/residual.py`, `configs/pythia_resid/`, `figures/make_dynamics_compare.py`, `figures/dynamics_pythia_resid-70m/` |
+| cohesion on other datasets (section 8) | `parcelmate/bin/network_generality.py`, `results/qwen35/qwen3.5-4b-rest/metrics/network_generality.csv` |
+| tests | `tests/verify_iter18_stability.py` (15 checks), `tests/verify_iter19_residual.py` (12) |
