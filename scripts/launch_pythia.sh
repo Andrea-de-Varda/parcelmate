@@ -55,7 +55,8 @@ resources() {
         # 160m connectivity: 3 h before; the residual twins add one reference pass (half the
         # analysed tokens again) and the fit tables (a few GB on the GPU): 4 h.
         # 4 h was too short for 7 of 11 residual connectivity jobs on slower cards (Iteration 39): 12 h.
-        160m) GPU_T=12; GPU_M=64; PAR_T=5; PAR_M=48; SCO_T=6; SCO_M=64 ;;
+        # 64 GB was too little for 4 of 11 residual connectivity jobs (MaxRSS 65.1 GB, 17779798, Iteration 42): 128 GB.
+        160m) GPU_T=12; GPU_M=128; PAR_T=5; PAR_M=48; SCO_T=6; SCO_M=64 ;;
         *) echo "unknown size $1" >&2; exit 1 ;;
     esac
 }
