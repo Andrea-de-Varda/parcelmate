@@ -31,6 +31,14 @@ n_checks = [0]
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 
+def raises(fn, exc=AssertionError):
+    try:
+        fn()
+    except exc:
+        return True
+    return False
+
+
 def check(name, cond):
     n_checks[0] += 1
     print('%s %s' % ('OK' if cond else 'FAIL', name))
@@ -208,6 +216,51 @@ for tree in ('', '_null'):
             iu = np.triu_indices(len(Rd), 1)
             ok_t &= abs(Rd[iu].mean() / Rt[iu].mean() - 1) < 0.2 and nd == nt
 check('out of core: the tiled residual connectome equals the dense one on the live units (real tree; worst |diff| %.1e), the null alike in distribution' % worst_t, ok_t)
+
+# ---------------------------------------------------------------- pooled residual (Iteration 43)
+# Two domains pooled: one fit on the reference windows of both, every sample residualized and
+# z-scored on its own, each half the Fisher mean over the domains' samples.
+from parcelmate.bigconn import zscored_timecourses
+PDOM = ['random', 'wikitext']
+pres = os.path.join(tmp, 'pres')
+ppl = os.path.join(tmp, 'ppl')
+POOL = dict(COMMON, domains=PDOM, storage='tiled_fp16', pool_as='pooled')
+run_connectivity(output_dir=pres, null_output_dir=pres + '_null', residualize='token_position',
+                 residual_ref_tokens=512, residual_min_count=2, **POOL)
+run_connectivity(output_dir=ppl, null_output_dir=ppl + '_null', **POOL)
+data = {d: small_vocab_dataset(1024, 32, seed=pm.derive_seed(7, 'data', d)) for d in PDOM}
+p_ref, p_mask = reference_inputs(lambda d, n_tok: small_vocab_dataset(n_tok, 32, seed=pm.derive_seed(7, 'data', d)),
+                                 PDOM, 512 * 2, 512)
+fit_p = fit_token_position_large(model, p_ref, p_mask, V, batch_size=4, min_count=2, verbose=False)
+ok_p, worst_p = True, 0.0
+for k, h in enumerate(('halfA', 'halfB')):
+    acc = 0
+    for d in PDOM:
+        ids, mask = data[d]
+        z = zscored_timecourses(model, ids[16 * k:16 * (k + 1)], mask[16 * k:16 * (k + 1)], batch_size=4,
+                                verbose=False, residual_fit=fit_p)['z'].astype(np.float64)
+        r = z @ z.T / z.shape[1]
+        acc = acc + np.arctanh(np.clip(r * (1 - 1e-3), -(1 - 1e-3), 1 - 1e-3))
+    ref = np.tanh(acc / len(PDOM))
+    # the raw signed dataset (TiledMatrix rows are absolute values by design)
+    with h5py.File(os.path.join(pres, 'connectivity', 'connectivity_pooled_%s.h5' % h), 'r') as f_:
+        got = f_['connectivity'][()].astype(np.float64)
+    worst_p = max(worst_p, float(np.abs(got - ref).max()))
+    ok_p &= got.shape == ref.shape and np.allclose(got, ref, atol=5e-3)
+check('pooled residual halves equal a reference built from one fit on both domains\' reference windows (worst |diff| %.1e)' % worst_p, ok_p)
+fa = h5py.File(os.path.join(pres, 'connectivity', 'connectivity_pooled_halfA.h5'), 'r')
+fb = h5py.File(os.path.join(ppl, 'connectivity', 'connectivity_pooled_halfA.h5'), 'r')
+pa = dict(fa.attrs)
+check('pooled residual provenance: residual fit and member domains; it differs from the pooled ordinary connectome',
+      pa.get('residualize') == 'token_position' and pa.get('pooled_domains') == ', '.join(PDOM)
+      and 'random:sample1' in pa.get('sources', '') and 'wikitext:sample1' in pa.get('sources', '')
+      and not np.allclose(fa['connectivity'][()], fb['connectivity'][()], atol=1e-2))
+fa.close(); fb.close()
+check('pooled residual writes the null tree too',
+      all(os.path.exists(os.path.join(pres + '_null', 'connectivity', 'connectivity_pooled_%s.h5' % h)) for h in ('halfA', 'halfB')))
+check('pooled residual refuses dense storage',
+      raises(lambda: run_connectivity(output_dir=os.path.join(tmp, 'pd'), residualize='token_position',
+                                      residual_ref_tokens=512, residual_min_count=2, **dict(POOL, storage='dense'))))
 
 shutil.rmtree(tmp)
 print('\n%d checks, %d failure(s)' % (n_checks[0], len(failures)))

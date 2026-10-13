@@ -29,7 +29,7 @@ NAME=${2:-}
 
 case "$MODE" in
     generate|submit) ;;
-    *) echo "usage: $0 generate | submit {qwen3.5-2b|qwen3.5-4b|qwen3.5-2b-pool5|qwen3.5-4b-pool5}" >&2; exit 2 ;;
+    *) echo "usage: $0 generate | submit {qwen3.5-2b|qwen3.5-4b|qwen3.5-2b-pool5|qwen3.5-4b-pool5|qwen3.5-2b-resid-pool4|qwen3.5-4b-resid-pool4|...}" >&2; exit 2 ;;
 esac
 
 cd "$WORK"
@@ -67,7 +67,7 @@ generate() {
     local CPU=configs/cluster/sc-cpu.yml
     local GPU=configs/cluster/sc.yml
     local name cfg d
-    for name in ${NAMES:-qwen3.5-2b qwen3.5-4b qwen3.5-2b-pool5 qwen3.5-4b-pool5 qwen3.5-2b-rest qwen3.5-4b-rest qwen3.5-2b-resid}; do
+    for name in ${NAMES:-qwen3.5-2b qwen3.5-4b qwen3.5-2b-pool5 qwen3.5-4b-pool5 qwen3.5-2b-rest qwen3.5-4b-rest qwen3.5-2b-resid qwen3.5-2b-resid-pool4 qwen3.5-4b-resid-pool4}; do
         cfg=configs/qwen35/$name.yml
         # One parcellation job per (domain, tree, half): the streamed PCA takes four passes
         # over a half, measured at 33 min per pass at 147k units (17559496) and four times
@@ -80,6 +80,13 @@ generate() {
             # 24 h for the 4B parcellations: one pooled half timed out at 14 h on a slow node.
             qwen3.5-4b-rest) GPU_OPTS="-t 10 -m 200 -P sphinx -G a100"; PAR="-t 24 -m 48"; SCO="-t 48 -m 48" ;;
             qwen3.5-4b|qwen3.5-4b-pool5) GPU_OPTS="-t 10 -m 200 -P sphinx -G a100"; PAR="-t 14 -m 48"; SCO="-t 36 -m 48" ;;
+            # Pooled residual (Iteration 43): 409,600 tokens per half, twice pool5's, so the
+            # resident z-scores double (121 GB at 2B, 242 GB at 4B). Measured peaks at the pool5
+            # budget were 72 GB (2B, 17575068) and 142 GB (4B, 17575076), and the residual fit
+            # added almost nothing at 2B (68-70 GB, 17769662/68): about 135 GB and 270 GB now.
+            # Time roughly doubles plus the fit (pool5: 1 h 41 at 2B, 3 h 25 at 4B).
+            qwen3.5-2b-resid-pool4) GPU_OPTS="-t 10 -m 180"; PAR="-t 8 -m 32"; SCO="-t 24 -m 32" ;;
+            qwen3.5-4b-resid-pool4) GPU_OPTS="-t 16 -m 320 -P sphinx -G a100"; PAR="-t 24 -m 48"; SCO="-t 36 -m 48" ;;
         esac
         if [ -n "$(pool_of $name)" ]; then
             $M $cfg -c $GPU -s connectivity $GPU_OPTS -n 8 -o jobs/

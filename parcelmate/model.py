@@ -1066,7 +1066,7 @@ def domain_data_kwargs(domain, data_kwargs=None):
 def _run_pooled_tiled(model, tokenizer, domains, pool_as, provenance, connectivity_dir,
                       null_connectivity_dir, null_model, data_kwargs, n_tokens_total, n_samples,
                       split, take, seq_len, wrap, shuffle, batch_size, eps, seed, overwrite,
-                      verbose, indent):
+                      verbose, indent, residual_fit=None):
     """`run_connectivity(pool_as=...)`: load every domain's tokens, then one pooled write."""
     from parcelmate.bigconn import write_tiled_pooled
     needed = [os.path.join(d, '%s_%s_%s%s' % (CONNECTIVITY_NAME, pool_as, h, EXTENSION))
@@ -1096,7 +1096,7 @@ def _run_pooled_tiled(model, tokenizer, domains, pool_as, provenance, connectivi
         model.to('cuda:0' if torch.cuda.is_available() else 'cpu'), parts, n_samples, pool_as,
         connectivity_dir, null_connectivity_dir, seed, null_model=null_model, batch_size=batch_size,
         eps=eps, provenance=dict(provenance, seq_len=int(seq_len), n_samples=int(n_samples)),
-        verbose=verbose, indent=indent)
+        verbose=verbose, indent=indent, residual_fit=residual_fit)
 
 
 def run_connectivity(
@@ -1270,7 +1270,9 @@ def run_connectivity(
     residual_fit = None
     if residualize:
         assert residualize == 'token_position', 'residualize must be token_position, got %r' % (residualize,)
-        assert not pool_as, 'residualize is not implemented for pooled connectivity'
+        # Pooled (Iteration 43): one fit on the reference windows of every member domain,
+        # applied to every sample before it is z-scored, exactly as in the single-domain path.
+        assert not pool_as or tiled, 'pooled residual connectivity needs storage: tiled_fp16'
         assert unit_type == 'mlp' and not units_per_layer, 'residualize is for all MLP units'
         assert not (timecourse_pca_components or timecourse_ica_components or highpass or lowpass)
         from parcelmate.residual import fit_token_position, fit_token_position_large, reference_inputs
@@ -1298,7 +1300,8 @@ def run_connectivity(
         return _run_pooled_tiled(model, tokenizer, domains, pool_as, provenance, connectivity_dir,
                                  null_connectivity_dir if null_model else None, null_model, data_kwargs,
                                  n_tokens * n_samples, n_samples, split, take, seq_len, wrap, shuffle,
-                                 batch_size, eps, seed, overwrite, verbose, indent)
+                                 batch_size, eps, seed, overwrite, verbose, indent,
+                                 residual_fit=residual_fit)
 
     for domain in domains:
         if verbose:
