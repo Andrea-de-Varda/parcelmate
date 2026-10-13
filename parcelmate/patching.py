@@ -72,8 +72,9 @@ def load_bank_task(source, task_config, root=BANK_ROOT):
         return json.load(f)
 
 
-def bank_eval_list(path=os.path.join(BANK_ROOT, 'eval_tasks.txt')):
+def bank_eval_list(name='eval_tasks.txt', root=BANK_ROOT):
     """(source, task) pairs to evaluate, in file order; '#' starts a comment."""
+    path = os.path.join(root, name)
     pairs = []
     with open(path) as f:
         for line in f:

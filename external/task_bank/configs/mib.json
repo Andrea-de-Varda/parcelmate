@@ -118,5 +118,29 @@
     "concatenation": null,
     "merging_sign": "",
     "force_base_evaluation": true
+  },
+  "ravel_template_cf__qwen35": {
+    "path": "ravel_template_cf__qwen35.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "ravel_attribute_cf__qwen35": {
+    "path": "ravel_attribute_cf__qwen35.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "ravel_entity_swap__qwen35": {
+    "path": "ravel_entity_swap__qwen35.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
   }
 }

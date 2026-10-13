@@ -114,6 +114,48 @@ tasks:
   single_token_answer_share_qwen35: 0.134
   len_match_share_qwen35_repo_verbatim_corruption: 0.1735
   adaptations: operator flip applied with the repo formatter to the 10,000 seed-42 problems; story names/object replayed from the clean problem; items with negative flipped result and items with y==y' dropped before sampling; 2,000 stratified sample
+- name: embedded__qwen35
+  variant_of: embedded
+  family: arithmetic_addsub_wordproblem
+  domain: arithmetic
+  n_items_raw: 10000
+  n_items_original_task: 2000
+  n_items_original_task_aligned_qwen35: 1052
+  n_items_after_validity_and_dedup: 5103
+  n_items_converted: 2000
+  sampling_rule: proportional stratified sample, seed 42, cap 2000
+  sampled_ids_file: external/task_bank/tasks/devarda_arithmetic/embedded__qwen35.ids.txt
+  len_match_share_qwen35: 1.0
+  single_token_answer_share_qwen35: 0.0
+  adaptations:
+  - 'RE-PAIRED for equal Qwen3.5 token length (variant of `embedded`; prompt = exemplar prefix + story + " The answer is"). Same operator flip with names and object replayed from the clean problem. For two-term problems the generator has 5 story templates per operator class (three-term problems have one); the clean and corrupted templates are chosen among ALL of them so that the prompt token lengths are equal, preferring in this order (1) the original task''s pair (hash-chosen templates; 3733 problems), (2) the original clean story with another corrupted template, (3) another clean template, a seeded random choice among the matching combinations (together 1370 problems; metadata `clean_template` / `corrupted_template`: `default` or the forced template index). Answers are recomputed by the generator for the chosen templates (some subtraction templates ask for the amount given, or the initial amount, so the answer is not always the arithmetic result; the symmetric flip is checked).'
+  - 'Problems with no matching template (1972), with a negative flipped result (2925) or with y == y'' are dropped before the original stratified sampling (n_terms x n_digits x has_carry x operator pattern, seed 42, cap 2,000). The clean stories are those of the original task; matching changes the stratum mix (the original task''s strata shares are not exactly reproduced). Item ids are the original problem ids (not matched across formats any more: eligibility is per format).'
+  - 'Template change between addition and subtraction stories remains: the corrupted story is not a minimal edit (unchanged from the original task).'
+  status: converted
+  n_matched_original_templates: 3733
+  n_matched_other_templates: 1370
+  n_dropped_no_length_match: 1972
+- name: embedded_verbal__qwen35
+  variant_of: embedded_verbal
+  family: arithmetic_addsub_wordproblem_verbal
+  domain: arithmetic
+  n_items_raw: 10000
+  n_items_original_task: 2000
+  n_items_original_task_aligned_qwen35: 1042
+  n_items_after_validity_and_dedup: 5288
+  n_items_converted: 2000
+  sampling_rule: proportional stratified sample, seed 42, cap 2000
+  sampled_ids_file: external/task_bank/tasks/devarda_arithmetic/embedded_verbal__qwen35.ids.txt
+  len_match_share_qwen35: 1.0
+  single_token_answer_share_qwen35: 0.015
+  adaptations:
+  - 'RE-PAIRED for equal Qwen3.5 token length (variant of `embedded_verbal`; prompt = exemplar prefix + story + " The answer is"). Same operator flip with names and object replayed from the clean problem. For two-term problems the generator has 5 story templates per operator class (three-term problems have one); the clean and corrupted templates are chosen among ALL of them so that the prompt token lengths are equal, preferring in this order (1) the original task''s pair (hash-chosen templates; 3691 problems), (2) the original clean story with another corrupted template, (3) another clean template, a seeded random choice among the matching combinations (together 1597 problems; metadata `clean_template` / `corrupted_template`: `default` or the forced template index). Answers are recomputed by the generator for the chosen templates (some subtraction templates ask for the amount given, or the initial amount, so the answer is not always the arithmetic result; the symmetric flip is checked).'
+  - 'Problems with no matching template (1787), with a negative flipped result (2925) or with y == y'' are dropped before the original stratified sampling (n_terms x n_digits x has_carry x operator pattern, seed 42, cap 2,000). The clean stories are those of the original task; matching changes the stratum mix (the original task''s strata shares are not exactly reproduced). Item ids are the original problem ids (not matched across formats any more: eligibility is per format).'
+  - 'Template change between addition and subtraction stories remains: the corrupted story is not a minimal edit (unchanged from the original task).'
+  status: converted
+  n_matched_original_templates: 3691
+  n_matched_other_templates: 1597
+  n_dropped_no_length_match: 1787
 status: converted
 notes:
   prompt_framing: config prefix = the one-shot exemplar of eval_models.py ONE_SHOT_EXAMPLES, concatenation = PROMPT_SUFFIXES (" The answer is" for the embedded formats, none otherwise). The repo evaluates zero-shot by default (--one-shot is opt-in); the paper attributes with one exemplar per format (per the arXiv HTML, read via a summariser). For a zero-shot run set prefix to null.

@@ -54,5 +54,29 @@
     "concatenation": null,
     "merging_sign": "",
     "force_base_evaluation": true
+  },
+  "capital_country__qwen35": {
+    "path": "capital_country__qwen35.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "hypernymy_comma__qwen35": {
+    "path": "hypernymy_comma__qwen35.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "hypernymy_type_of__qwen35": {
+    "path": "hypernymy_type_of__qwen35.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
   }
 }

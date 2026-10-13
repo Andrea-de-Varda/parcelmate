@@ -438,5 +438,248 @@ tasks:
   - exact duplicates dropped
   len_match_share_qwen35: 1.0
   single_token_answer_share: 1.0
+- name: agr_gender__qwen35
+  family: gender_pronoun_agreement
+  domain: syntax
+  n_items_raw: 600
+  n_items_converted: 595
+  sampled_ids_file: tasks/causalgym/agr_gender__qwen35.ids.txt
+  sampling_rule: all items kept (pool <= 2000 after dropping exact duplicates)
+  adaptations:
+  - leading <|endoftext|> span stripped
+  - train/dev/test pooled
+  - exact duplicates dropped
+  - 'QWEN35 RE-PAIRING: label-variable spans (the only text that differs between base and src) re-chosen from the SyntaxGym template lists of the same types so that clean and corrupted prompts have equal Qwen3.5 token counts; shared spans, types and labels kept; equal-length original pairs kept unchanged'
+  len_match_share_qwen35: 1.0
+  variant_of: agr_gender
+  n_items_original_task: 600
+  n_items_aligned_original_task: 210
+  single_token_answer_share_qwen35: 1.0
+  repair_stats:
+    n_original: 600
+    n_equal_original: 210
+    n_src_changed: 390
+    n_both_changed: 0
+    n_dropped: 0
+    n_dropped_duplicate: 5
+- name: agr_refl_num_obj-relc__qwen35
+  family: reflexive_number_across_obj_rc
+  domain: syntax
+  n_items_raw: 600
+  n_items_converted: 600
+  sampled_ids_file: tasks/causalgym/agr_refl_num_obj-relc__qwen35.ids.txt
+  sampling_rule: all items kept (pool <= 2000 after dropping exact duplicates)
+  adaptations:
+  - leading <|endoftext|> span stripped
+  - train/dev/test pooled
+  - exact duplicates dropped
+  - 'QWEN35 RE-PAIRING: label-variable spans (the only text that differs between base and src) re-chosen from the SyntaxGym template lists of the same types so that clean and corrupted prompts have equal Qwen3.5 token counts; shared spans, types and labels kept; equal-length original pairs kept unchanged'
+  len_match_share_qwen35: 1.0
+  variant_of: agr_refl_num_obj-relc
+  n_items_original_task: 600
+  n_items_aligned_original_task: 470
+  single_token_answer_share_qwen35: 1.0
+  repair_stats:
+    n_original: 600
+    n_equal_original: 470
+    n_src_changed: 130
+    n_both_changed: 0
+    n_dropped: 0
+    n_dropped_duplicate: 0
+- name: agr_refl_num_pp__qwen35
+  family: reflexive_number_across_pp
+  domain: syntax
+  n_items_raw: 600
+  n_items_converted: 600
+  sampled_ids_file: tasks/causalgym/agr_refl_num_pp__qwen35.ids.txt
+  sampling_rule: all items kept (pool <= 2000 after dropping exact duplicates)
+  adaptations:
+  - leading <|endoftext|> span stripped
+  - train/dev/test pooled
+  - exact duplicates dropped
+  - 'QWEN35 RE-PAIRING: label-variable spans (the only text that differs between base and src) re-chosen from the SyntaxGym template lists of the same types so that clean and corrupted prompts have equal Qwen3.5 token counts; shared spans, types and labels kept; equal-length original pairs kept unchanged'
+  len_match_share_qwen35: 1.0
+  variant_of: agr_refl_num_pp
+  n_items_original_task: 600
+  n_items_aligned_original_task: 470
+  single_token_answer_share_qwen35: 1.0
+  repair_stats:
+    n_original: 600
+    n_equal_original: 470
+    n_src_changed: 130
+    n_both_changed: 0
+    n_dropped: 0
+    n_dropped_duplicate: 0
+- name: agr_refl_num_subj-relc__qwen35
+  family: reflexive_number_across_subj_rc
+  domain: syntax
+  n_items_raw: 600
+  n_items_converted: 600
+  sampled_ids_file: tasks/causalgym/agr_refl_num_subj-relc__qwen35.ids.txt
+  sampling_rule: all items kept (pool <= 2000 after dropping exact duplicates)
+  adaptations:
+  - leading <|endoftext|> span stripped
+  - train/dev/test pooled
+  - exact duplicates dropped
+  - 'QWEN35 RE-PAIRING: label-variable spans (the only text that differs between base and src) re-chosen from the SyntaxGym template lists of the same types so that clean and corrupted prompts have equal Qwen3.5 token counts; shared spans, types and labels kept; equal-length original pairs kept unchanged'
+  len_match_share_qwen35: 1.0
+  variant_of: agr_refl_num_subj-relc
+  n_items_original_task: 600
+  n_items_aligned_original_task: 482
+  single_token_answer_share_qwen35: 1.0
+  repair_stats:
+    n_original: 600
+    n_equal_original: 482
+    n_src_changed: 118
+    n_both_changed: 0
+    n_dropped: 0
+    n_dropped_duplicate: 0
+- name: agr_sv_num_obj-relc_matched__qwen35
+  family: sva_across_obj_rc
+  domain: syntax
+  n_items_raw: 600
+  n_items_converted: 600
+  sampled_ids_file: tasks/causalgym/agr_sv_num_obj-relc_matched__qwen35.ids.txt
+  sampling_rule: all items kept (pool <= 2000 after dropping exact duplicates)
+  adaptations:
+  - leading <|endoftext|> span stripped
+  - train/dev/test pooled
+  - exact duplicates dropped
+  - clean_incorrect replaced by the number-flipped form of clean_correct (is/are, has/have, was/were); original src_label kept as original_src_label
+  - 'QWEN35 RE-PAIRING: label-variable spans (the only text that differs between base and src) re-chosen from the SyntaxGym template lists of the same types so that clean and corrupted prompts have equal Qwen3.5 token counts; shared spans, types and labels kept; equal-length original pairs kept unchanged'
+  len_match_share_qwen35: 1.0
+  variant_of: agr_sv_num_obj-relc_matched
+  n_items_original_task: 600
+  n_items_aligned_original_task: 500
+  single_token_answer_share_qwen35: 1.0
+  repair_stats:
+    n_original: 600
+    n_equal_original: 500
+    n_src_changed: 100
+    n_both_changed: 0
+    n_dropped: 0
+    n_dropped_duplicate: 0
+- name: agr_sv_num_pp_matched__qwen35
+  family: sva_across_pp
+  domain: syntax
+  n_items_raw: 600
+  n_items_converted: 600
+  sampled_ids_file: tasks/causalgym/agr_sv_num_pp_matched__qwen35.ids.txt
+  sampling_rule: all items kept (pool <= 2000 after dropping exact duplicates)
+  adaptations:
+  - leading <|endoftext|> span stripped
+  - train/dev/test pooled
+  - exact duplicates dropped
+  - clean_incorrect replaced by the number-flipped form of clean_correct (is/are, has/have, was/were); original src_label kept as original_src_label
+  - 'QWEN35 RE-PAIRING: label-variable spans (the only text that differs between base and src) re-chosen from the SyntaxGym template lists of the same types so that clean and corrupted prompts have equal Qwen3.5 token counts; shared spans, types and labels kept; equal-length original pairs kept unchanged'
+  len_match_share_qwen35: 1.0
+  variant_of: agr_sv_num_pp_matched
+  n_items_original_task: 600
+  n_items_aligned_original_task: 506
+  single_token_answer_share_qwen35: 1.0
+  repair_stats:
+    n_original: 600
+    n_equal_original: 506
+    n_src_changed: 94
+    n_both_changed: 0
+    n_dropped: 0
+    n_dropped_duplicate: 0
+- name: agr_sv_num_subj-relc_matched__qwen35
+  family: sva_across_subj_rc
+  domain: syntax
+  n_items_raw: 600
+  n_items_converted: 598
+  sampled_ids_file: tasks/causalgym/agr_sv_num_subj-relc_matched__qwen35.ids.txt
+  sampling_rule: all items kept (pool <= 2000 after dropping exact duplicates)
+  adaptations:
+  - leading <|endoftext|> span stripped
+  - train/dev/test pooled
+  - exact duplicates dropped
+  - clean_incorrect replaced by the number-flipped form of clean_correct (is/are, has/have, was/were); original src_label kept as original_src_label
+  - 'QWEN35 RE-PAIRING: label-variable spans (the only text that differs between base and src) re-chosen from the SyntaxGym template lists of the same types so that clean and corrupted prompts have equal Qwen3.5 token counts; shared spans, types and labels kept; equal-length original pairs kept unchanged'
+  len_match_share_qwen35: 1.0
+  variant_of: agr_sv_num_subj-relc_matched
+  n_items_original_task: 600
+  n_items_aligned_original_task: 508
+  single_token_answer_share_qwen35: 1.0
+  repair_stats:
+    n_original: 600
+    n_equal_original: 508
+    n_src_changed: 92
+    n_both_changed: 0
+    n_dropped: 0
+    n_dropped_duplicate: 2
+- name: cleft__qwen35
+  family: cleft
+  domain: syntax
+  n_items_raw: 600
+  n_items_converted: 511
+  sampled_ids_file: tasks/causalgym/cleft__qwen35.ids.txt
+  sampling_rule: all items kept (pool <= 2000 after dropping exact duplicates)
+  adaptations:
+  - leading <|endoftext|> span stripped
+  - train/dev/test pooled
+  - exact duplicates dropped
+  - 'QWEN35 RE-PAIRING: label-variable spans (the only text that differs between base and src) re-chosen from the SyntaxGym template lists of the same types so that clean and corrupted prompts have equal Qwen3.5 token counts; shared spans, types and labels kept; equal-length original pairs kept unchanged'
+  len_match_share_qwen35: 1.0
+  variant_of: cleft
+  n_items_original_task: 528
+  n_items_aligned_original_task: 474
+  single_token_answer_share_qwen35: 1.0
+  repair_stats:
+    n_original: 528
+    n_equal_original: 474
+    n_src_changed: 27
+    n_both_changed: 27
+    n_dropped: 0
+    n_dropped_duplicate: 17
+- name: garden_npz_v-trans__qwen35
+  family: garden_path_npz
+  domain: syntax
+  n_items_raw: 600
+  n_items_converted: 600
+  sampled_ids_file: tasks/causalgym/garden_npz_v-trans__qwen35.ids.txt
+  sampling_rule: all items kept (pool <= 2000 after dropping exact duplicates)
+  adaptations:
+  - leading <|endoftext|> span stripped
+  - train/dev/test pooled
+  - exact duplicates dropped
+  - 'QWEN35 RE-PAIRING: label-variable spans (the only text that differs between base and src) re-chosen from the SyntaxGym template lists of the same types so that clean and corrupted prompts have equal Qwen3.5 token counts; shared spans, types and labels kept; equal-length original pairs kept unchanged'
+  len_match_share_qwen35: 1.0
+  variant_of: garden_npz_v-trans
+  n_items_original_task: 600
+  n_items_aligned_original_task: 538
+  single_token_answer_share_qwen35: 1.0
+  repair_stats:
+    n_original: 600
+    n_equal_original: 538
+    n_src_changed: 29
+    n_both_changed: 33
+    n_dropped: 0
+    n_dropped_duplicate: 0
+- name: garden_npz_v-trans_mod__qwen35
+  family: garden_path_npz
+  domain: syntax
+  n_items_raw: 600
+  n_items_converted: 600
+  sampled_ids_file: tasks/causalgym/garden_npz_v-trans_mod__qwen35.ids.txt
+  sampling_rule: all items kept (pool <= 2000 after dropping exact duplicates)
+  adaptations:
+  - leading <|endoftext|> span stripped
+  - train/dev/test pooled
+  - exact duplicates dropped
+  - 'QWEN35 RE-PAIRING: label-variable spans (the only text that differs between base and src) re-chosen from the SyntaxGym template lists of the same types so that clean and corrupted prompts have equal Qwen3.5 token counts; shared spans, types and labels kept; equal-length original pairs kept unchanged'
+  len_match_share_qwen35: 1.0
+  variant_of: garden_npz_v-trans_mod
+  n_items_original_task: 600
+  n_items_aligned_original_task: 528
+  single_token_answer_share_qwen35: 1.0
+  repair_stats:
+    n_original: 600
+    n_equal_original: 528
+    n_src_changed: 36
+    n_both_changed: 36
+    n_dropped: 0
+    n_dropped_duplicate: 0
 status: converted
 notes: Labels are the next token after the prompt. Spans are aligned by index and can differ in token count; no alignment is needed here because prompts are used whole. Several task contrasts are class contrasts, not minimal lexical pairs (see REPORT_syntax.md).

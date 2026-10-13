@@ -90,7 +90,8 @@ def main():
                       and it['clean_correct'] != it['clean_incorrect'], f'{sid}/{t["name"]}: flip broken {it["source_item_id"]}')
                 check(it['clean_problem'] != it['corrupted_problem'], f'{sid}/{t["name"]}: identical prompts {it["source_item_id"]}')
                 check(it['source_id'] == sid and it['family'] == t['family'], f'{sid}/{t["name"]}: source/family mismatch')
-            spot(sid, t['name'], items, rng)
+            if not t['name'].endswith('__qwen35'):  # re-paired variants are checked by verify_task_bank_qwen35_syntax.py
+                spot(sid, t['name'], items, rng)
     print(f'{total} tasks checked, {len(fails)} failures')
     for f in fails[:40]:
         print('FAIL', f)

@@ -254,5 +254,85 @@
     "concatenation": null,
     "merging_sign": "",
     "force_base_evaluation": true
+  },
+  "agr_gender__qwen35": {
+    "path": "agr_gender__qwen35.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "agr_refl_num_obj-relc__qwen35": {
+    "path": "agr_refl_num_obj-relc__qwen35.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "agr_refl_num_pp__qwen35": {
+    "path": "agr_refl_num_pp__qwen35.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "agr_refl_num_subj-relc__qwen35": {
+    "path": "agr_refl_num_subj-relc__qwen35.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "agr_sv_num_obj-relc_matched__qwen35": {
+    "path": "agr_sv_num_obj-relc_matched__qwen35.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "agr_sv_num_pp_matched__qwen35": {
+    "path": "agr_sv_num_pp_matched__qwen35.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "agr_sv_num_subj-relc_matched__qwen35": {
+    "path": "agr_sv_num_subj-relc_matched__qwen35.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "cleft__qwen35": {
+    "path": "cleft__qwen35.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "garden_npz_v-trans__qwen35": {
+    "path": "garden_npz_v-trans__qwen35.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "garden_npz_v-trans_mod__qwen35": {
+    "path": "garden_npz_v-trans_mod__qwen35.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
   }
 }

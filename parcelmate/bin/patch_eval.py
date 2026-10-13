@@ -47,6 +47,8 @@ def main():
     ap.add_argument('--bank', action='store_true',
                     help='evaluate the task bank (eval_tasks.txt) instead of LLM_Modularity; '
                          '--domains then restricts the sources')
+    ap.add_argument('--bank-list', default='eval_tasks.txt',
+                    help='task list under external/task_bank (eval_tasks_qwen35.txt for Qwen3.5 models)')
     ap.add_argument('--out', default='results/patching')
     ap.add_argument('--bos', choices=('none', 'bos', 'both'), default='both')
     ap.add_argument('--batch-size', type=int, default=16)
@@ -74,7 +76,7 @@ def main():
     root = os.path.join(args.out, short_name(args.model))
     rows = []
     if args.bank:
-        pairs = bank_eval_list()
+        pairs = bank_eval_list(args.bank_list)
         sources = list(dict.fromkeys(s for s, _ in pairs))
         if args.domains != list(DOMAINS):
             sources = [s for s in sources if s in args.domains]

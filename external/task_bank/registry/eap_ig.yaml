@@ -308,3 +308,62 @@ tasks:
   adaptations:
   - Same as greater_than (clean/corrupted "01"/label), a duplicate-style copy in the EAP-IG repo; see greater_than.
   suits_tier2: 'yes'
+- name: capital_country__qwen35
+  variant_of: capital_country
+  family: factual_capital
+  domain: factual knowledge (capital -> country)
+  n_items_raw: 190
+  n_items_original_task: 190
+  n_items_original_task_aligned_qwen35: 137
+  n_items_after_validity_and_dedup: 186
+  n_items_converted: 186
+  sampling_rule: all items kept
+  sampled_ids_file: external/task_bank/tasks/eap_ig/capital_country__qwen35.ids.txt
+  len_match_share_qwen35: 1.0
+  single_token_answer_share_qwen35: 0.4355
+  adaptations:
+  - RE-PAIRED for equal Qwen3.5 token length (variant of `capital_country`). The prompt pool is the raw file's clean and corrupted capital prompts pooled and deduplicated (190 distinct capitals); an item
+    is any unordered pair of capitals with the same Qwen3.5 prompt length and different countries (orientation by a seeded coin; the both-correct criterion is symmetric in the orientation). The subject
+    swap (another capital) is the source's contrast; only the pairing differs from the source's row-wise (clean, corrupted) columns. Answers as in the original (full country name with a leading space).
+  - Each capital prompt occurs in at most 2 items (greedy selection over a seeded shuffle of all equal-length pairs), so the item count stays close to the number of distinct prompts.
+  status: converted
+- name: hypernymy_comma__qwen35
+  variant_of: hypernymy_comma
+  family: hypernymy
+  domain: lexical semantics (hypernym completion)
+  n_items_raw: 198
+  n_items_original_task: 198
+  n_items_original_task_aligned_qwen35: 171
+  n_items_after_validity_and_dedup: 310
+  n_items_converted: 310
+  sampling_rule: all items kept
+  sampled_ids_file: external/task_bank/tasks/eap_ig/hypernymy_comma__qwen35.ids.txt
+  len_match_share_qwen35: 1.0
+  single_token_answer_share_qwen35: 1.0
+  adaptations:
+  - 'RE-PAIRED for equal Qwen3.5 token length (variant of `hypernymy_comma`). Prompt pool: the `clean`/`corrupted` columns (", gemstones and other") of the raw file, each with its answer set (clean and
+    corrupted columns pooled and deduplicated by prompt; 312 prompts). An item is any unordered pair of prompts with the same Qwen3.5 length whose answer sets are DISJOINT (stricter than the original, which
+    only needed one non-shared answer each; the correct answer is the first listed one, as in the original; orientation by a seeded coin). The subject swap (another hypernymy category) is the source''s
+    contrast.'
+  - Each prompt occurs in at most 2 items (greedy selection over a seeded shuffle of all equal-length pairs); pairs with partly overlapping answer sets are excluded.
+  status: converted
+- name: hypernymy_type_of__qwen35
+  variant_of: hypernymy_type_of
+  family: hypernymy
+  domain: lexical semantics (hypernym completion)
+  n_items_raw: 198
+  n_items_original_task: 198
+  n_items_original_task_aligned_qwen35: 97
+  n_items_after_validity_and_dedup: 302
+  n_items_converted: 302
+  sampling_rule: all items kept
+  sampled_ids_file: external/task_bank/tasks/eap_ig/hypernymy_type_of__qwen35.ids.txt
+  len_match_share_qwen35: 1.0
+  single_token_answer_share_qwen35: 1.0
+  adaptations:
+  - 'RE-PAIRED for equal Qwen3.5 token length (variant of `hypernymy_type_of`). Prompt pool: the `clean2`/`corrupted2` columns ("gemstones are a type of") of the raw file, each with its answer set (clean
+    and corrupted columns pooled and deduplicated by prompt; 312 prompts). An item is any unordered pair of prompts with the same Qwen3.5 length whose answer sets are DISJOINT (stricter than the original,
+    which only needed one non-shared answer each; the correct answer is the first listed one, as in the original; orientation by a seeded coin). The subject swap (another hypernymy category) is the source''s
+    contrast.'
+  - Each prompt occurs in at most 2 items (greedy selection over a seeded shuffle of all equal-length pairs); pairs with partly overlapping answer sets are excluded.
+  status: converted

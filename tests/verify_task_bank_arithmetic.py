@@ -56,7 +56,7 @@ for sid in SOURCES:
                 check(eval(' '.join(toks).translate(str.maketrans('+-', '-+'))) == num(it['clean_incorrect']), p)
 
 # de Varda: same ids across formats, same selection as raw generated file, formats match the regenerated raw data
-dv = {t['name']: json.load(open(os.path.join(TB, 'tasks', 'devarda_arithmetic', f"{t['name']}.json"))) for t in yaml.safe_load(open(os.path.join(TB, 'registry', 'devarda_arithmetic.yaml')))['tasks']}
+dv = {t['name']: json.load(open(os.path.join(TB, 'tasks', 'devarda_arithmetic', f"{t['name']}.json"))) for t in yaml.safe_load(open(os.path.join(TB, 'registry', 'devarda_arithmetic.yaml')))['tasks'] if 'variant_of' not in t}  # __qwen35 variants: tests/verify_task_bank_qwen35_other.py
 check(len(dv) == 6, 'six formats')
 base = [i['source_item_id'] for i in dv['numeric']]
 for name, items in dv.items():

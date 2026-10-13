@@ -46,5 +46,21 @@
   "concatenation": " The answer is",
   "merging_sign": "",
   "force_base_evaluation": true
+ },
+ "embedded__qwen35": {
+  "path": "embedded__qwen35.json",
+  "prefix": "Question: Alice has 3 marbles and finds 2 more. How many does she have now?\nAnswer: 5\n",
+  "suffix": null,
+  "concatenation": " The answer is",
+  "merging_sign": "",
+  "force_base_evaluation": true
+ },
+ "embedded_verbal__qwen35": {
+  "path": "embedded_verbal__qwen35.json",
+  "prefix": "Question: Alice has three marbles and finds two more. How many does she have now?\nAnswer: five\n",
+  "suffix": null,
+  "concatenation": " The answer is",
+  "merging_sign": "",
+  "force_base_evaluation": true
  }
 }

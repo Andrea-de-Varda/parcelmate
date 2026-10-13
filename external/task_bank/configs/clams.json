@@ -246,5 +246,229 @@
     "concatenation": null,
     "merging_sign": "",
     "force_base_evaluation": true
+  },
+  "fr_simple_agrmt__qwen35": {
+    "path": "fr_simple_agrmt__qwen35.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "fr_vp_coord__qwen35": {
+    "path": "fr_vp_coord__qwen35.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "fr_long_vp_coord__qwen35": {
+    "path": "fr_long_vp_coord__qwen35.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "fr_prep_anim__qwen35": {
+    "path": "fr_prep_anim__qwen35.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "fr_subj_rel__qwen35": {
+    "path": "fr_subj_rel__qwen35.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "fr_obj_rel_across_anim__qwen35": {
+    "path": "fr_obj_rel_across_anim__qwen35.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "fr_obj_rel_within_anim__qwen35": {
+    "path": "fr_obj_rel_within_anim__qwen35.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "de_simple_agrmt__qwen35": {
+    "path": "de_simple_agrmt__qwen35.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "de_vp_coord__qwen35": {
+    "path": "de_vp_coord__qwen35.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "de_long_vp_coord__qwen35": {
+    "path": "de_long_vp_coord__qwen35.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "de_prep_anim__qwen35": {
+    "path": "de_prep_anim__qwen35.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "de_subj_rel__qwen35": {
+    "path": "de_subj_rel__qwen35.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "de_obj_rel_across_anim__qwen35": {
+    "path": "de_obj_rel_across_anim__qwen35.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "de_obj_rel_within_anim__qwen35": {
+    "path": "de_obj_rel_within_anim__qwen35.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "he_simple_agrmt__qwen35": {
+    "path": "he_simple_agrmt__qwen35.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "he_vp_coord__qwen35": {
+    "path": "he_vp_coord__qwen35.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "he_long_vp_coord__qwen35": {
+    "path": "he_long_vp_coord__qwen35.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "he_prep_anim__qwen35": {
+    "path": "he_prep_anim__qwen35.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "he_subj_rel__qwen35": {
+    "path": "he_subj_rel__qwen35.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "he_obj_rel_across_anim__qwen35": {
+    "path": "he_obj_rel_across_anim__qwen35.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "he_obj_rel_within_anim__qwen35": {
+    "path": "he_obj_rel_within_anim__qwen35.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "ru_simple_agrmt__qwen35": {
+    "path": "ru_simple_agrmt__qwen35.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "ru_vp_coord__qwen35": {
+    "path": "ru_vp_coord__qwen35.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "ru_long_vp_coord__qwen35": {
+    "path": "ru_long_vp_coord__qwen35.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "ru_prep_anim__qwen35": {
+    "path": "ru_prep_anim__qwen35.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "ru_subj_rel__qwen35": {
+    "path": "ru_subj_rel__qwen35.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "ru_obj_rel_across_anim__qwen35": {
+    "path": "ru_obj_rel_across_anim__qwen35.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "ru_obj_rel_within_anim__qwen35": {
+    "path": "ru_obj_rel_within_anim__qwen35.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
   }
 }

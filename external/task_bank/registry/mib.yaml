@@ -397,3 +397,67 @@ tasks:
   n_len_match: 999
   single_token_answers_share: 0.478
   equal_answer_token_count_share: 0.526
+- name: ravel_template_cf__qwen35
+  variant_of: ravel_template_cf
+  family: factual_ravel
+  domain: factual knowledge (city attributes)
+  n_items_raw: 100347
+  n_items_original_task: 2000
+  n_items_original_task_aligned_qwen35: 378
+  n_items_after_validity_and_dedup: 50032
+  n_items_converted: 2000
+  sampling_rule: proportional stratified sample, seed 42, cap 2000
+  sampled_ids_file: external/task_bank/tasks/mib/ravel_template_cf__qwen35.ids.txt
+  len_match_share_qwen35: 1.0
+  single_token_answer_share_qwen35: 0.4195
+  adaptations:
+  - RE-PAIRED for equal Qwen3.5 token length (variant of `ravel_template_cf`). Clean row = every Country/Continent/Language train row; the corrupted prompt is MIB's own `prompt_template_counterfactual`
+    of a train row with the SAME template and attribute as the clean row (the clean row's own counterfactual when its length already matches, otherwise a seeded random draw among the matching ones), so
+    that the counterfactual type and the clean template are preserved while the counterfactual entity/template/attribute come from the source's distribution.
+  - 'Constraints on the partner: prompt token length equal to the clean prompt (Qwen3.5), same answer-spacing kind (quote vs word ending), counterfactual attribute value different from the clean value,
+    counterfactual entity different from the clean entity. Answers as in the original task. Strata for the 2,000 sample: attribute x counterfactual attribute. Note that the clean-entity / counterfactual-entity
+    pairing is no longer the source''s row-wise pairing (a counterfactual of another row is used).'
+  status: converted
+  n_original_partner_kept: 8643
+  n_clean_rows_without_match: 1742
+- name: ravel_attribute_cf__qwen35
+  variant_of: ravel_attribute_cf
+  family: factual_ravel
+  domain: factual knowledge (city attributes)
+  n_items_raw: 100347
+  n_items_original_task: 2000
+  n_items_original_task_aligned_qwen35: 221
+  n_items_after_validity_and_dedup: 45517
+  n_items_converted: 2000
+  sampling_rule: proportional stratified sample, seed 42, cap 2000
+  sampled_ids_file: external/task_bank/tasks/mib/ravel_attribute_cf__qwen35.ids.txt
+  len_match_share_qwen35: 1.0
+  single_token_answer_share_qwen35: 0.418
+  adaptations:
+  - RE-PAIRED for equal Qwen3.5 token length (variant of `ravel_attribute_cf`). Clean row = every Country/Continent/Language train row; the corrupted prompt is MIB's own `attribute_counterfactual` of a
+    train row with the SAME template and attribute as the clean row (the clean row's own counterfactual when its length already matches, otherwise a seeded random draw among the matching ones), so that
+    the counterfactual type and the clean template are preserved while the counterfactual entity/template/attribute come from the source's distribution.
+  - 'Constraints on the partner: prompt token length equal to the clean prompt (Qwen3.5), same answer-spacing kind (quote vs word ending), counterfactual attribute value different from the clean value,
+    counterfactual entity different from the clean entity. Answers as in the original task. Strata for the 2,000 sample: attribute x counterfactual attribute. Note that the clean-entity / counterfactual-entity
+    pairing is no longer the source''s row-wise pairing (a counterfactual of another row is used).'
+  status: converted
+  n_original_partner_kept: 5817
+  n_clean_rows_without_match: 22334
+- name: ravel_entity_swap__qwen35
+  variant_of: ravel_entity_swap
+  family: factual_ravel
+  domain: factual knowledge (city attributes)
+  n_items_raw: 100347
+  n_items_original_task: 2000
+  n_items_original_task_aligned_qwen35: 999
+  n_items_after_validity_and_dedup: 52697
+  n_items_converted: 2000
+  sampling_rule: proportional stratified sample, seed 42, cap 2000
+  sampled_ids_file: external/task_bank/tasks/mib/ravel_entity_swap__qwen35.ids.txt
+  len_match_share_qwen35: 1.0
+  single_token_answer_share_qwen35: 0.464
+  adaptations:
+  - 'RE-PAIRED for equal Qwen3.5 token length (variant of `ravel_entity_swap`). Same construction as the original (OUR CONSTRUCTION, not in MIB): the entity is replaced by another entity of the same template
+    and attribute with a different attribute value and the same number of words; the partner is additionally required to give a prompt of EQUAL Qwen3.5 token length; among those, the closest character length
+    wins, ties broken with random.Random(42) in template/index order. Answers as in the original.'
+  status: converted

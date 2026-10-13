@@ -80,5 +80,80 @@ tasks:
   - no change to prompts or answers
   len_match_share_qwen35: 0.848
   single_token_answer_share: 1.0
+- name: nounpp__qwen35
+  family: sva_across_pp
+  domain: syntax
+  n_items_raw: 2400
+  n_items_converted: 2000
+  n_items_after_dedup: 2114
+  sampled_ids_file: tasks/marks_sfc_sva/nounpp__qwen35.ids.txt
+  sampling_rule: exact duplicates dropped; if > 2000, seed-42 proportional sample stratified on (split, case)
+  adaptations:
+  - train and test files pooled (split kept as metadata)
+  - no change to prompts or answers
+  - 'QWEN35 RE-PAIRING: pairs with equal Qwen3.5 prompt lengths kept; for the others the corrupted (else the clean) prompt is replaced by another pool prompt with the swapped answers, the same words except a different subject noun of the other number, equal token count'
+  len_match_share_qwen35: 1.0
+  variant_of: nounpp
+  n_items_original_task: 2000
+  n_items_aligned_original_task: 1696
+  single_token_answer_share_qwen35: 1.0
+  repair_stats:
+    n_pairs_original: 2114
+    n_equal_original: 1791
+    n_replaced_corrupted: 178
+    n_replaced_clean: 99
+    n_dropped_no_partner: 46
+    n_dropped_duplicate: 20
+  n_items_after_repair: 2048
+- name: rc__qwen35
+  family: sva_across_obj_rc
+  domain: syntax
+  n_items_raw: 132000
+  n_items_converted: 2000
+  n_items_after_dedup: 34734
+  sampled_ids_file: tasks/marks_sfc_sva/rc__qwen35.ids.txt
+  sampling_rule: exact duplicates dropped; if > 2000, seed-42 proportional sample stratified on (split, case)
+  adaptations:
+  - train and test files pooled (split kept as metadata)
+  - no change to prompts or answers
+  - 'QWEN35 RE-PAIRING: pairs with equal Qwen3.5 prompt lengths kept; for the others the corrupted (else the clean) prompt is replaced by another pool prompt with the swapped answers, the same words except a different subject noun of the other number, equal token count'
+  len_match_share_qwen35: 1.0
+  variant_of: rc
+  n_items_original_task: 2000
+  n_items_aligned_original_task: 1694
+  single_token_answer_share_qwen35: 1.0
+  repair_stats:
+    n_pairs_original: 34734
+    n_equal_original: 29528
+    n_replaced_corrupted: 4338
+    n_replaced_clean: 868
+    n_dropped_no_partner: 0
+    n_dropped_duplicate: 859
+  n_items_after_repair: 33875
+- name: simple__qwen35
+  family: sva_simple
+  domain: syntax
+  n_items_raw: 600
+  n_items_converted: 151
+  n_items_after_dedup: 155
+  sampled_ids_file: tasks/marks_sfc_sva/simple__qwen35.ids.txt
+  sampling_rule: exact duplicates dropped; if > 2000, seed-42 proportional sample stratified on (split, case)
+  adaptations:
+  - train and test files pooled (split kept as metadata)
+  - no change to prompts or answers
+  - 'QWEN35 RE-PAIRING: pairs with equal Qwen3.5 prompt lengths kept; for the others the corrupted (else the clean) prompt is replaced by another pool prompt with the swapped answers, the same words except a different subject noun of the other number, equal token count'
+  len_match_share_qwen35: 1.0
+  variant_of: simple
+  n_items_original_task: 155
+  n_items_aligned_original_task: 131
+  single_token_answer_share_qwen35: 1.0
+  repair_stats:
+    n_pairs_original: 155
+    n_equal_original: 131
+    n_replaced_corrupted: 20
+    n_replaced_clean: 4
+    n_dropped_no_partner: 0
+    n_dropped_duplicate: 4
+  n_items_after_repair: 151
 status: converted
 notes: Verb sets restricted to those whose singular and plural forms are single tokens in the Pythia tokenizer; stimuli modified from Finlayson et al. (2021) (same nouns and structures). README states this; Finlayson et al. licence not checked here.

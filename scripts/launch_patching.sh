@@ -33,7 +33,7 @@ SCREEN_MODELS=${SCREEN_MODELS:-"Qwen/Qwen3-0.6B Qwen/Qwen3-1.7B Qwen/Qwen3-4B Qw
 BANK_MODELS=${BANK_MODELS:-"Qwen/Qwen3.5-2B Qwen/Qwen3.5-4B"}
 
 case "$MODE" in
-    generate|submit|generate_screen|submit_screen|generate_attribution|submit_attribution|generate_bank|submit_bank) ;;
+    generate|submit|generate_screen|submit_screen|generate_attribution|submit_attribution|generate_bank|submit_bank|generate_bank_attribution|submit_bank_attribution) ;;
     *) echo "usage: $0 generate | submit | generate_screen | submit_screen | generate_attribution | submit_attribution | generate_bank | submit_bank  (SCREEN_MODELS=, ATTR_MODELS=, BANK_MODELS= to override)" >&2; exit 2 ;;
 esac
 
@@ -165,7 +165,37 @@ submit_bank() {
     done
 }
 
+battr_name() { echo "battr.$(echo "$1" | tr '/' '_' | tr '.' '-')"; }
+
+generate_bank_attribution() {
+    # Attribution on every task that passes the inclusion rule for that model (each model's
+    # own set), with the minimum lowered to 100 both-correct items (Andrea, 2026-10-13): the
+    # task bank, then LLM_Modularity (only npi and social_interactions are new at 100; the
+    # rest are cached). Accuracies are cached from the screen; tasks not yet screened (e.g.
+    # the __qwen35 re-pairings) are screened first. Sized from the Iteration 29 attribution
+    # rate (0.19 s/item at 2B, 0.30 at 4B): about 190k items at 2B (~10 h), 220k at 4B (~19 h).
+    mkdir -p jobs logs
+    local m hours list
+    for m in $BANK_MODELS; do
+        case "$m" in *4B*) hours=40 ;; *) hours=24 ;; esac
+        case "$m" in Qwen/Qwen3.5*) list=eval_tasks_qwen35.txt ;; *) list=eval_tasks.txt ;; esac
+        job "$(battr_name $m)" $hours 64 "python scripts/task_bank/manifest.py --check && python -m parcelmate.bin.patch_eval --model $m --bank --bank-list $list --bos none --attribution --min-n-both-correct 100 --batch-size 8 --out results/patching_bank && python -m parcelmate.bin.patch_eval --model $m --bos none --attribution --min-n-both-correct 100 --batch-size 8 --out results/patching"
+    done
+}
+
+submit_bank_attribution() {
+    mkdir -p logs
+    echo "code at $(git log --oneline | head -1)"
+    local m id
+    for m in $BANK_MODELS; do
+        id=$(sbatch --parsable jobs/$(battr_name $m).pbs)
+        echo "$m bank attribution -> $id"
+    done
+}
+
 case "$MODE" in
+    generate_bank_attribution) generate_bank_attribution ;;
+    submit_bank_attribution)   submit_bank_attribution ;;
     generate_bank) generate_bank ;;
     submit_bank)   submit_bank ;;
     generate) generate ;;

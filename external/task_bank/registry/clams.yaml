@@ -695,5 +695,901 @@ tasks:
   - clean/corrupted orientation of each pair chosen by seed-42 coin
   len_match_share_qwen35: 1.0
   single_token_answer_share: 1.0
+- name: fr_simple_agrmt__qwen35
+  family: sva_simple_fr
+  domain: syntax
+  language: French
+  n_items_raw: 280
+  n_items_converted: 105
+  pairing_stats:
+    n_pairs_raw: 280
+    skipped_unparsable: 0
+    n_unique_prefix_answer: 280
+    dropped_no_partner: 70
+    n_items_all_pairs: 105
+  sampled_ids_file: tasks/clams/fr_simple_agrmt__qwen35.ids.txt
+  sampling_rule: all unordered counterfactual pairs; if > 2000, seed-42 sample stratified on (clean_correct, clean_incorrect)
+  adaptations:
+  - counterfactual built by subject-number swap (partner = other item of the same file with swapped answers and morphologically close prompt words)
+  - answer = words from first to last differing word, leading space; shared tail after the answer dropped
+  - clean/corrupted orientation of each pair chosen by seed-42 coin
+  - 'QWEN35 RE-PAIRING: pairs with equal Qwen3.5 prompt lengths kept; for the others the corrupted (else the clean) prompt is replaced by another prompt of the same file with the swapped answers, the same words except a different subject noun of the other number and close variants (same lexeme) of the agreeing words, equal token count'
+  len_match_share_qwen35: 1.0
+  variant_of: fr_simple_agrmt
+  n_items_original_task: 105
+  n_items_aligned_original_task: 77
+  single_token_answer_share_qwen35: 0.1429
+  repair_stats:
+    n_pairs_original: 105
+    n_equal_original: 77
+    n_replaced_corrupted: 28
+    n_replaced_clean: 0
+    n_dropped_no_partner: 0
+    n_dropped_duplicate: 0
+  n_items_after_repair: 105
+- name: fr_vp_coord__qwen35
+  family: sva_vp_coord_fr
+  domain: syntax
+  language: French
+  n_items_raw: 980
+  n_items_converted: 156
+  pairing_stats:
+    n_pairs_raw: 980
+    skipped_unparsable: 0
+    n_unique_prefix_answer: 980
+    dropped_no_partner: 588
+    n_items_all_pairs: 196
+  sampled_ids_file: tasks/clams/fr_vp_coord__qwen35.ids.txt
+  sampling_rule: all unordered counterfactual pairs; if > 2000, seed-42 sample stratified on (clean_correct, clean_incorrect)
+  adaptations:
+  - counterfactual built by subject-number swap (partner = other item of the same file with swapped answers and morphologically close prompt words)
+  - answer = words from first to last differing word, leading space; shared tail after the answer dropped
+  - clean/corrupted orientation of each pair chosen by seed-42 coin
+  - 'QWEN35 RE-PAIRING: pairs with equal Qwen3.5 prompt lengths kept; for the others the corrupted (else the clean) prompt is replaced by another prompt of the same file with the swapped answers, the same words except a different subject noun of the other number and close variants (same lexeme) of the agreeing words, equal token count'
+  len_match_share_qwen35: 1.0
+  variant_of: fr_vp_coord
+  n_items_original_task: 196
+  n_items_aligned_original_task: 70
+  single_token_answer_share_qwen35: 0.141
+  repair_stats:
+    n_pairs_original: 196
+    n_equal_original: 70
+    n_replaced_corrupted: 63
+    n_replaced_clean: 35
+    n_dropped_no_partner: 28
+    n_dropped_duplicate: 12
+  n_items_after_repair: 156
+- name: fr_long_vp_coord__qwen35
+  family: sva_long_vp_coord_fr
+  domain: syntax
+  language: French
+  n_items_raw: 500
+  n_items_converted: 135
+  pairing_stats:
+    n_pairs_raw: 500
+    skipped_unparsable: 0
+    n_unique_prefix_answer: 500
+    dropped_no_partner: 150
+    n_items_all_pairs: 175
+  sampled_ids_file: tasks/clams/fr_long_vp_coord__qwen35.ids.txt
+  sampling_rule: all unordered counterfactual pairs; if > 2000, seed-42 sample stratified on (clean_correct, clean_incorrect)
+  adaptations:
+  - counterfactual built by subject-number swap (partner = other item of the same file with swapped answers and morphologically close prompt words)
+  - answer = words from first to last differing word, leading space; shared tail after the answer dropped
+  - clean/corrupted orientation of each pair chosen by seed-42 coin
+  - 'QWEN35 RE-PAIRING: pairs with equal Qwen3.5 prompt lengths kept; for the others the corrupted (else the clean) prompt is replaced by another prompt of the same file with the swapped answers, the same words except a different subject noun of the other number and close variants (same lexeme) of the agreeing words, equal token count'
+  len_match_share_qwen35: 1.0
+  variant_of: fr_long_vp_coord
+  n_items_original_task: 175
+  n_items_aligned_original_task: 50
+  single_token_answer_share_qwen35: 0.1852
+  repair_stats:
+    n_pairs_original: 175
+    n_equal_original: 50
+    n_replaced_corrupted: 53
+    n_replaced_clean: 42
+    n_dropped_no_partner: 30
+    n_dropped_duplicate: 10
+  n_items_after_repair: 135
+- name: fr_prep_anim__qwen35
+  family: sva_across_pp_fr
+  domain: syntax
+  language: French
+  n_items_raw: 14000
+  n_items_converted: 2000
+  pairing_stats:
+    n_pairs_raw: 14000
+    skipped_unparsable: 0
+    n_unique_prefix_answer: 14000
+    dropped_no_partner: 4200
+    n_items_all_pairs: 4900
+  sampled_ids_file: tasks/clams/fr_prep_anim__qwen35.ids.txt
+  sampling_rule: all unordered counterfactual pairs; if > 2000, seed-42 sample stratified on (clean_correct, clean_incorrect)
+  adaptations:
+  - counterfactual built by subject-number swap (partner = other item of the same file with swapped answers and morphologically close prompt words)
+  - answer = words from first to last differing word, leading space; shared tail after the answer dropped
+  - clean/corrupted orientation of each pair chosen by seed-42 coin
+  - 'QWEN35 RE-PAIRING: pairs with equal Qwen3.5 prompt lengths kept; for the others the corrupted (else the clean) prompt is replaced by another prompt of the same file with the swapped answers, the same words except a different subject noun of the other number and close variants (same lexeme) of the agreeing words, equal token count'
+  len_match_share_qwen35: 1.0
+  variant_of: fr_prep_anim
+  n_items_original_task: 2000
+  n_items_aligned_original_task: 1426
+  single_token_answer_share_qwen35: 0.143
+  repair_stats:
+    n_pairs_original: 4900
+    n_equal_original: 3500
+    n_replaced_corrupted: 1400
+    n_replaced_clean: 0
+    n_dropped_no_partner: 0
+    n_dropped_duplicate: 0
+  n_items_after_repair: 4900
+- name: fr_subj_rel__qwen35
+  family: sva_across_subj_rc_fr
+  domain: syntax
+  language: French
+  n_items_raw: 11200
+  n_items_converted: 2000
+  pairing_stats:
+    n_pairs_raw: 11200
+    skipped_unparsable: 0
+    n_unique_prefix_answer: 11200
+    dropped_no_partner: 3360
+    n_items_all_pairs: 3920
+  sampled_ids_file: tasks/clams/fr_subj_rel__qwen35.ids.txt
+  sampling_rule: all unordered counterfactual pairs; if > 2000, seed-42 sample stratified on (clean_correct, clean_incorrect)
+  adaptations:
+  - counterfactual built by subject-number swap (partner = other item of the same file with swapped answers and morphologically close prompt words)
+  - answer = words from first to last differing word, leading space; shared tail after the answer dropped
+  - clean/corrupted orientation of each pair chosen by seed-42 coin
+  - 'QWEN35 RE-PAIRING: pairs with equal Qwen3.5 prompt lengths kept; for the others the corrupted (else the clean) prompt is replaced by another prompt of the same file with the swapped answers, the same words except a different subject noun of the other number and close variants (same lexeme) of the agreeing words, equal token count'
+  len_match_share_qwen35: 1.0
+  variant_of: fr_subj_rel
+  n_items_original_task: 2000
+  n_items_aligned_original_task: 374
+  single_token_answer_share_qwen35: 0.1415
+  repair_stats:
+    n_pairs_original: 3920
+    n_equal_original: 700
+    n_replaced_corrupted: 1366
+    n_replaced_clean: 1014
+    n_dropped_no_partner: 840
+    n_dropped_duplicate: 305
+  n_items_after_repair: 2775
+- name: fr_obj_rel_across_anim__qwen35
+  family: sva_across_obj_rc_fr
+  domain: syntax
+  language: French
+  n_items_raw: 11200
+  n_items_converted: 2000
+  pairing_stats:
+    n_pairs_raw: 11200
+    skipped_unparsable: 0
+    n_unique_prefix_answer: 11200
+    dropped_no_partner: 3360
+    n_items_all_pairs: 3920
+  sampled_ids_file: tasks/clams/fr_obj_rel_across_anim__qwen35.ids.txt
+  sampling_rule: all unordered counterfactual pairs; if > 2000, seed-42 sample stratified on (clean_correct, clean_incorrect)
+  adaptations:
+  - counterfactual built by subject-number swap (partner = other item of the same file with swapped answers and morphologically close prompt words)
+  - answer = words from first to last differing word, leading space; shared tail after the answer dropped
+  - clean/corrupted orientation of each pair chosen by seed-42 coin
+  - 'QWEN35 RE-PAIRING: pairs with equal Qwen3.5 prompt lengths kept; for the others the corrupted (else the clean) prompt is replaced by another prompt of the same file with the swapped answers, the same words except a different subject noun of the other number and close variants (same lexeme) of the agreeing words, equal token count'
+  len_match_share_qwen35: 1.0
+  variant_of: fr_obj_rel_across_anim
+  n_items_original_task: 2000
+  n_items_aligned_original_task: 1459
+  single_token_answer_share_qwen35: 0.1425
+  repair_stats:
+    n_pairs_original: 3920
+    n_equal_original: 2800
+    n_replaced_corrupted: 1120
+    n_replaced_clean: 0
+    n_dropped_no_partner: 0
+    n_dropped_duplicate: 0
+  n_items_after_repair: 3920
+- name: fr_obj_rel_within_anim__qwen35
+  family: sva_within_obj_rc_fr
+  domain: syntax
+  language: French
+  n_items_raw: 11200
+  n_items_converted: 640
+  pairing_stats:
+    n_pairs_raw: 11200
+    skipped_unparsable: 0
+    n_unique_prefix_answer: 1600
+    dropped_no_partner: 320
+    n_items_all_pairs: 640
+  sampled_ids_file: tasks/clams/fr_obj_rel_within_anim__qwen35.ids.txt
+  sampling_rule: all unordered counterfactual pairs; if > 2000, seed-42 sample stratified on (clean_correct, clean_incorrect)
+  adaptations:
+  - counterfactual built by subject-number swap (partner = other item of the same file with swapped answers and morphologically close prompt words)
+  - answer = words from first to last differing word, leading space; shared tail after the answer dropped
+  - clean/corrupted orientation of each pair chosen by seed-42 coin
+  - 'QWEN35 RE-PAIRING: pairs with equal Qwen3.5 prompt lengths kept; for the others the corrupted (else the clean) prompt is replaced by another prompt of the same file with the swapped answers, the same words except a different subject noun of the other number and close variants (same lexeme) of the agreeing words, equal token count'
+  len_match_share_qwen35: 1.0
+  variant_of: fr_obj_rel_within_anim
+  n_items_original_task: 640
+  n_items_aligned_original_task: 480
+  single_token_answer_share_qwen35: 0.0
+  repair_stats:
+    n_pairs_original: 640
+    n_equal_original: 480
+    n_replaced_corrupted: 160
+    n_replaced_clean: 0
+    n_dropped_no_partner: 0
+    n_dropped_duplicate: 0
+  n_items_after_repair: 640
+- name: de_simple_agrmt__qwen35
+  family: sva_simple_de
+  domain: syntax
+  language: German
+  n_items_raw: 140
+  n_items_converted: 40
+  pairing_stats:
+    n_pairs_raw: 140
+    skipped_unparsable: 0
+    n_unique_prefix_answer: 80
+    dropped_no_partner: 0
+    n_items_all_pairs: 40
+  sampled_ids_file: tasks/clams/de_simple_agrmt__qwen35.ids.txt
+  sampling_rule: all unordered counterfactual pairs; if > 2000, seed-42 sample stratified on (clean_correct, clean_incorrect)
+  adaptations:
+  - counterfactual built by subject-number swap (partner = other item of the same file with swapped answers and morphologically close prompt words)
+  - answer = words from first to last differing word, leading space; shared tail after the answer dropped
+  - clean/corrupted orientation of each pair chosen by seed-42 coin
+  - 'QWEN35 RE-PAIRING: pairs with equal Qwen3.5 prompt lengths kept; for the others the corrupted (else the clean) prompt is replaced by another prompt of the same file with the swapped answers, the same words except a different subject noun of the other number and close variants (same lexeme) of the agreeing words, equal token count'
+  len_match_share_qwen35: 1.0
+  variant_of: de_simple_agrmt
+  n_items_original_task: 40
+  n_items_aligned_original_task: 20
+  single_token_answer_share_qwen35: 0.5
+  repair_stats:
+    n_pairs_original: 40
+    n_equal_original: 20
+    n_replaced_corrupted: 18
+    n_replaced_clean: 2
+    n_dropped_no_partner: 0
+    n_dropped_duplicate: 0
+  n_items_after_repair: 40
+- name: de_vp_coord__qwen35
+  family: sva_vp_coord_de
+  domain: syntax
+  language: German
+  n_items_raw: 980
+  n_items_converted: 280
+  pairing_stats:
+    n_pairs_raw: 980
+    skipped_unparsable: 0
+    n_unique_prefix_answer: 560
+    dropped_no_partner: 0
+    n_items_all_pairs: 280
+  sampled_ids_file: tasks/clams/de_vp_coord__qwen35.ids.txt
+  sampling_rule: all unordered counterfactual pairs; if > 2000, seed-42 sample stratified on (clean_correct, clean_incorrect)
+  adaptations:
+  - counterfactual built by subject-number swap (partner = other item of the same file with swapped answers and morphologically close prompt words)
+  - answer = words from first to last differing word, leading space; shared tail after the answer dropped
+  - clean/corrupted orientation of each pair chosen by seed-42 coin
+  - 'QWEN35 RE-PAIRING: pairs with equal Qwen3.5 prompt lengths kept; for the others the corrupted (else the clean) prompt is replaced by another prompt of the same file with the swapped answers, the same words except a different subject noun of the other number and close variants (same lexeme) of the agreeing words, equal token count'
+  len_match_share_qwen35: 1.0
+  variant_of: de_vp_coord
+  n_items_original_task: 280
+  n_items_aligned_original_task: 140
+  single_token_answer_share_qwen35: 0.5
+  repair_stats:
+    n_pairs_original: 280
+    n_equal_original: 140
+    n_replaced_corrupted: 126
+    n_replaced_clean: 14
+    n_dropped_no_partner: 0
+    n_dropped_duplicate: 0
+  n_items_after_repair: 280
+- name: de_long_vp_coord__qwen35
+  family: sva_long_vp_coord_de
+  domain: syntax
+  language: German
+  n_items_raw: 500
+  n_items_converted: 219
+  pairing_stats:
+    n_pairs_raw: 500
+    skipped_unparsable: 0
+    n_unique_prefix_answer: 500
+    dropped_no_partner: 0
+    n_items_all_pairs: 250
+  sampled_ids_file: tasks/clams/de_long_vp_coord__qwen35.ids.txt
+  sampling_rule: all unordered counterfactual pairs; if > 2000, seed-42 sample stratified on (clean_correct, clean_incorrect)
+  adaptations:
+  - counterfactual built by subject-number swap (partner = other item of the same file with swapped answers and morphologically close prompt words)
+  - answer = words from first to last differing word, leading space; shared tail after the answer dropped
+  - clean/corrupted orientation of each pair chosen by seed-42 coin
+  - 'QWEN35 RE-PAIRING: pairs with equal Qwen3.5 prompt lengths kept; for the others the corrupted (else the clean) prompt is replaced by another prompt of the same file with the swapped answers, the same words except a different subject noun of the other number and close variants (same lexeme) of the agreeing words, equal token count'
+  len_match_share_qwen35: 1.0
+  variant_of: de_long_vp_coord
+  n_items_original_task: 250
+  n_items_aligned_original_task: 100
+  single_token_answer_share_qwen35: 0.7991
+  repair_stats:
+    n_pairs_original: 250
+    n_equal_original: 100
+    n_replaced_corrupted: 102
+    n_replaced_clean: 23
+    n_dropped_no_partner: 25
+    n_dropped_duplicate: 6
+  n_items_after_repair: 219
+- name: de_prep_anim__qwen35
+  family: sva_across_pp_de
+  domain: syntax
+  language: German
+  n_items_raw: 12600
+  n_items_converted: 2000
+  pairing_stats:
+    n_pairs_raw: 12600
+    skipped_unparsable: 0
+    n_unique_prefix_answer: 7200
+    dropped_no_partner: 0
+    n_items_all_pairs: 3600
+  sampled_ids_file: tasks/clams/de_prep_anim__qwen35.ids.txt
+  sampling_rule: all unordered counterfactual pairs; if > 2000, seed-42 sample stratified on (clean_correct, clean_incorrect)
+  adaptations:
+  - counterfactual built by subject-number swap (partner = other item of the same file with swapped answers and morphologically close prompt words)
+  - answer = words from first to last differing word, leading space; shared tail after the answer dropped
+  - clean/corrupted orientation of each pair chosen by seed-42 coin
+  - 'QWEN35 RE-PAIRING: pairs with equal Qwen3.5 prompt lengths kept; for the others the corrupted (else the clean) prompt is replaced by another prompt of the same file with the swapped answers, the same words except a different subject noun of the other number and close variants (same lexeme) of the agreeing words, equal token count'
+  len_match_share_qwen35: 1.0
+  variant_of: de_prep_anim
+  n_items_original_task: 2000
+  n_items_aligned_original_task: 984
+  single_token_answer_share_qwen35: 0.5
+  repair_stats:
+    n_pairs_original: 3600
+    n_equal_original: 1800
+    n_replaced_corrupted: 1612
+    n_replaced_clean: 188
+    n_dropped_no_partner: 0
+    n_dropped_duplicate: 0
+  n_items_after_repair: 3600
+- name: de_subj_rel__qwen35
+  family: sva_across_subj_rc_de
+  domain: syntax
+  language: German
+  n_items_raw: 11200
+  n_items_converted: 716
+  pairing_stats:
+    n_pairs_raw: 11200
+    skipped_unparsable: 0
+    n_unique_prefix_answer: 6400
+    dropped_no_partner: 4960
+    n_items_all_pairs: 720
+  sampled_ids_file: tasks/clams/de_subj_rel__qwen35.ids.txt
+  sampling_rule: all unordered counterfactual pairs; if > 2000, seed-42 sample stratified on (clean_correct, clean_incorrect)
+  adaptations:
+  - counterfactual built by subject-number swap (partner = other item of the same file with swapped answers and morphologically close prompt words)
+  - answer = words from first to last differing word, leading space; shared tail after the answer dropped
+  - clean/corrupted orientation of each pair chosen by seed-42 coin
+  - 'QWEN35 RE-PAIRING: pairs with equal Qwen3.5 prompt lengths kept; for the others the corrupted (else the clean) prompt is replaced by another prompt of the same file with the swapped answers, the same words except a different subject noun of the other number and close variants (same lexeme) of the agreeing words, equal token count'
+  len_match_share_qwen35: 1.0
+  variant_of: de_subj_rel
+  n_items_original_task: 720
+  n_items_aligned_original_task: 240
+  single_token_answer_share_qwen35: 0.5014
+  repair_stats:
+    n_pairs_original: 720
+    n_equal_original: 240
+    n_replaced_corrupted: 242
+    n_replaced_clean: 238
+    n_dropped_no_partner: 0
+    n_dropped_duplicate: 4
+  n_items_after_repair: 716
+- name: de_obj_rel_across_anim__qwen35
+  family: sva_across_obj_rc_de
+  domain: syntax
+  language: German
+  n_items_raw: 11200
+  n_items_converted: 2000
+  pairing_stats:
+    n_pairs_raw: 11200
+    skipped_unparsable: 0
+    n_unique_prefix_answer: 6400
+    dropped_no_partner: 0
+    n_items_all_pairs: 3200
+  sampled_ids_file: tasks/clams/de_obj_rel_across_anim__qwen35.ids.txt
+  sampling_rule: all unordered counterfactual pairs; if > 2000, seed-42 sample stratified on (clean_correct, clean_incorrect)
+  adaptations:
+  - counterfactual built by subject-number swap (partner = other item of the same file with swapped answers and morphologically close prompt words)
+  - answer = words from first to last differing word, leading space; shared tail after the answer dropped
+  - clean/corrupted orientation of each pair chosen by seed-42 coin
+  - 'QWEN35 RE-PAIRING: pairs with equal Qwen3.5 prompt lengths kept; for the others the corrupted (else the clean) prompt is replaced by another prompt of the same file with the swapped answers, the same words except a different subject noun of the other number and close variants (same lexeme) of the agreeing words, equal token count'
+  len_match_share_qwen35: 1.0
+  variant_of: de_obj_rel_across_anim
+  n_items_original_task: 2000
+  n_items_aligned_original_task: 993
+  single_token_answer_share_qwen35: 0.5
+  repair_stats:
+    n_pairs_original: 3200
+    n_equal_original: 1600
+    n_replaced_corrupted: 1433
+    n_replaced_clean: 167
+    n_dropped_no_partner: 0
+    n_dropped_duplicate: 0
+  n_items_after_repair: 3200
+- name: de_obj_rel_within_anim__qwen35
+  family: sva_within_obj_rc_de
+  domain: syntax
+  language: German
+  n_items_raw: 11200
+  n_items_converted: 640
+  pairing_stats:
+    n_pairs_raw: 11200
+    skipped_unparsable: 0
+    n_unique_prefix_answer: 1600
+    dropped_no_partner: 320
+    n_items_all_pairs: 640
+  sampled_ids_file: tasks/clams/de_obj_rel_within_anim__qwen35.ids.txt
+  sampling_rule: all unordered counterfactual pairs; if > 2000, seed-42 sample stratified on (clean_correct, clean_incorrect)
+  adaptations:
+  - counterfactual built by subject-number swap (partner = other item of the same file with swapped answers and morphologically close prompt words)
+  - answer = words from first to last differing word, leading space; shared tail after the answer dropped
+  - clean/corrupted orientation of each pair chosen by seed-42 coin
+  - 'QWEN35 RE-PAIRING: pairs with equal Qwen3.5 prompt lengths kept; for the others the corrupted (else the clean) prompt is replaced by another prompt of the same file with the swapped answers, the same words except a different subject noun of the other number and close variants (same lexeme) of the agreeing words, equal token count'
+  len_match_share_qwen35: 1.0
+  variant_of: de_obj_rel_within_anim
+  n_items_original_task: 640
+  n_items_aligned_original_task: 560
+  single_token_answer_share_qwen35: 0.0
+  repair_stats:
+    n_pairs_original: 640
+    n_equal_original: 560
+    n_replaced_corrupted: 80
+    n_replaced_clean: 0
+    n_dropped_no_partner: 0
+    n_dropped_duplicate: 0
+  n_items_after_repair: 640
+- name: he_simple_agrmt__qwen35
+  family: sva_simple_he
+  domain: syntax
+  language: Hebrew
+  n_items_raw: 140
+  n_items_converted: 70
+  pairing_stats:
+    n_pairs_raw: 140
+    skipped_unparsable: 0
+    n_unique_prefix_answer: 140
+    dropped_no_partner: 0
+    n_items_all_pairs: 70
+  sampled_ids_file: tasks/clams/he_simple_agrmt__qwen35.ids.txt
+  sampling_rule: all unordered counterfactual pairs; if > 2000, seed-42 sample stratified on (clean_correct, clean_incorrect)
+  adaptations:
+  - counterfactual built by subject-number swap (partner = other item of the same file with swapped answers and morphologically close prompt words)
+  - answer = words from first to last differing word, leading space; shared tail after the answer dropped
+  - clean/corrupted orientation of each pair chosen by seed-42 coin
+  - 'QWEN35 RE-PAIRING: pairs with equal Qwen3.5 prompt lengths kept; for the others the corrupted (else the clean) prompt is replaced by another prompt of the same file with the swapped answers, the same words except a different subject noun of the other number and close variants (same lexeme) of the agreeing words, equal token count'
+  len_match_share_qwen35: 1.0
+  variant_of: he_simple_agrmt
+  n_items_original_task: 70
+  n_items_aligned_original_task: 49
+  single_token_answer_share_qwen35: 0.0
+  repair_stats:
+    n_pairs_original: 70
+    n_equal_original: 49
+    n_replaced_corrupted: 21
+    n_replaced_clean: 0
+    n_dropped_no_partner: 0
+    n_dropped_duplicate: 0
+  n_items_after_repair: 70
+- name: he_vp_coord__qwen35
+  family: sva_vp_coord_he
+  domain: syntax
+  language: Hebrew
+  n_items_raw: 980
+  n_items_converted: 410
+  pairing_stats:
+    n_pairs_raw: 980
+    skipped_unparsable: 0
+    n_unique_prefix_answer: 980
+    dropped_no_partner: 140
+    n_items_all_pairs: 420
+  sampled_ids_file: tasks/clams/he_vp_coord__qwen35.ids.txt
+  sampling_rule: all unordered counterfactual pairs; if > 2000, seed-42 sample stratified on (clean_correct, clean_incorrect)
+  adaptations:
+  - counterfactual built by subject-number swap (partner = other item of the same file with swapped answers and morphologically close prompt words)
+  - answer = words from first to last differing word, leading space; shared tail after the answer dropped
+  - clean/corrupted orientation of each pair chosen by seed-42 coin
+  - 'QWEN35 RE-PAIRING: pairs with equal Qwen3.5 prompt lengths kept; for the others the corrupted (else the clean) prompt is replaced by another prompt of the same file with the swapped answers, the same words except a different subject noun of the other number and close variants (same lexeme) of the agreeing words, equal token count'
+  len_match_share_qwen35: 1.0
+  variant_of: he_vp_coord
+  n_items_original_task: 420
+  n_items_aligned_original_task: 245
+  single_token_answer_share_qwen35: 0.0
+  repair_stats:
+    n_pairs_original: 420
+    n_equal_original: 245
+    n_replaced_corrupted: 158
+    n_replaced_clean: 17
+    n_dropped_no_partner: 0
+    n_dropped_duplicate: 10
+  n_items_after_repair: 410
+- name: he_long_vp_coord__qwen35
+  family: sva_long_vp_coord_he
+  domain: syntax
+  language: Hebrew
+  n_items_raw: 500
+  n_items_converted: 241
+  pairing_stats:
+    n_pairs_raw: 500
+    skipped_unparsable: 0
+    n_unique_prefix_answer: 500
+    dropped_no_partner: 0
+    n_items_all_pairs: 250
+  sampled_ids_file: tasks/clams/he_long_vp_coord__qwen35.ids.txt
+  sampling_rule: all unordered counterfactual pairs; if > 2000, seed-42 sample stratified on (clean_correct, clean_incorrect)
+  adaptations:
+  - counterfactual built by subject-number swap (partner = other item of the same file with swapped answers and morphologically close prompt words)
+  - answer = words from first to last differing word, leading space; shared tail after the answer dropped
+  - clean/corrupted orientation of each pair chosen by seed-42 coin
+  - 'QWEN35 RE-PAIRING: pairs with equal Qwen3.5 prompt lengths kept; for the others the corrupted (else the clean) prompt is replaced by another prompt of the same file with the swapped answers, the same words except a different subject noun of the other number and close variants (same lexeme) of the agreeing words, equal token count'
+  len_match_share_qwen35: 1.0
+  variant_of: he_long_vp_coord
+  n_items_original_task: 250
+  n_items_aligned_original_task: 105
+  single_token_answer_share_qwen35: 0.0
+  repair_stats:
+    n_pairs_original: 250
+    n_equal_original: 105
+    n_replaced_corrupted: 113
+    n_replaced_clean: 32
+    n_dropped_no_partner: 0
+    n_dropped_duplicate: 9
+  n_items_after_repair: 241
+- name: he_prep_anim__qwen35
+  family: sva_across_pp_he
+  domain: syntax
+  language: Hebrew
+  n_items_raw: 5600
+  n_items_converted: 2000
+  pairing_stats:
+    n_pairs_raw: 5600
+    skipped_unparsable: 0
+    n_unique_prefix_answer: 5600
+    dropped_no_partner: 0
+    n_items_all_pairs: 2800
+  sampled_ids_file: tasks/clams/he_prep_anim__qwen35.ids.txt
+  sampling_rule: all unordered counterfactual pairs; if > 2000, seed-42 sample stratified on (clean_correct, clean_incorrect)
+  adaptations:
+  - counterfactual built by subject-number swap (partner = other item of the same file with swapped answers and morphologically close prompt words)
+  - answer = words from first to last differing word, leading space; shared tail after the answer dropped
+  - clean/corrupted orientation of each pair chosen by seed-42 coin
+  - 'QWEN35 RE-PAIRING: pairs with equal Qwen3.5 prompt lengths kept; for the others the corrupted (else the clean) prompt is replaced by another prompt of the same file with the swapped answers, the same words except a different subject noun of the other number and close variants (same lexeme) of the agreeing words, equal token count'
+  len_match_share_qwen35: 1.0
+  variant_of: he_prep_anim
+  n_items_original_task: 2000
+  n_items_aligned_original_task: 1412
+  single_token_answer_share_qwen35: 0.0
+  repair_stats:
+    n_pairs_original: 2800
+    n_equal_original: 1960
+    n_replaced_corrupted: 840
+    n_replaced_clean: 0
+    n_dropped_no_partner: 0
+    n_dropped_duplicate: 1
+  n_items_after_repair: 2799
+- name: he_subj_rel__qwen35
+  family: sva_across_subj_rc_he
+  domain: syntax
+  language: Hebrew
+  n_items_raw: 11200
+  n_items_converted: 2000
+  pairing_stats:
+    n_pairs_raw: 11200
+    skipped_unparsable: 0
+    n_unique_prefix_answer: 11200
+    dropped_no_partner: 0
+    n_items_all_pairs: 5600
+  sampled_ids_file: tasks/clams/he_subj_rel__qwen35.ids.txt
+  sampling_rule: all unordered counterfactual pairs; if > 2000, seed-42 sample stratified on (clean_correct, clean_incorrect)
+  adaptations:
+  - counterfactual built by subject-number swap (partner = other item of the same file with swapped answers and morphologically close prompt words)
+  - answer = words from first to last differing word, leading space; shared tail after the answer dropped
+  - clean/corrupted orientation of each pair chosen by seed-42 coin
+  - 'QWEN35 RE-PAIRING: pairs with equal Qwen3.5 prompt lengths kept; for the others the corrupted (else the clean) prompt is replaced by another prompt of the same file with the swapped answers, the same words except a different subject noun of the other number and close variants (same lexeme) of the agreeing words, equal token count'
+  len_match_share_qwen35: 1.0
+  variant_of: he_subj_rel
+  n_items_original_task: 2000
+  n_items_aligned_original_task: 1385
+  single_token_answer_share_qwen35: 0.0
+  repair_stats:
+    n_pairs_original: 5600
+    n_equal_original: 3920
+    n_replaced_corrupted: 1680
+    n_replaced_clean: 0
+    n_dropped_no_partner: 0
+    n_dropped_duplicate: 5
+  n_items_after_repair: 5595
+- name: he_obj_rel_across_anim__qwen35
+  family: sva_across_obj_rc_he
+  domain: syntax
+  language: Hebrew
+  n_items_raw: 11200
+  n_items_converted: 2000
+  pairing_stats:
+    n_pairs_raw: 11200
+    skipped_unparsable: 0
+    n_unique_prefix_answer: 11200
+    dropped_no_partner: 0
+    n_items_all_pairs: 5600
+  sampled_ids_file: tasks/clams/he_obj_rel_across_anim__qwen35.ids.txt
+  sampling_rule: all unordered counterfactual pairs; if > 2000, seed-42 sample stratified on (clean_correct, clean_incorrect)
+  adaptations:
+  - counterfactual built by subject-number swap (partner = other item of the same file with swapped answers and morphologically close prompt words)
+  - answer = words from first to last differing word, leading space; shared tail after the answer dropped
+  - clean/corrupted orientation of each pair chosen by seed-42 coin
+  - 'QWEN35 RE-PAIRING: pairs with equal Qwen3.5 prompt lengths kept; for the others the corrupted (else the clean) prompt is replaced by another prompt of the same file with the swapped answers, the same words except a different subject noun of the other number and close variants (same lexeme) of the agreeing words, equal token count'
+  len_match_share_qwen35: 1.0
+  variant_of: he_obj_rel_across_anim
+  n_items_original_task: 2000
+  n_items_aligned_original_task: 1385
+  single_token_answer_share_qwen35: 0.0
+  repair_stats:
+    n_pairs_original: 5600
+    n_equal_original: 3920
+    n_replaced_corrupted: 1680
+    n_replaced_clean: 0
+    n_dropped_no_partner: 0
+    n_dropped_duplicate: 5
+  n_items_after_repair: 5595
+- name: he_obj_rel_within_anim__qwen35
+  family: sva_within_obj_rc_he
+  domain: syntax
+  language: Hebrew
+  n_items_raw: 11200
+  n_items_converted: 798
+  pairing_stats:
+    n_pairs_raw: 11200
+    skipped_unparsable: 0
+    n_unique_prefix_answer: 1600
+    dropped_no_partner: 0
+    n_items_all_pairs: 800
+  sampled_ids_file: tasks/clams/he_obj_rel_within_anim__qwen35.ids.txt
+  sampling_rule: all unordered counterfactual pairs; if > 2000, seed-42 sample stratified on (clean_correct, clean_incorrect)
+  adaptations:
+  - counterfactual built by subject-number swap (partner = other item of the same file with swapped answers and morphologically close prompt words)
+  - answer = words from first to last differing word, leading space; shared tail after the answer dropped
+  - clean/corrupted orientation of each pair chosen by seed-42 coin
+  - 'QWEN35 RE-PAIRING: pairs with equal Qwen3.5 prompt lengths kept; for the others the corrupted (else the clean) prompt is replaced by another prompt of the same file with the swapped answers, the same words except a different subject noun of the other number and close variants (same lexeme) of the agreeing words, equal token count'
+  len_match_share_qwen35: 1.0
+  variant_of: he_obj_rel_within_anim
+  n_items_original_task: 800
+  n_items_aligned_original_task: 560
+  single_token_answer_share_qwen35: 0.0
+  repair_stats:
+    n_pairs_original: 800
+    n_equal_original: 560
+    n_replaced_corrupted: 240
+    n_replaced_clean: 0
+    n_dropped_no_partner: 0
+    n_dropped_duplicate: 2
+  n_items_after_repair: 798
+- name: ru_simple_agrmt__qwen35
+  family: sva_simple_ru
+  domain: syntax
+  language: Russian
+  n_items_raw: 280
+  n_items_converted: 135
+  pairing_stats:
+    n_pairs_raw: 280
+    skipped_unparsable: 0
+    n_unique_prefix_answer: 280
+    dropped_no_partner: 0
+    n_items_all_pairs: 140
+  sampled_ids_file: tasks/clams/ru_simple_agrmt__qwen35.ids.txt
+  sampling_rule: all unordered counterfactual pairs; if > 2000, seed-42 sample stratified on (clean_correct, clean_incorrect)
+  adaptations:
+  - counterfactual built by subject-number swap (partner = other item of the same file with swapped answers and morphologically close prompt words)
+  - answer = words from first to last differing word, leading space; shared tail after the answer dropped
+  - clean/corrupted orientation of each pair chosen by seed-42 coin
+  - 'QWEN35 RE-PAIRING: pairs with equal Qwen3.5 prompt lengths kept; for the others the corrupted (else the clean) prompt is replaced by another prompt of the same file with the swapped answers, the same words except a different subject noun of the other number and close variants (same lexeme) of the agreeing words, equal token count'
+  len_match_share_qwen35: 1.0
+  variant_of: ru_simple_agrmt
+  n_items_original_task: 140
+  n_items_aligned_original_task: 84
+  single_token_answer_share_qwen35: 0.7111
+  repair_stats:
+    n_pairs_original: 140
+    n_equal_original: 84
+    n_replaced_corrupted: 55
+    n_replaced_clean: 1
+    n_dropped_no_partner: 0
+    n_dropped_duplicate: 5
+  n_items_after_repair: 135
+- name: ru_vp_coord__qwen35
+  family: sva_vp_coord_ru
+  domain: syntax
+  language: Russian
+  n_items_raw: 980
+  n_items_converted: 437
+  pairing_stats:
+    n_pairs_raw: 980
+    skipped_unparsable: 0
+    n_unique_prefix_answer: 980
+    dropped_no_partner: 0
+    n_items_all_pairs: 490
+  sampled_ids_file: tasks/clams/ru_vp_coord__qwen35.ids.txt
+  sampling_rule: all unordered counterfactual pairs; if > 2000, seed-42 sample stratified on (clean_correct, clean_incorrect)
+  adaptations:
+  - counterfactual built by subject-number swap (partner = other item of the same file with swapped answers and morphologically close prompt words)
+  - answer = words from first to last differing word, leading space; shared tail after the answer dropped
+  - clean/corrupted orientation of each pair chosen by seed-42 coin
+  - 'QWEN35 RE-PAIRING: pairs with equal Qwen3.5 prompt lengths kept; for the others the corrupted (else the clean) prompt is replaced by another prompt of the same file with the swapped answers, the same words except a different subject noun of the other number and close variants (same lexeme) of the agreeing words, equal token count'
+  len_match_share_qwen35: 1.0
+  variant_of: ru_vp_coord
+  n_items_original_task: 490
+  n_items_aligned_original_task: 294
+  single_token_answer_share_qwen35: 0.7117
+  repair_stats:
+    n_pairs_original: 490
+    n_equal_original: 294
+    n_replaced_corrupted: 147
+    n_replaced_clean: 0
+    n_dropped_no_partner: 49
+    n_dropped_duplicate: 4
+  n_items_after_repair: 437
+- name: ru_long_vp_coord__qwen35
+  family: sva_long_vp_coord_ru
+  domain: syntax
+  language: Russian
+  n_items_raw: 500
+  n_items_converted: 218
+  pairing_stats:
+    n_pairs_raw: 500
+    skipped_unparsable: 0
+    n_unique_prefix_answer: 500
+    dropped_no_partner: 0
+    n_items_all_pairs: 250
+  sampled_ids_file: tasks/clams/ru_long_vp_coord__qwen35.ids.txt
+  sampling_rule: all unordered counterfactual pairs; if > 2000, seed-42 sample stratified on (clean_correct, clean_incorrect)
+  adaptations:
+  - counterfactual built by subject-number swap (partner = other item of the same file with swapped answers and morphologically close prompt words)
+  - answer = words from first to last differing word, leading space; shared tail after the answer dropped
+  - clean/corrupted orientation of each pair chosen by seed-42 coin
+  - 'QWEN35 RE-PAIRING: pairs with equal Qwen3.5 prompt lengths kept; for the others the corrupted (else the clean) prompt is replaced by another prompt of the same file with the swapped answers, the same words except a different subject noun of the other number and close variants (same lexeme) of the agreeing words, equal token count'
+  len_match_share_qwen35: 1.0
+  variant_of: ru_long_vp_coord
+  n_items_original_task: 250
+  n_items_aligned_original_task: 120
+  single_token_answer_share_qwen35: 0.8028
+  repair_stats:
+    n_pairs_original: 250
+    n_equal_original: 120
+    n_replaced_corrupted: 88
+    n_replaced_clean: 17
+    n_dropped_no_partner: 25
+    n_dropped_duplicate: 7
+  n_items_after_repair: 218
+- name: ru_prep_anim__qwen35
+  family: sva_across_pp_ru
+  domain: syntax
+  language: Russian
+  n_items_raw: 5880
+  n_items_converted: 2000
+  pairing_stats:
+    n_pairs_raw: 5880
+    skipped_unparsable: 0
+    n_unique_prefix_answer: 5880
+    dropped_no_partner: 0
+    n_items_all_pairs: 2940
+  sampled_ids_file: tasks/clams/ru_prep_anim__qwen35.ids.txt
+  sampling_rule: all unordered counterfactual pairs; if > 2000, seed-42 sample stratified on (clean_correct, clean_incorrect)
+  adaptations:
+  - counterfactual built by subject-number swap (partner = other item of the same file with swapped answers and morphologically close prompt words)
+  - answer = words from first to last differing word, leading space; shared tail after the answer dropped
+  - clean/corrupted orientation of each pair chosen by seed-42 coin
+  - 'QWEN35 RE-PAIRING: pairs with equal Qwen3.5 prompt lengths kept; for the others the corrupted (else the clean) prompt is replaced by another prompt of the same file with the swapped answers, the same words except a different subject noun of the other number and close variants (same lexeme) of the agreeing words, equal token count'
+  len_match_share_qwen35: 1.0
+  variant_of: ru_prep_anim
+  n_items_original_task: 2000
+  n_items_aligned_original_task: 1217
+  single_token_answer_share_qwen35: 0.716
+  repair_stats:
+    n_pairs_original: 2940
+    n_equal_original: 1764
+    n_replaced_corrupted: 882
+    n_replaced_clean: 0
+    n_dropped_no_partner: 294
+    n_dropped_duplicate: 29
+  n_items_after_repair: 2617
+- name: ru_subj_rel__qwen35
+  family: sva_across_subj_rc_ru
+  domain: syntax
+  language: Russian
+  n_items_raw: 10080
+  n_items_converted: 2000
+  pairing_stats:
+    n_pairs_raw: 10080
+    skipped_unparsable: 0
+    n_unique_prefix_answer: 10080
+    dropped_no_partner: 0
+    n_items_all_pairs: 5040
+  sampled_ids_file: tasks/clams/ru_subj_rel__qwen35.ids.txt
+  sampling_rule: all unordered counterfactual pairs; if > 2000, seed-42 sample stratified on (clean_correct, clean_incorrect)
+  adaptations:
+  - counterfactual built by subject-number swap (partner = other item of the same file with swapped answers and morphologically close prompt words)
+  - answer = words from first to last differing word, leading space; shared tail after the answer dropped
+  - clean/corrupted orientation of each pair chosen by seed-42 coin
+  - 'QWEN35 RE-PAIRING: pairs with equal Qwen3.5 prompt lengths kept; for the others the corrupted (else the clean) prompt is replaced by another prompt of the same file with the swapped answers, the same words except a different subject noun of the other number and close variants (same lexeme) of the agreeing words, equal token count'
+  len_match_share_qwen35: 1.0
+  variant_of: ru_subj_rel
+  n_items_original_task: 2000
+  n_items_aligned_original_task: 922
+  single_token_answer_share_qwen35: 0.714
+  repair_stats:
+    n_pairs_original: 5040
+    n_equal_original: 2268
+    n_replaced_corrupted: 1964
+    n_replaced_clean: 430
+    n_dropped_no_partner: 378
+    n_dropped_duplicate: 224
+  n_items_after_repair: 4438
+- name: ru_obj_rel_across_anim__qwen35
+  family: sva_across_obj_rc_ru
+  domain: syntax
+  language: Russian
+  n_items_raw: 11200
+  n_items_converted: 2000
+  pairing_stats:
+    n_pairs_raw: 11200
+    skipped_unparsable: 0
+    n_unique_prefix_answer: 11200
+    dropped_no_partner: 0
+    n_items_all_pairs: 5600
+  sampled_ids_file: tasks/clams/ru_obj_rel_across_anim__qwen35.ids.txt
+  sampling_rule: all unordered counterfactual pairs; if > 2000, seed-42 sample stratified on (clean_correct, clean_incorrect)
+  adaptations:
+  - counterfactual built by subject-number swap (partner = other item of the same file with swapped answers and morphologically close prompt words)
+  - answer = words from first to last differing word, leading space; shared tail after the answer dropped
+  - clean/corrupted orientation of each pair chosen by seed-42 coin
+  - 'QWEN35 RE-PAIRING: pairs with equal Qwen3.5 prompt lengths kept; for the others the corrupted (else the clean) prompt is replaced by another prompt of the same file with the swapped answers, the same words except a different subject noun of the other number and close variants (same lexeme) of the agreeing words, equal token count'
+  len_match_share_qwen35: 1.0
+  variant_of: ru_obj_rel_across_anim
+  n_items_original_task: 2000
+  n_items_aligned_original_task: 1180
+  single_token_answer_share_qwen35: 0.7155
+  repair_stats:
+    n_pairs_original: 5600
+    n_equal_original: 3360
+    n_replaced_corrupted: 1680
+    n_replaced_clean: 0
+    n_dropped_no_partner: 560
+    n_dropped_duplicate: 55
+  n_items_after_repair: 4985
+- name: ru_obj_rel_within_anim__qwen35
+  family: sva_within_obj_rc_ru
+  domain: syntax
+  language: Russian
+  n_items_raw: 11200
+  n_items_converted: 758
+  pairing_stats:
+    n_pairs_raw: 11200
+    skipped_unparsable: 0
+    n_unique_prefix_answer: 1600
+    dropped_no_partner: 0
+    n_items_all_pairs: 800
+  sampled_ids_file: tasks/clams/ru_obj_rel_within_anim__qwen35.ids.txt
+  sampling_rule: all unordered counterfactual pairs; if > 2000, seed-42 sample stratified on (clean_correct, clean_incorrect)
+  adaptations:
+  - counterfactual built by subject-number swap (partner = other item of the same file with swapped answers and morphologically close prompt words)
+  - answer = words from first to last differing word, leading space; shared tail after the answer dropped
+  - clean/corrupted orientation of each pair chosen by seed-42 coin
+  - 'QWEN35 RE-PAIRING: pairs with equal Qwen3.5 prompt lengths kept; for the others the corrupted (else the clean) prompt is replaced by another prompt of the same file with the swapped answers, the same words except a different subject noun of the other number and close variants (same lexeme) of the agreeing words, equal token count'
+  len_match_share_qwen35: 1.0
+  variant_of: ru_obj_rel_within_anim
+  n_items_original_task: 800
+  n_items_aligned_original_task: 240
+  single_token_answer_share_qwen35: 0.748
+  repair_stats:
+    n_pairs_original: 800
+    n_equal_original: 240
+    n_replaced_corrupted: 522
+    n_replaced_clean: 38
+    n_dropped_no_partner: 0
+    n_dropped_duplicate: 42
+  n_items_after_repair: 758
 status: converted
 notes: Counterfactuals are built by this task bank, not provided by CLAMS. English SVA files not converted (identical to Newman et al. ML templates, source newman_sva); English NPI files not fitting tier 1. Hebrew text is in the CLAMS preprocessed form (clitics split off by spaces).

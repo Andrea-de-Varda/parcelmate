@@ -327,5 +327,36 @@ tasks:
   - clean/corrupted orientation of each pair chosen by seed-42 coin
   len_match_share_qwen35: 1.0
   single_token_answer_share: 1.0
+- name: subj_rel__qwen35
+  family: sva_across_subj_rc
+  domain: syntax
+  n_items_raw: 11200
+  n_items_converted: 2000
+  pairing_stats:
+    n_pairs_raw: 11200
+    skipped_unparsable: 0
+    n_unique_prefix_answer: 6400
+    dropped_no_partner: 0
+    n_items_all_pairs: 3200
+  sampled_ids_file: tasks/newman_sva/subj_rel__qwen35.ids.txt
+  sampling_rule: all unordered counterfactual pairs; if > 2000, seed-42 sample stratified on (clean_correct, clean_incorrect)
+  adaptations:
+  - counterfactual built by subject-number swap (partner = other item of the same file with swapped answers and morphologically close prompt words)
+  - answer = words from first to last differing word, leading space; shared tail (and final period) dropped
+  - clean/corrupted orientation of each pair chosen by seed-42 coin
+  - 'QWEN35 RE-PAIRING: pairs with equal Qwen3.5 prompt lengths kept; for the others the corrupted (else the clean) prompt is replaced by another prompt of the same file with the swapped answers, the same words except a different subject noun of the other number and close variants (same lexeme) of the agreeing words, equal token count'
+  len_match_share_qwen35: 1.0
+  variant_of: subj_rel
+  n_items_original_task: 2000
+  n_items_aligned_original_task: 1516
+  single_token_answer_share_qwen35: 1.0
+  repair_stats:
+    n_pairs_original: 3200
+    n_equal_original: 2400
+    n_replaced_corrupted: 0
+    n_replaced_clean: 0
+    n_dropped_no_partner: 800
+    n_dropped_duplicate: 0
+  n_items_after_repair: 2400
 status: converted
 notes: 'ML sentence sets are identical to the CLAMS English evalsets (same sentences, case and final period aside). Not converted: data/blimp (4 files) and data/verbs (verb list for the MW/EW metrics).'

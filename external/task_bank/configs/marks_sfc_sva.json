@@ -30,5 +30,29 @@
     "concatenation": null,
     "merging_sign": "",
     "force_base_evaluation": true
+  },
+  "nounpp__qwen35": {
+    "path": "nounpp__qwen35.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "rc__qwen35": {
+    "path": "rc__qwen35.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "simple__qwen35": {
+    "path": "simple__qwen35.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
   }
 }
