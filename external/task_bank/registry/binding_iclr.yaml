@@ -1,0 +1,205 @@
+source_id: binding_iclr
+title: 'How do language models bind entities in context? (binding-ID tasks: generators and word lists)'
+bibkey: feng2024languagemodelsbindentities
+url: https://github.com/jiahai-feng/binding-iclr
+revision: fb7608dd4c255ac37d7e95c5c8bf45b5512901eb
+licence: 'none: no top-level LICENSE file at the pinned commit (only transformer_lens/LICENSE, which covers the vendored TransformerLens code); the README has no licence statement'
+licence_source: external/task_bank/raw/binding_iclr/repo (file listing); external/task_bank/raw/binding_iclr/repo/transformer_lens/LICENSE (vendored code only)
+redistribute: 'no (no licence: keep converted items out of git)'
+tier: 1
+tokenizer:
+  tokenizer_repo: Qwen/Qwen3.5-2B
+  tokenizer_revision: 15852e8c16360a2fea060d615a32b45270f8a8fc
+  note: Qwen3.5-2B tokenizer.json; the 4B tokenizer is the same (checked by the circuits group)
+status: converted
+generator:
+  commit: fb7608dd4c255ac37d7e95c5c8bf45b5512901eb
+  seed: 42
+  params:
+    n_items_per_task: 2000
+    n_entities:
+    - 2
+    - 3
+    - 4
+    implementation: scripts/task_bank/convert_binding_iclr.py (re-implementation of coref/datasets templates)
+notes: Frozen output = tasks/binding_iclr/*.json (sha256 in the report).
+download_date: '2026-10-12'
+raw_files:
+- path: external/task_bank/raw/binding_iclr/repo/README.md
+  sha256: 7e677c34c7901f0e60d6911e074e2c6243233d48e30e1a1301241286e52818bd
+- path: external/task_bank/raw/binding_iclr/repo/coref/datasets/api.py
+  sha256: ef1194f7b0fc0e4b886442af5a5d3126a30c0c998c53662b91fa8495908db5f3
+- path: external/task_bank/raw/binding_iclr/repo/coref/datasets/biasinbios_process.py
+  sha256: 463077281f059a2aeaff4fa3d02c03b79115414ac02f1ee66133397b6dbe8e13
+- path: external/task_bank/raw/binding_iclr/repo/coref/datasets/biosbias.py
+  sha256: 214935094c73f6d44a425372054508bd92ac032e511217ff0f084fc28af85aa0
+- path: external/task_bank/raw/binding_iclr/repo/coref/datasets/capitals.py
+  sha256: 44065033288ac2aad574932a7665bb7907817e0d5f3caade8908cea0c54fbec5
+- path: external/task_bank/raw/binding_iclr/repo/coref/datasets/common.py
+  sha256: ec0987dfbf9fa503cc04afc8c1747baeee005ab90107d3214f2f6bb312da2ee4
+- path: external/task_bank/raw/binding_iclr/repo/coref/datasets/compound_capitals.py
+  sha256: 498b20afbae16b405f78986a0530bf39c6690f2537b0380fedbe9896dc6fb702
+- path: external/task_bank/raw/binding_iclr/repo/coref/datasets/fruits.py
+  sha256: bdab0c0bfaac5713bfce6ab242456dea0bb4015c7257dfa341b58dad1af38ac6
+- path: external/task_bank/raw/binding_iclr/repo/coref/datasets/icl_sst.py
+  sha256: f04064534c530bee50433f20d4885bb307fbfef75f461ba73495ae856c660ee0
+- path: external/task_bank/raw/binding_iclr/repo/coref/datasets/mcq.py
+  sha256: 30c9d936e2067da82b3e9f41781220c4d5a5001a926651c1320f4d221fb3ff73
+- path: external/task_bank/raw/binding_iclr/repo/coref/datasets/mcq_agnews.py
+  sha256: 4d5bb0242941df467e21ae600bfbbcc43ca8c95711389c4d3fbae10d76ba1a7d
+- path: external/task_bank/raw/binding_iclr/repo/coref/datasets/mcq_sst.py
+  sha256: 4a8ccd6304fc2c30b7afe30fb356aa1288d37d4357bd712d96f83cf476dbca32
+- path: external/task_bank/raw/binding_iclr/repo/coref/datasets/occupation.py
+  sha256: bce5eb405b0ea0cfe15d1ae9f465e5fde21e9cdd71da93337c4b727aa62cc41b
+- path: external/task_bank/raw/binding_iclr/repo/coref/datasets/onehop.py
+  sha256: 37628fb784a178f5aaa9b0ce8e563d3d4f03f9a43d5a7a13fd4d52866af50249
+- path: external/task_bank/raw/binding_iclr/repo/coref/datasets/overthinking_datasets.py
+  sha256: 9a8e223190a7b783c62578f70a108b9f636e8608d7c8fd11b9b1a8c74b3848f8
+- path: external/task_bank/raw/binding_iclr/repo/coref/datasets/raw/colors.csv
+  sha256: eb742465db26f28b2c8da0e73de0658250b10d949047e603d7f3df69e4fcbdab
+- path: external/task_bank/raw/binding_iclr/repo/coref/datasets/raw/country-list.csv
+  sha256: 29d10a24598e2422ed2979688a8e157c178540cb10fdb543780920ba0eb2c986
+- path: external/task_bank/raw/binding_iclr/repo/coref/datasets/raw/fruits.csv
+  sha256: b53b207caac3386b2c8665046343e28287a96528094f8892cb4c1bf6f5abcbb8
+- path: external/task_bank/raw/binding_iclr/repo/coref/datasets/raw/new-top-firstNames.csv
+  sha256: f2156f025b44d4d89ec5f9af36ea0843f334bc3188d19b81af8289f4bfc4f08f
+- path: external/task_bank/raw/binding_iclr/repo/coref/datasets/raw/shapes.csv
+  sha256: a96f81fa6750e6acf1aace0bc4de62d8a39f41327a4a75ac64923883c9cee499
+- path: external/task_bank/raw/binding_iclr/repo/coref/datasets/shapes.py
+  sha256: e8b5e75d8861b19982a57981ec7d78b15757fafed541e6e71cb5e3c3ff7838a1
+- path: external/task_bank/raw/binding_iclr/repo/transformer_lens/LICENSE
+  sha256: 52b805cc952e6830623831cb38031f3e56f49e20ee28fe917b5a3b1d941a98de
+tasks:
+- name: binding_capitals
+  family: binding_capital
+  domain: variable binding
+  n_items_raw: generated (2000)
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/binding_iclr/binding_capitals.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - re-implemented generator (templates and word lists of the pinned repo commit), seed 42, 2000 items, n_entities in [2, 3, 4] equally
+  - flip = swap of the attributes of the queried entity and one other entity in the context; the query is unchanged; clean and corrupted prompts are permutations of the same tokens
+  - word lists restricted to single-token (with leading space) entries under the Qwen3.5 tokenizer
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 1.0
+  n_single_token_answers: 2000
+  n_shots: 0
+  n_entities_values:
+  - 2
+  - 3
+  - 4
+  vocab_sizes_raw_vs_single_token: &id001
+    names:
+    - 100
+    - 98
+    country_capital:
+    - 248
+    - 50
+    colors:
+    - 27
+    - 26
+    fruits:
+    - 44
+    - 32
+    shapes:
+    - 26
+    - 17
+  status: converted
+- name: binding_parallel_capitals
+  family: binding_capital_parallel
+  domain: variable binding
+  n_items_raw: generated (2000)
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/binding_iclr/binding_parallel_capitals.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - re-implemented generator (templates and word lists of the pinned repo commit), seed 42, 2000 items, n_entities in [2, 3, 4] equally
+  - flip = swap of the attributes of the queried entity and one other entity in the context; the query is unchanged; clean and corrupted prompts are permutations of the same tokens
+  - word lists restricted to single-token (with leading space) entries under the Qwen3.5 tokenizer
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 1.0
+  n_single_token_answers: 2000
+  n_shots: 0
+  n_entities_values:
+  - 2
+  - 3
+  - 4
+  vocab_sizes_raw_vs_single_token: *id001
+  status: converted
+- name: binding_fruits
+  family: binding_fruit
+  domain: variable binding
+  n_items_raw: generated (2000)
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/binding_iclr/binding_fruits.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - re-implemented generator (templates and word lists of the pinned repo commit), seed 42, 2000 items, n_entities in [2, 3, 4] equally
+  - flip = swap of the attributes of the queried entity and one other entity in the context; the query is unchanged; clean and corrupted prompts are permutations of the same tokens
+  - word lists restricted to single-token (with leading space) entries under the Qwen3.5 tokenizer
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 1.0
+  n_single_token_answers: 2000
+  n_shots: 0
+  n_entities_values:
+  - 2
+  - 3
+  - 4
+  vocab_sizes_raw_vs_single_token: *id001
+  status: converted
+- name: binding_shapes
+  family: binding_shape_color
+  domain: variable binding
+  n_items_raw: generated (2000)
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/binding_iclr/binding_shapes.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - re-implemented generator (templates and word lists of the pinned repo commit), seed 42, 2000 items, n_entities in [2, 3, 4] equally
+  - flip = swap of the attributes of the queried entity and one other entity in the context; the query is unchanged; clean and corrupted prompts are permutations of the same tokens
+  - word lists restricted to single-token (with leading space) entries under the Qwen3.5 tokenizer
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 1.0
+  n_single_token_answers: 2000
+  n_shots: 0
+  n_entities_values:
+  - 2
+  - 3
+  - 4
+  vocab_sizes_raw_vs_single_token: *id001
+  status: converted
+- name: binding_onehop
+  family: binding_onehop
+  domain: variable binding + one hop
+  n_items_raw: generated (2000)
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/binding_iclr/binding_onehop.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - re-implemented generator (templates and word lists of the pinned repo commit), seed 42, 2000 items, n_entities in [2, 3, 4] equally
+  - flip = swap of the attributes of the queried entity and one other entity in the context; the query is unchanged; clean and corrupted prompts are permutations of the same tokens
+  - 'word lists restricted to single-token (with leading space) entries under the Qwen3.5 tokenizer; one-hop: the city-colour sentences in the question keep the original city-colour pairs in both prompts'
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 1.0
+  n_single_token_answers: 2000
+  n_shots: 0
+  n_entities_values:
+  - 2
+  - 3
+  - 4
+  vocab_sizes_raw_vs_single_token: *id001
+  status: converted
+- name: binding_biosbias
+  status: not_converted
+  notes: Bias in Bios biographies (56 MB, personal data, free-text attributes); not a clean entity-attribute lookup

@@ -1,0 +1,67 @@
+source_id: devarda_paper_arithmetic
+title: Arithmetic counterfactual data of "Shared circuits predict whether LLMs generalize across formats in arithmetic reasoning"
+bibkey: devarda2026sharedcircuits
+bibkey_data: devarda2026arithmeticdataset
+url: https://github.com/Andrea-de-Varda/arithmetic-inconsistencies (private; copied from a local clone)
+revision: 007b26928e081a9cc82461b3c6047c2f5d81653d
+download_date: '2026-10-12'
+raw_files:
+- path: external/task_bank/raw/devarda_paper_arithmetic/arithmetic-dataset/arith_dataset_numeric_counterfactual.json
+  sha256: 5a6696d992fd3679627a228cf6152ac14a19a2d90b822195b1736df07265e4bb
+- path: external/task_bank/raw/devarda_paper_arithmetic/arithmetic-dataset/arith_dataset_english_counterfactual.json
+  sha256: b3b8130a359e262f368098528f6024d5813fead2c36966e8669d923eca8b9ddd
+- path: external/task_bank/raw/devarda_paper_arithmetic/arithmetic-dataset/arith_dataset_spanish_counterfactual.json
+  sha256: 9d62392c03c4ea748f5eeadd713dfa8a1351d802d3a3d3e12876e3bcf41809cf
+- path: external/task_bank/raw/devarda_paper_arithmetic/arithmetic-dataset/arith_dataset_italian_counterfactual.json
+  sha256: ec16a19fbb79454724ce9ed1a336f74e40e103635b98e9019077a321efbcbd4c
+- path: external/task_bank/raw/devarda_paper_arithmetic/attribution/data/attribution_fold_ids.json
+  sha256: 7849acdaf17849d6054365b333c9c4ae99e3a4a62695f948db12abb55b6c06ff
+- path: external/task_bank/raw/devarda_paper_arithmetic/attribution/src/data.py
+  sha256: a8cd38e18d24d4383b9396cebfab7712535cd2667f88f19caec7db69278d01a5
+licence: project owner's own data (generated with github.com/Andrea-de-Varda/arithmetic-dataset, MIT per its README)
+licence_source: Andrea de Varda (author)
+redistribute: yes (author's own data)
+tier: 1
+tasks:
+- name: numeric
+  family: arithmetic_addsub_numeric
+  domain: arithmetic
+  n_items_raw: 5000
+  n_items_converted: 2000
+  sampled_ids_file: tasks/devarda_paper_arithmetic/numeric.ids.txt
+  len_match_share_qwen35: 1.0
+  single_token_answer_share_qwen35: 0.0
+  adaptations: none to the items (the paper's own x, x', y, y'); one-shot exemplar of the paper as prefix; negative-result problems skipped
+- name: english
+  family: arithmetic_addsub_verbal_en
+  domain: arithmetic
+  n_items_raw: 5000
+  n_items_converted: 2000
+  sampled_ids_file: tasks/devarda_paper_arithmetic/english.ids.txt
+  len_match_share_qwen35: 1.0
+  single_token_answer_share_qwen35: 0.151
+  adaptations: none to the items (the paper's own x, x', y, y'); one-shot exemplar of the paper as prefix; negative-result problems skipped
+- name: spanish
+  family: arithmetic_addsub_verbal_es
+  domain: arithmetic
+  n_items_raw: 5000
+  n_items_converted: 2000
+  sampled_ids_file: tasks/devarda_paper_arithmetic/spanish.ids.txt
+  len_match_share_qwen35: 1.0
+  single_token_answer_share_qwen35: 0.0915
+  adaptations: none to the items (the paper's own x, x', y, y'); one-shot exemplar of the paper as prefix; negative-result problems skipped
+- name: italian
+  family: arithmetic_addsub_verbal_it
+  domain: arithmetic
+  n_items_raw: 5000
+  n_items_converted: 2000
+  sampled_ids_file: tasks/devarda_paper_arithmetic/italian.ids.txt
+  len_match_share_qwen35: 1.0
+  single_token_answer_share_qwen35: 0.0775
+  adaptations: none to the items (the paper's own x, x', y, y'); one-shot exemplar of the paper as prefix; negative-result problems skipped
+status: converted
+notes:
+  replaces: the numeric/english/spanish/italian tasks of source devarda_arithmetic (public-generator conversion), which stay on disk but are excluded from evaluation (eval_tasks.txt).
+  sample: 3537 non-negative problems of 5000; 1402 of the paper's 2,000-id fold are non-negative and all kept; 598 filled with a seed-42 draw from the other non-negative problems.
+  prompt_framing: prefix = the paper's ONE_SHOT_EXEMPLARS (attribution/src/data.py), no suffix, no chat template, as in the paper.
+  word_problems: the paper's data have no word-problem (embedded) formats; those remain in source devarda_arithmetic, where the corrupted story is not a minimal edit.

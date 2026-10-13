@@ -3,10 +3,13 @@
     python -m parcelmate.bin.patch_eval --model LiquidAI/LFM2.5-350M --out results/patching
     python -m parcelmate.bin.patch_eval --model openai-community/gpt2 --domains Lan --bos none
     python -m parcelmate.bin.patch_eval --model ... --attribution --min-both-correct 0.6
+    python -m parcelmate.bin.patch_eval --model Qwen/Qwen3.5-2B --bank --bos none --out results/patching_bank
 
 LOG.md Iteration 23. Writes, per task, `<out>/<model>/<domain>/<task>/baselines.json` in
 the original repository's schema (plus per-item scores and the BOS choice), and one
-summary table `<out>/<model>/accuracy.csv`. With --attribution, tasks that pass the
+summary table `<out>/<model>/accuracy.csv`. With --bank the tasks come from the task bank
+(external/task_bank, info/TASK_BANK.md) instead: the (source, task) pairs listed in its
+eval_tasks.txt, each source taking the place of a domain. With --attribution, tasks that pass the
 inclusion rule also get `neuron_attribution.npy` (n_layers x width, float64).
 
 --bos governs raw-text tasks only (chat-template tasks carry their own): `none` is the
@@ -25,7 +28,8 @@ import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from parcelmate.patching import (
-    DOMAINS, evaluate_task, load_domain_config, load_task, neuron_attribution,
+    DOMAINS, bank_eval_list, evaluate_task, load_bank_config, load_bank_task, load_domain_config,
+    load_task, neuron_attribution,
 )
 from parcelmate.util import git_commit, stderr
 
@@ -40,6 +44,9 @@ def main():
     ap.add_argument('--revision', default=None)
     ap.add_argument('--domains', nargs='+', default=list(DOMAINS))
     ap.add_argument('--tasks', nargs='+', default=None, help='restrict to these task names')
+    ap.add_argument('--bank', action='store_true',
+                    help='evaluate the task bank (eval_tasks.txt) instead of LLM_Modularity; '
+                         '--domains then restricts the sources')
     ap.add_argument('--out', default='results/patching')
     ap.add_argument('--bos', choices=('none', 'bos', 'both'), default='both')
     ap.add_argument('--batch-size', type=int, default=16)
@@ -66,8 +73,16 @@ def main():
 
     root = os.path.join(args.out, short_name(args.model))
     rows = []
-    for domain in args.domains:
-        config = load_domain_config(domain)
+    if args.bank:
+        pairs = bank_eval_list()
+        sources = list(dict.fromkeys(s for s, _ in pairs))
+        if args.domains != list(DOMAINS):
+            sources = [s for s in sources if s in args.domains]
+        units = [(s, {t: c for t, c in load_bank_config(s).items() if (s, t) in pairs}, load_bank_task)
+                 for s in sources]
+    else:
+        units = [(d, load_domain_config(d), load_task) for d in args.domains]
+    for domain, config, load in units:
         for task, task_config in config.items():
             if args.tasks and task not in args.tasks:
                 continue
@@ -87,7 +102,7 @@ def main():
                     stderr('%s/%s: cached\n' % (domain, name))
                 else:
                     stderr('%s/%s (bos=%s)\n' % (domain, name, bos))
-                    data = load_task(domain, task_config)
+                    data = load(domain, task_config)
                     t0 = time.time()
                     b = evaluate_task(model, tokenizer, data, task_config, bos=bos,
                                       batch_size=args.batch_size)
@@ -115,7 +130,7 @@ def main():
                     if os.path.exists(apath) and not args.overwrite:
                         stderr('    attribution cached\n')
                         continue
-                    data = load_task(domain, task_config)
+                    data = load(domain, task_config)
                     t0 = time.time()
                     attr = neuron_attribution(model, tokenizer, data, task_config, b, bos=bos,
                                               batch_size=max(1, args.batch_size // 2))

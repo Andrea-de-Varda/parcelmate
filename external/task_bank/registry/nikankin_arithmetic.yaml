@@ -1,0 +1,76 @@
+source_id: nikankin_arithmetic
+title: 'Arithmetic Without Algorithms: Language Models Solve Math With a Bag of Heuristics (prompt generator)'
+bibkey: nikankin2025arithmetic
+bibkey_data: null
+url: https://github.com/technion-cs-nlp/llm-arithmetic-heuristics
+revision: accf6b2bca7e1145520e96d0ceb60beb6b769c05
+download_date: '2026-10-12'
+raw_files:
+- path: external/task_bank/raw/nikankin_arithmetic/repo/.gitignore
+  sha256: d9bf6685d5ce97dd749741ed52e242bc40416c5f37c843918288949402cf9b46
+- path: external/task_bank/raw/nikankin_arithmetic/repo/LICENSE
+  sha256: 83f0c29ef3796f3fcb4f36a5b69251ad519d529cb7ba633523496e5f71730944
+- path: external/task_bank/raw/nikankin_arithmetic/repo/README.md
+  sha256: ef40f010bc0a17466c826ac48bcf83b1322a616bcf4873e88e4d1d42990805bd
+- path: external/task_bank/raw/nikankin_arithmetic/repo/activation_patching.py
+  sha256: 18edd0d1240f9c3396890af761e79bd713dcc9e4f47209d214e79b804fc559b5
+- path: external/task_bank/raw/nikankin_arithmetic/repo/llm-arithmetic-analysis-main.ipynb
+  sha256: 54dfa7bf93f300d6410df84a4c5b39ed0e140ae564f55597e084df1ac311503f
+- path: external/task_bank/raw/nikankin_arithmetic/repo/model_analysis_consts.py
+  sha256: 9697b80fc59d67a3579171af7d8b48f4840b0c0e64aec910c5a28399eec0a33a
+- path: external/task_bank/raw/nikankin_arithmetic/repo/prompt_generation.py
+  sha256: e338facd59b5e32aa546978fa70588e633a5d35a4ba0b08b5e449741cbf07ae5
+- path: external/task_bank/raw/nikankin_arithmetic/MANIFEST.json
+  sha256: e83234064e4be8c543e7b59c3b606a74262b82752d7d26eaa0519a9da920bfe3
+  note: sha256 of all 40 tracked files
+licence: MIT (Copyright (c) 2024 technion-cs-nlp)
+licence_source: LICENSE at the pinned commit
+redistribute: 'yes'
+generator:
+  commit: accf6b2bca7e1145520e96d0ceb60beb6b769c05
+  seed: 42
+  params: 'own re-implementation of prompt_generation.generate_all_prompts_for_operator: operands 0..299, results 0..999, cap 2000/operator'
+tier: 1
+tasks:
+- name: add
+  family: arithmetic_add_numeric_operand_swap
+  domain: arithmetic
+  n_items_raw: 90000
+  n_items_converted: 2000
+  sampled_ids_file: tasks/nikankin_arithmetic/add.ids.txt
+  len_match_share_qwen35: 1.0
+  single_token_answer_share_qwen35: 0.001
+  adaptations: model-independent re-implementation of prompt generation (no Llama-3 correctness filter); partner prompt = random same-operator prompt with equal operand digit counts and different answer; 0 clean prompts without partner dropped; stratified on operand digit counts
+- name: sub
+  family: arithmetic_sub_numeric_operand_swap
+  domain: arithmetic
+  n_items_raw: 45150
+  n_items_converted: 2000
+  sampled_ids_file: tasks/nikankin_arithmetic/sub.ids.txt
+  len_match_share_qwen35: 1.0
+  single_token_answer_share_qwen35: 0.063
+  adaptations: model-independent re-implementation of prompt generation (no Llama-3 correctness filter); partner prompt = random same-operator prompt with equal operand digit counts and different answer; 0 clean prompts without partner dropped; stratified on operand digit counts
+- name: mul
+  family: arithmetic_mul_numeric_operand_swap
+  domain: arithmetic
+  n_items_raw: 5784
+  n_items_converted: 2000
+  sampled_ids_file: tasks/nikankin_arithmetic/mul.ids.txt
+  len_match_share_qwen35: 1.0
+  single_token_answer_share_qwen35: 0.119
+  adaptations: model-independent re-implementation of prompt generation (no Llama-3 correctness filter); partner prompt = random same-operator prompt with equal operand digit counts and different answer; 0 clean prompts without partner dropped; stratified on operand digit counts
+- name: div
+  family: arithmetic_div_numeric_operand_swap
+  domain: arithmetic
+  n_items_raw: 2048
+  n_items_converted: 1717
+  sampled_ids_file: tasks/nikankin_arithmetic/div.ids.txt
+  len_match_share_qwen35: 1.0
+  single_token_answer_share_qwen35: 0.4834
+  adaptations: model-independent re-implementation of prompt generation (no Llama-3 correctness filter); partner prompt = random same-operator prompt with equal operand digit counts and different answer; exact integer quotients only; 283 clean prompts without partner dropped; stratified on operand digit counts
+status: converted
+notes:
+  neuron_lists: No neuron index files are committed (.gitignore excludes *.pt, per_neuron_*, mlp_input_*, data/mean_cache*; the repo has no data/ directory). Neurons must be recomputed with script_per_neuron_analysis.py / script_topk_neuron_eval.py on Llama-3-8B/70B or Pythia-6.9B; per-neuron results are produced, not released. Not usable as a neuron list for Qwen anyway.
+  model_dependence: the original prompts are those Llama-3-8B answers correctly; here all legal prompts are kept (model-independent), the run-time both-correct filter plays that role for Qwen.
+  operators: the original also pairs prompts of different operators in some experiments ("Corrupt prompts ... differ in operator and/or operands"); only same-operator operand swaps are built here.
+  answers: no leading space ("x+y=" then digits), as in the original

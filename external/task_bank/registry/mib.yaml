@@ -1,0 +1,399 @@
+source_id: mib
+title: 'MIB: A Mechanistic Interpretability Benchmark (Hugging Face datasets mib-bench/*)'
+bibkey: mueller2025mibmechanisticinterpretabilitybenchmark
+bibkey_data:
+- wang2022interpretabilitywildcircuitindirect (IOI)
+- clark2018thinksolvedquestionanswering (ARC)
+- huang-etal-2024-ravel (RAVEL)
+url: https://huggingface.co/mib-bench
+download_date: '2026-10-12'
+tier: 1
+revisions:
+  ioi: e5f3468f3af4c0883be35cd3bced8c711c95d286
+  arithmetic_addition: d56d68b7b1d8f9c7e9a262ec1f89331ed52c7516
+  arithmetic_subtraction: 9eeb7f0f69c2adc131d81200f501a7f83c06fa8b
+  copycolors_mcqa: 682676b0e80d3a80e847a21810157710c1f23e27
+  arc_easy: be6999b975e8348387cc9a21f3c8b6be8021e7d6
+  arc_challenge: ab946b6cf3e2543e590adbeebd531c52b8eb4ff8
+  ravel: 53dc7a4dbe84276567b895d8fb608b3f169b9276
+raw_files:
+- path: external/task_bank/raw/mib/ioi/.gitattributes
+  sha256: 234b4ac9b5783656993f3431b342110c8d649acc6e49760ba48a28026db104e3
+- path: external/task_bank/raw/mib/ioi/README.md
+  sha256: d8d7a46d41a1a37fe4f0a5f637bf55c649310185329127d8a2204632e480be17
+- path: external/task_bank/raw/mib/ioi/dev.json
+  sha256: 721d6e7a26962c9cc3008029c7327522cb72b9b03e1fa7a9c2da51ab86372c72
+- path: external/task_bank/raw/mib/ioi/test.json
+  sha256: 030354654ea1b0b0147eb07f427be0f1ac71beed63a784a76d1581f52e722ebc
+- path: external/task_bank/raw/mib/ioi/train.json
+  sha256: 2ee41861d725eee2b71da3846872d5e5ea29d9d8c9aa3a8954f8430584b2f243
+- path: external/task_bank/raw/mib/arithmetic_addition/.gitattributes
+  sha256: e36eed26e52281c84f0accd39d54215c1bcc36d7a389e7f661ec4634d26bafdd
+- path: external/task_bank/raw/mib/arithmetic_addition/README.md
+  sha256: 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b
+- path: external/task_bank/raw/mib/arithmetic_addition/test.jsonl
+  sha256: 84373e6ee8d3eb440bb29ee365e20de58d8b700ba0869b763b64eb478752d954
+- path: external/task_bank/raw/mib/arithmetic_addition/train.jsonl
+  sha256: bf7489c47bebff2a11d2ad617b1f6e0f2e01747373de6c744e57a56a99c544ea
+- path: external/task_bank/raw/mib/arithmetic_addition/validation.jsonl
+  sha256: 407448e75fad3daf20f6ae38313d356bb07e12926daf0952d76b93098bf003a1
+- path: external/task_bank/raw/mib/arithmetic_subtraction/.gitattributes
+  sha256: e36eed26e52281c84f0accd39d54215c1bcc36d7a389e7f661ec4634d26bafdd
+- path: external/task_bank/raw/mib/arithmetic_subtraction/README.md
+  sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+- path: external/task_bank/raw/mib/arithmetic_subtraction/test.jsonl
+  sha256: 0826ad98e453ba4c1c75ec3f33bc3d3aafd55e9e11e55f3609b96374d279e1b5
+- path: external/task_bank/raw/mib/arithmetic_subtraction/train.jsonl
+  sha256: 2cd95f98086254215c68d4f075d940eaa9cbd4a38635f3c6d0faf412ccc9a4e4
+- path: external/task_bank/raw/mib/arithmetic_subtraction/validation.jsonl
+  sha256: 5d1bf2a457ab498364c64efbe5769192099e5505f7945cdd5c462b66fccf7112
+- path: external/task_bank/raw/mib/copycolors_mcqa/.gitattributes
+  sha256: a2bdf429c1bc3858213bb4b7a748fa36a71536a5a1ff98861281853c3c2be1f2
+- path: external/task_bank/raw/mib/copycolors_mcqa/README.md
+  sha256: 0388c69ba37e8da7aa09364a9b9e792705696cf0403cc4d0e146736b49fbf010
+- path: external/task_bank/raw/mib/copycolors_mcqa/9_answer_choices/test.jsonl
+  sha256: 2861985bcc3ff8a08c824c663eb14f1a6cacd3e87d607439d087e64db4ffb34e
+- path: external/task_bank/raw/mib/copycolors_mcqa/9_answer_choices/train.jsonl
+  sha256: 6bf9a1418fc78adf855b3f6ab75652faa2dcf365dc7ce8ebe4ef80c9e5d77885
+- path: external/task_bank/raw/mib/copycolors_mcqa/9_answer_choices/validation.jsonl
+  sha256: 0d18f17baa92cdb198a1a263eb30860d600b9d6582cf680dce59fcecaa0ba411
+- path: external/task_bank/raw/mib/copycolors_mcqa/2_answer_choices/test.jsonl
+  sha256: 64c511b3bf0a87cc7442ee71759ac4940acbdca4a684e3cbf7ad12f64e608d67
+- path: external/task_bank/raw/mib/copycolors_mcqa/2_answer_choices/train.jsonl
+  sha256: 2f05654e4a20d7ecf21f70ec37a09246c6b1642086d48534abae861f318ac16e
+- path: external/task_bank/raw/mib/copycolors_mcqa/2_answer_choices/validation.jsonl
+  sha256: c88269e027f7f00aef3e1caca6d5f18cab976d771fd4a0301ba868743970c297
+- path: external/task_bank/raw/mib/copycolors_mcqa/8_answer_choices/test.jsonl
+  sha256: 893a405e606356858830f558134148c84f3b835e5e67f46cd73f996a89055ff0
+- path: external/task_bank/raw/mib/copycolors_mcqa/8_answer_choices/train.jsonl
+  sha256: 01b366ef585884cb55eb3d44d0f3bb6ed37b4b1fd5ff05307888c065c5fe8550
+- path: external/task_bank/raw/mib/copycolors_mcqa/8_answer_choices/validation.jsonl
+  sha256: ac99d4161fa70e74468f9dbba4271d54cb72a5fc5f516f5726b843382696100c
+- path: external/task_bank/raw/mib/copycolors_mcqa/5_answer_choices/test.jsonl
+  sha256: 30737d1b23d9ec80b4f3e4cc6735334f73f4823a668c68d366a3ed02a3969905
+- path: external/task_bank/raw/mib/copycolors_mcqa/5_answer_choices/train.jsonl
+  sha256: 8434a1737e1b35b1c1119b597b3a19e0c90e37e66fbb02587a9fca051611f26d
+- path: external/task_bank/raw/mib/copycolors_mcqa/5_answer_choices/validation.jsonl
+  sha256: a2ee1bfb9e78cce30ff3f0b4c7528dc77376856655c6978e2ef49d9ae9998d72
+- path: external/task_bank/raw/mib/copycolors_mcqa/3_answer_choices/test.jsonl
+  sha256: 0e5f6e470b7b4a68d74ca28d5fd064dac89411cc4df50b0facc44f29e6cd77a6
+- path: external/task_bank/raw/mib/copycolors_mcqa/3_answer_choices/train.jsonl
+  sha256: 4b6e95d1b0c3310750b4136e2f7291de03f43b4148a93697a0bbebf3dfe70fe9
+- path: external/task_bank/raw/mib/copycolors_mcqa/3_answer_choices/validation.jsonl
+  sha256: e19bb6f86cb1e6c8d1f999e4d592c552dbb66c7228114e9a54c07c1b6cbd9082
+- path: external/task_bank/raw/mib/copycolors_mcqa/4_answer_choices/test.jsonl
+  sha256: 4a205a340887c60db7561c79b2e022f7dd3f1bd312a4c77eabd450af7680d545
+- path: external/task_bank/raw/mib/copycolors_mcqa/4_answer_choices/train.jsonl
+  sha256: 739f5b471597f6706f91fe6264ebd648ed5ce361fd0d0fba9557d8934c5edc88
+- path: external/task_bank/raw/mib/copycolors_mcqa/4_answer_choices/validation.jsonl
+  sha256: 1164862004710da129251833a7178454d8e2bcffbafb756fdfb623bca1fdecad
+- path: external/task_bank/raw/mib/copycolors_mcqa/6_answer_choices/test.jsonl
+  sha256: 9fa372dd12ca6c8097fd0bd429932520bf127bf536da2086356ddf741b755761
+- path: external/task_bank/raw/mib/copycolors_mcqa/6_answer_choices/train.jsonl
+  sha256: a465fb8381b1273e2f6addb71fa7bd61c6c46b33fd118cbb5ba9d21327dced79
+- path: external/task_bank/raw/mib/copycolors_mcqa/6_answer_choices/validation.jsonl
+  sha256: f15b09a6fa6d7a00955a7b78db867613730e8520d64890ddbfcf3c9d48f41cc5
+- path: external/task_bank/raw/mib/copycolors_mcqa/7_answer_choices/test.jsonl
+  sha256: cc12af33697ae03c0e54b5325b82d41e7b154ca1e5ca82d540a5d2e2e1bc194a
+- path: external/task_bank/raw/mib/copycolors_mcqa/7_answer_choices/train.jsonl
+  sha256: e09716cd764a40ac8595957823cc7837f9a27964c7c0a4a088e817f251f445e8
+- path: external/task_bank/raw/mib/copycolors_mcqa/7_answer_choices/validation.jsonl
+  sha256: ae5f669f2b20e0b948678642f87540842e5f54eea35667cbaedaca7f9bee01f6
+- path: external/task_bank/raw/mib/copycolors_mcqa/10_answer_choices/test.jsonl
+  sha256: 324d69258ae3166eae77fac6ae2dfcc79c633a265ed94a7c9c5568eac7db2205
+- path: external/task_bank/raw/mib/copycolors_mcqa/10_answer_choices/train.jsonl
+  sha256: f0b078a04d20a8ebc76c88d4027e3ab1798b3b41335d25b9f0a2d12377c26401
+- path: external/task_bank/raw/mib/copycolors_mcqa/10_answer_choices/validation.jsonl
+  sha256: cb1e49425871ba256d7992f41b5076f5dca6ad5554956cc5d0fc0a4e676cbf65
+- path: external/task_bank/raw/mib/arc_easy/.gitattributes
+  sha256: e7a120ab07b1bc5b486be249e9fc6c83d59448d0093e1dfebe95d1566d9cafc0
+- path: external/task_bank/raw/mib/arc_easy/README.md
+  sha256: 4bcf87ecfbbb8e07a01b21415a970c8b53a5283bf6872b657040d3f45c9241f7
+- path: external/task_bank/raw/mib/arc_easy/test.jsonl
+  sha256: 353e9ee1e1484dccb8dccbfca2f90240c4e4eca4e57d849a16ffd01a8757bd53
+- path: external/task_bank/raw/mib/arc_easy/train.jsonl
+  sha256: 8fb4978e96edf61ff0519cc2c760178bc0946b18b198bb0eb508f60fa33c8ca6
+- path: external/task_bank/raw/mib/arc_easy/validation.jsonl
+  sha256: c4fecdbf65487f80ff45c55a8c1fddd95afd9ca32571fabe7fa8de40dd358f74
+- path: external/task_bank/raw/mib/arc_challenge/.gitattributes
+  sha256: e7a120ab07b1bc5b486be249e9fc6c83d59448d0093e1dfebe95d1566d9cafc0
+- path: external/task_bank/raw/mib/arc_challenge/README.md
+  sha256: 4bcf87ecfbbb8e07a01b21415a970c8b53a5283bf6872b657040d3f45c9241f7
+- path: external/task_bank/raw/mib/arc_challenge/test.jsonl
+  sha256: 48429976011f4c3c7144b7d3e004d61fb18ff7102f327c27574060aa93359baa
+- path: external/task_bank/raw/mib/arc_challenge/train.jsonl
+  sha256: 4d7e536dc605c0574ead412827a649103bc8d21257b23cb16cfe7d56361ada7b
+- path: external/task_bank/raw/mib/arc_challenge/validation.jsonl
+  sha256: 534d60e3b53f6b2b05fdad917204315a290da1749e8d40682a5ffb19704b871c
+- path: external/task_bank/raw/mib/ravel/.gitattributes
+  sha256: e7a120ab07b1bc5b486be249e9fc6c83d59448d0093e1dfebe95d1566d9cafc0
+- path: external/task_bank/raw/mib/ravel/README.md
+  sha256: 54debb4dd504e9ec25cbcef31c3fca1d1d3dcfbeb89c552b015540eca4de768d
+- path: external/task_bank/raw/mib/ravel/data/test-00000-of-00001.parquet
+  sha256: b3e676b4ba2d7fec22cb3df07ebedf0e1f0640e658a9102d46dbfd3af4fb7fef
+- path: external/task_bank/raw/mib/ravel/data/train-00000-of-00001.parquet
+  sha256: 62c054ff19848ed14255ed6af43a3ef4aea89a5b38cfbc1fe0e66a682167d5a8
+- path: external/task_bank/raw/mib/ravel/data/val-00000-of-00001.parquet
+  sha256: 5827591cb9460ec9ce3b21d4fd4676f344855aa16b26dd9f6389e638586082f3
+licence:
+  ioi: MIT
+  copycolors_mcqa: Apache-2.0
+  arc_easy: Apache-2.0
+  arc_challenge: Apache-2.0
+  arithmetic_addition: none stated
+  arithmetic_subtraction: none stated
+  ravel: none stated
+licence_source: YAML front matter of README.md of each dataset at the pinned revision (raw/mib/<dataset>/README.md); arithmetic and ravel cards state no licence
+redistribute:
+  ioi: 'yes'
+  copycolors_mcqa: 'yes'
+  arc_easy: yes (card says Apache-2.0; ARC itself is CC BY-SA 4.0 per Clark et al., not verified here)
+  arc_challenge: yes (same caveat)
+  arithmetic_addition: unclear
+  arithmetic_subtraction: unclear
+  ravel: unclear (cards silent; RAVEL repo licence not checked)
+tokenizer:
+  tokenizer_repo: Qwen/Qwen3.5-2B
+  tokenizer_revision: 15852e8c16360a2fea060d615a32b45270f8a8fc
+  note: Qwen3.5-4B tokenizer.json is byte-identical in content to 2B
+converter: scripts/task_bank/convert_mib.py
+seed: 42
+status: converted
+notes: Only public splits are downloadable; all tasks sample from the train split except copycolors (all splits pooled).
+tasks:
+- name: ioi_s2_flip
+  family: ioi
+  domain: syntax/semantics (name movement)
+  n_items_raw: 10000
+  n_items_after_validity_and_dedup: 10000
+  n_items_converted: 2000
+  sampling_rule: proportional stratified sample, seed 42, cap 2000
+  adaptations:
+  - 'MIB `s2_io_flip_counterfactual`: the second mention of the subject (S2) is replaced by the IO name, so IO and S exchange roles and the answer flips (Maria <-> Carl); prompts differ in one token. Answers
+    are the two names with a leading space.'
+  - 'Other MIB ioi counterfactuals not used: abc (answerKey -1, no flip), random_names (different names, answers not the clean pair), s1_io_flip (order of the first clause only, answer unchanged), random_names_*
+    variants.'
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 1.0
+  equal_answer_token_count_share: 1.0
+- name: ioi_s1_s2_flip
+  family: ioi
+  domain: syntax/semantics (name movement)
+  n_items_raw: 10000
+  n_items_after_validity_and_dedup: 10000
+  n_items_converted: 2000
+  sampling_rule: proportional stratified sample, seed 42, cap 2000
+  adaptations:
+  - 'MIB `s1_ioi_flip_s2_ioi_flip_counterfactual`: both the order of the names in the first clause and the repeated name are swapped (ABBA <-> BAAB structure), answer flips; three tokens differ.'
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 1.0
+  equal_answer_token_count_share: 1.0
+- name: addition_random
+  family: arithmetic_addition
+  domain: arithmetic
+  n_items_raw: 34440
+  n_items_after_validity_and_dedup: 34148
+  n_items_converted: 2000
+  sampling_rule: proportional stratified sample, seed 42, cap 2000
+  adaptations:
+  - 'Source split: train. One item per (problem, counterfactual); items whose counterfactual has the same result as the clean problem are dropped (no flip possible). Answers are the numeric strings without
+    a leading space (the prompts end in "A: " or "=", digits are tokenised one by one by Qwen).'
+  - Counterfactual group `random` = random.
+  - 'Strata: template x counterfactual type.'
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 0.003
+  equal_answer_token_count_share: 0.4955
+- name: addition_single_digit
+  family: arithmetic_addition
+  domain: arithmetic
+  n_items_raw: 137760
+  n_items_after_validity_and_dedup: 136080
+  n_items_converted: 2000
+  sampling_rule: proportional stratified sample, seed 42, cap 2000
+  adaptations:
+  - 'Source split: train. One item per (problem, counterfactual); items whose counterfactual has the same result as the clean problem are dropped (no flip possible). Answers are the numeric strings without
+    a leading space (the prompts end in "A: " or "=", digits are tokenised one by one by Qwen).'
+  - Counterfactual group `single_digit` = ones_op1, ones_op2, tens_op1, tens_op2.
+  - 'Strata: template x counterfactual type.'
+  len_match_share_qwen35: 0.948
+  n_len_match: 1896
+  single_token_answers_share: 0.0
+  equal_answer_token_count_share: 0.771
+- name: addition_carry
+  family: arithmetic_addition
+  domain: arithmetic
+  n_items_raw: 68880
+  n_items_after_validity_and_dedup: 68040
+  n_items_converted: 2000
+  sampling_rule: proportional stratified sample, seed 42, cap 2000
+  adaptations:
+  - 'Source split: train. One item per (problem, counterfactual); items whose counterfactual has the same result as the clean problem are dropped (no flip possible). Answers are the numeric strings without
+    a leading space (the prompts end in "A: " or "=", digits are tokenised one by one by Qwen).'
+  - Counterfactual group `carry` = ones_carry, tens_carry.
+  - 'Strata: template x counterfactual type.'
+  len_match_share_qwen35: 0.933
+  n_len_match: 1866
+  single_token_answers_share: 0.0
+  equal_answer_token_count_share: 0.6115
+- name: subtraction_random
+  family: arithmetic_subtraction
+  domain: arithmetic
+  n_items_raw: 17424
+  n_items_after_validity_and_dedup: 17129
+  n_items_converted: 2000
+  sampling_rule: proportional stratified sample, seed 42, cap 2000
+  adaptations:
+  - 'Source split: train. One item per (problem, counterfactual); items whose counterfactual has the same result as the clean problem are dropped (no flip possible). Answers are the numeric strings without
+    a leading space (the prompts end in "A: " or "=", digits are tokenised one by one by Qwen).'
+  - Counterfactual group `random` = random.
+  - 'Strata: template x counterfactual type.'
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 0.046
+  equal_answer_token_count_share: 0.673
+- name: subtraction_single_digit
+  family: arithmetic_subtraction
+  domain: arithmetic
+  n_items_raw: 69696
+  n_items_after_validity_and_dedup: 57820
+  n_items_converted: 2000
+  sampling_rule: proportional stratified sample, seed 42, cap 2000
+  adaptations:
+  - 'Source split: train. One item per (problem, counterfactual); items whose counterfactual has the same result as the clean problem are dropped (no flip possible). Answers are the numeric strings without
+    a leading space (the prompts end in "A: " or "=", digits are tokenised one by one by Qwen).'
+  - Counterfactual group `single_digit` = ones_op1, ones_op2, tens_op1, tens_op2.
+  - 'Strata: template x counterfactual type.'
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 0.056
+  equal_answer_token_count_share: 0.815
+- name: subtraction_carry
+  family: arithmetic_subtraction
+  domain: arithmetic
+  n_items_raw: 34848
+  n_items_after_validity_and_dedup: 8808
+  n_items_converted: 2000
+  sampling_rule: proportional stratified sample, seed 42, cap 2000
+  adaptations:
+  - 'Source split: train. One item per (problem, counterfactual); items whose counterfactual has the same result as the clean problem are dropped (no flip possible). Answers are the numeric strings without
+    a leading space (the prompts end in "A: " or "=", digits are tokenised one by one by Qwen).'
+  - Counterfactual group `carry` = ones_carry, tens_carry.
+  - 'Strata: template x counterfactual type.'
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 0.0
+  equal_answer_token_count_share: 0.769
+- name: copycolors_answer_position
+  family: mcqa_copycolors
+  domain: reasoning (multiple choice, answer-letter binding)
+  n_items_raw: 1890
+  n_items_after_validity_and_dedup: 1890
+  n_items_converted: 1890
+  sampling_rule: all items kept
+  adaptations:
+  - All 9 choice-count configs (2..10) and all three public splits pooled (1,890 rows in total, below the cap, so no sampling). The same underlying question can appear under several choice counts.
+  - Clean and corrupted differ only in the position of the correct option (`answerPosition_counterfactual`); the answer is the option letter with a leading space; flip holds because the correct letter changes.
+  - 'Not used: noun, color, noun_color counterfactuals (correct letter unchanged, no flip), symbol and randomLetter variants (answer in another label vocabulary than the clean prompt offers).'
+  len_match_share_qwen35: 1.0
+  n_len_match: 1890
+  single_token_answers_share: 1.0
+  equal_answer_token_count_share: 1.0
+- name: copycolors_answer_position_color
+  family: mcqa_copycolors
+  domain: reasoning (multiple choice, answer-letter binding)
+  n_items_raw: 1890
+  n_items_after_validity_and_dedup: 1890
+  n_items_converted: 1890
+  sampling_rule: all items kept
+  adaptations:
+  - All 9 choice-count configs (2..10) and all three public splits pooled (1,890 rows in total, below the cap, so no sampling). The same underlying question can appear under several choice counts.
+  - Clean and corrupted differ only in the position of the correct option (`answerPosition_color_counterfactual`) and, additionally, the colour of the correct option; the answer is the option letter with
+    a leading space; flip holds because the correct letter changes.
+  - 'Not used: noun, color, noun_color counterfactuals (correct letter unchanged, no flip), symbol and randomLetter variants (answer in another label vocabulary than the clean prompt offers).'
+  len_match_share_qwen35: 1.0
+  n_len_match: 1890
+  single_token_answers_share: 1.0
+  equal_answer_token_count_share: 1.0
+- name: arc_easy_answer_position
+  family: mcqa_arc
+  domain: science QA (multiple choice)
+  n_items_raw: 2251
+  n_items_after_validity_and_dedup: 2251
+  n_items_converted: 2000
+  sampling_rule: proportional stratified sample, seed 42, cap 2000
+  adaptations:
+  - 'Source split: train. MIB `answerPosition_counterfactual`: the options are rotated so that the correct letter changes; the question and option texts are identical. Answer = option letter with a leading
+    space.'
+  - Other counterfactuals (symbol, randomLetter, answerPosition_randomLetter) use a different label vocabulary and are not used.
+  - 'Strata: clean answer letter x counterfactual answer letter.'
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 1.0
+  equal_answer_token_count_share: 1.0
+- name: arc_challenge_answer_position
+  family: mcqa_arc
+  domain: science QA (multiple choice)
+  n_items_raw: 1119
+  n_items_after_validity_and_dedup: 1119
+  n_items_converted: 1119
+  sampling_rule: all items kept
+  adaptations:
+  - 'Source split: train. MIB `answerPosition_counterfactual`: the options are rotated so that the correct letter changes; the question and option texts are identical. Answer = option letter with a leading
+    space.'
+  - Other counterfactuals (symbol, randomLetter, answerPosition_randomLetter) use a different label vocabulary and are not used.
+  - 'Strata: clean answer letter x counterfactual answer letter.'
+  len_match_share_qwen35: 1.0
+  n_len_match: 1119
+  single_token_answers_share: 1.0
+  equal_answer_token_count_share: 1.0
+- name: ravel_template_cf
+  family: factual_ravel
+  domain: factual knowledge (city attributes)
+  n_items_raw: 100347
+  n_items_after_validity_and_dedup: 43101
+  n_items_converted: 2000
+  sampling_rule: proportional stratified sample, seed 42, cap 2000
+  adaptations:
+  - 'Source split: train; rows with attribute `wikipedia` dropped (no attribute answer). MIB `prompt_template_counterfactual` used as the corrupted prompt: a different entity in a different template, same
+    attribute.'
+  - Clean answer = attribute value of the clean entity; clean_incorrect = the counterfactual's attribute value, both teacher-forced after the clean prompt (leading space omitted when the prompt ends in
+    a quote, i.e. JSON-style prompts). Only pairs whose prompts end in the same kind of character (quote vs word) are kept, so the answer spacing is valid under both prompts.
+  - Clean and corrupted prompts use different templates, so token lengths rarely match; entity-swap variant below is the better length-matched version.
+  len_match_share_qwen35: 0.189
+  n_len_match: 378
+  single_token_answers_share: 0.4155
+  equal_answer_token_count_share: 0.471
+- name: ravel_attribute_cf
+  family: factual_ravel
+  domain: factual knowledge (city attributes)
+  n_items_raw: 100347
+  n_items_after_validity_and_dedup: 49051
+  n_items_converted: 2000
+  sampling_rule: proportional stratified sample, seed 42, cap 2000
+  adaptations:
+  - 'Source split: train; rows with attribute `wikipedia` dropped (no attribute answer). MIB `attribute_counterfactual` used as the corrupted prompt: a different entity asked for a different attribute.'
+  - Clean answer = attribute value of the clean entity; clean_incorrect = the counterfactual's attribute value, both teacher-forced after the clean prompt (leading space omitted when the prompt ends in
+    a quote, i.e. JSON-style prompts). Only pairs whose prompts end in the same kind of character (quote vs word) are kept, so the answer spacing is valid under both prompts.
+  - Clean and corrupted prompts use different templates, so token lengths rarely match; entity-swap variant below is the better length-matched version.
+  len_match_share_qwen35: 0.1105
+  n_len_match: 221
+  single_token_answers_share: 0.443
+  equal_answer_token_count_share: 0.4815
+- name: ravel_entity_swap
+  family: factual_ravel
+  domain: factual knowledge (city attributes)
+  n_items_raw: 100347
+  n_items_after_validity_and_dedup: 70390
+  n_items_converted: 2000
+  sampling_rule: proportional stratified sample, seed 42, cap 2000
+  adaptations:
+  - 'OUR CONSTRUCTION (not in MIB): for each train row, the entity is replaced by another entity from the same template and attribute with a different attribute value (same number of words, closest character
+    length, ties broken with random.Random(42) in template/index order). Prompts then differ only in the entity name; token length equality depends on the entity names (diagnostic).'
+  - Answers as in the other RAVEL tasks (no leading space after a quote). Rows with attribute `wikipedia` excluded.
+  len_match_share_qwen35: 0.4995
+  n_len_match: 999
+  single_token_answers_share: 0.478
+  equal_answer_token_count_share: 0.526

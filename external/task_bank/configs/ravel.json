@@ -1,0 +1,114 @@
+{
+  "ravel_city_country": {
+    "path": "ravel_city_country.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "ravel_city_continent": {
+    "path": "ravel_city_continent.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "ravel_city_language": {
+    "path": "ravel_city_language.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "ravel_city_timezone": {
+    "path": "ravel_city_timezone.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "ravel_nobel_field": {
+    "path": "ravel_nobel_field.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "ravel_nobel_country_of_birth": {
+    "path": "ravel_nobel_country_of_birth.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "ravel_nobel_gender": {
+    "path": "ravel_nobel_gender.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "ravel_verb_past_tense": {
+    "path": "ravel_verb_past_tense.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "ravel_verb_third_person": {
+    "path": "ravel_verb_third_person.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "ravel_object_category": {
+    "path": "ravel_object_category.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "ravel_object_color": {
+    "path": "ravel_object_color.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "ravel_object_texture": {
+    "path": "ravel_object_texture.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "ravel_occupation_industry": {
+    "path": "ravel_occupation_industry.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "ravel_occupation_work_location": {
+    "path": "ravel_occupation_work_location.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  }
+}

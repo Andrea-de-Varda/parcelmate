@@ -1,0 +1,64 @@
+source_id: gpt2_syntax_circuits
+title: 'gpt2-syntax-circuits (COMP 579 McGill project): SVN and IOI test cases'
+bibkey: null
+bibkey_data: []
+url: https://github.com/Nomber1-1/gpt2-syntax-circuits
+download_date: '2026-10-12'
+tier: 1
+revision: 763553c578166b33a609585434e80fb7c932c728
+raw_files:
+- path: external/task_bank/raw/gpt2_syntax_circuits/gpt2-syntax-circuits/LICENSE
+  sha256: 2f0b31675800b55d3806a4729a922c1379f0c9501cd0f523cd5a91579c7e1dfc
+- path: external/task_bank/raw/gpt2_syntax_circuits/gpt2-syntax-circuits/Code/core/ioi_dataset.py
+  sha256: b13b2ce9db03698aa6f2e7751f8eb9f2aa703bb271b3bec1e9ff2c1ede1732df
+- path: external/task_bank/raw/gpt2_syntax_circuits/gpt2-syntax-circuits/Code/core/svn_dataset.py
+  sha256: 4b432d7a7e7ff102e404fcdca731d5d8c00a5db0aa404883968f4e5c0eb4f7c6
+licence: MIT (Copyright 2026 Patrick Zakaria)
+licence_source: raw/gpt2_syntax_circuits/gpt2-syntax-circuits/LICENSE
+redistribute: 'yes'
+generator:
+  commit: 763553c578166b33a609585434e80fb7c932c728
+  seed: 42
+  params: samples_per_perm=5
+  note: svn generator seeds itself with 42; ioi cases are hand-written
+tokenizer:
+  tokenizer_repo: Qwen/Qwen3.5-2B
+  tokenizer_revision: 15852e8c16360a2fea060d615a32b45270f8a8fc
+  note: Qwen3.5-4B tokenizer.json is byte-identical in content to 2B
+converter: scripts/task_bank/convert_gpt2_syntax_circuits.py
+status: converted
+notes: Student project without a paper; unreviewed. The SVN generator is "inspired by" DavidDemitriAfrica/verb-conjugation-mechinterp (not fetched). Low value beyond the other SVA/IOI sources; kept for
+  completeness.
+tasks:
+- name: svn
+  family: sva
+  domain: syntax (subject-verb agreement)
+  n_items_raw: 200
+  n_items_after_validity_and_dedup: 106
+  n_items_converted: 106
+  sampling_rule: all items kept
+  adaptations:
+  - 'Generator `_generate_balanced_svn_cases(samples_per_perm=5, seed=42)`: pronoun or name subjects (singular vs "X and Y" plural), optional time prefix, regular verbs (walks/walk ...), irregular (goes/go,
+    eats/eat, has/have, is/are, was/were). The prompt ends right before the verb; answer = verb form with leading space.'
+  - 'Corrupted prompt = the same frame with a subject of the opposite number. NEGATED cases (80 of 200, "does not"/"do not") are dropped: the source marks the plural stem as correct for both numbers, so
+    the answer does not flip.'
+  - The README states "162 unique test cases"; the generator as committed yields 200 cases at samples_per_perm=5 (discrepancy not investigated); exact duplicates are removed by our dedup step.
+  - Plural names ("Alice and Bob") are two extra tokens, so many clean/corrupted lengths differ (see diagnostic).
+  len_match_share_qwen35: 0.434
+  n_len_match: 46
+  single_token_answers_share: 1.0
+  equal_answer_token_count_share: 1.0
+- name: ioi
+  family: ioi
+  domain: syntax/semantics (name movement)
+  n_items_raw: 24
+  n_items_after_validity_and_dedup: 24
+  n_items_converted: 24
+  sampling_rule: all items kept
+  adaptations:
+  - 4 templates x 6 name pairs = 24 hand-written cases (ABA and BBA). Corrupted prompt swaps the two names in the whole sentence (IO <-> S), so the answer flips (equivalent to MIB `s1_ioi_flip_s2_ioi_flip`).
+    Tiny and fully contained in the IOI family of larger sources; fewer than 300 items, so it cannot meet the >=300 both-correct requirement alone.
+  len_match_share_qwen35: 1.0
+  n_len_match: 24
+  single_token_answers_share: 1.0
+  equal_answer_token_count_share: 1.0

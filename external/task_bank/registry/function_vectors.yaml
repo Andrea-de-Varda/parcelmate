@@ -1,0 +1,1061 @@
+source_id: function_vectors
+title: 'Function-vector task datasets (Todd et al.): abstractive and extractive in-context tasks'
+bibkey: todd2024functionvectorslargelanguage
+url: https://github.com/ericwtodd/function_vectors
+revision: fb9eac7b6dc707ea1475a717379916007fe448d5
+licence: MIT (Copyright 2023 Eric Todd)
+licence_source: external/task_bank/raw/function_vectors/repo/LICENSE
+redistribute: yes (MIT; underlying word lists come from third-party sources named in dataset_files/generate, see report)
+tier: 1
+tokenizer:
+  tokenizer_repo: Qwen/Qwen3.5-2B
+  tokenizer_revision: 15852e8c16360a2fea060d615a32b45270f8a8fc
+  note: Qwen3.5-2B tokenizer.json; the 4B tokenizer is the same (checked by the circuits group)
+status: converted
+notes: Cap lowered to 1000 items per task (the plan allows 2000) because this source contributes ~40 tasks.
+download_date: '2026-10-12'
+raw_files:
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/abstractive/ag_news.json
+  sha256: 2201d0fbdab6b5b37b15ecd20da590f79b156e91f6c8c620920714bad8603115
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/abstractive/antonym.json
+  sha256: ba66e8e399944b557251b11a37b11f9ba7a50f0a57286f7021a8a7b26b469e8d
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/abstractive/capitalize.json
+  sha256: 9aad849c761de2f0c6195eb73496a0cfe7e600751b0d61a3c82709b1a3dcd53f
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/abstractive/capitalize_first_letter.json
+  sha256: 147c3a091f000c21b2512ab8461029881ef05600414a0633078b460da7b9f5b3
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/abstractive/capitalize_last_letter.json
+  sha256: 5f51a2c03a40d914c26eb0785d40c6470b3f915dac0c11030e564355d1114902
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/abstractive/capitalize_second_letter.json
+  sha256: c6c1f45b7eb6e03b5d004fa300af4735861bb383971bb6122c6ac09f85d45455
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/abstractive/commonsense_qa.json
+  sha256: dc128710af46ae233a2915612ad004378f8700c136183a2fe15aa9a96ee5d1c9
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/abstractive/country-capital.json
+  sha256: 5748cbfb789c2d671f8a88bf8eaa8a800ead77299e34e1d0cafae11b0409782b
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/abstractive/country-currency.json
+  sha256: cd66bf2650b432cbe4a8a33222bdbc3628b1c667acf7c34537aeafbeff8e32a0
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/abstractive/english-french.json
+  sha256: 766fa28cc696f37b1009f36372372797be03444045c58bc554759f3e177638cc
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/abstractive/english-german.json
+  sha256: 9111e1ee296059761eeb0f8f43dc25f84983c2f14ce1081bc96f5698de4b98cd
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/abstractive/english-spanish.json
+  sha256: d79388dd79b2871ce31caa5ab162900f888285bde80f626d9dd3be494ab63bf4
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/abstractive/landmark-country.json
+  sha256: c96fb4514a4b93426150ec499064bcc5988ac11b440af88bde2196a7b474e240
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/abstractive/lowercase_first_letter.json
+  sha256: 7c30a855decdacb5ca108f112dae630f4cca84dbdf13f34deb3f26cb4f85cee9
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/abstractive/lowercase_last_letter.json
+  sha256: 48d93dd14e6e07fa2a8c8e81d9f76629a6526ae32a791b2c3a2384244d86d92f
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/abstractive/national_parks.json
+  sha256: ffe2018634ffac660e07cef0f330a52991f18f06ffb0af1abd46a2189cf2ed14
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/abstractive/next_capital_letter.json
+  sha256: d99606de4d277354aba0d99cd407f0bcc46dc1eaef5f0f8345975a0686b02677
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/abstractive/next_item.json
+  sha256: fbef21cf40e1c6f4b12100812b09daa8e079f79b84ea3fea0e99637ea70f8873
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/abstractive/park-country.json
+  sha256: 2f64b436d38376614087b345ad764b279d5fa1b72c22cc8db18ecd96042c6df7
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/abstractive/person-instrument.json
+  sha256: 4fff080310e723dc85cca5c10c0c11eebf30df230e8fc102448a4adb0f5da49c
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/abstractive/person-occupation.json
+  sha256: 2c2fac0d4ba5a0aec033005c92ea170c6254f1d30a9b063c9ae5be0ff5d093d7
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/abstractive/person-sport.json
+  sha256: 4c9bef3f97a77a05171070a09132f7104768affe4a39d17fd4ca338f89dcca6f
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/abstractive/present-past.json
+  sha256: bd6f7d484a967646aa5854740c70803568225f47a5630e1555c39e827ba9c78b
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/abstractive/prev_item.json
+  sha256: ca59f4f8c82695903f7266c5ded68f731e52739e991ccf0f5389c36c950cb179
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/abstractive/product-company.json
+  sha256: 196cc243053ff6de7daf36f2d51b495ff504eeeec0fa74bc02ad646d19807f33
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/abstractive/sentiment.json
+  sha256: e63f927bf5920c3acf01dcbdc628bc07118731a77916de4bf0f6e3e443f75413
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/abstractive/singular-plural.json
+  sha256: beac51d02481a63115f0f7879e0dfc8d70244aeaea4d0a8d5193a5b2dfc07b9b
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/abstractive/synonym.json
+  sha256: dc0c79f94b70999236ec962465b21ab416074ea2969a980eafa85e9cb2702685
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/abstractive/word_length.json
+  sha256: 613e1f3399432888d935af4bf68292cfad6147506807ce26743cb17d34060c1a
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/extractive/adjective_v_verb_3.json
+  sha256: b7c676d946642de384ea12631c961721c34b0473a0bc47071606ec4298ee4246
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/extractive/adjective_v_verb_5.json
+  sha256: 95fbfcf58d7737f6e5c79234d66f854459f57f9e3b08efecb5b65e23672656fc
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/extractive/alphabetically_first_3.json
+  sha256: eba190c3f246b3b449248d58be67cafd7cac42cdb01d058adc2ceb54081323ca
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/extractive/alphabetically_first_5.json
+  sha256: bd1fdf2ae8cef5fba118cb7a8ae725a564330a146ebef4d666643e675053da98
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/extractive/alphabetically_last_3.json
+  sha256: 7b01a8bf44c056af652ea4250998007c07b50226decf6d2894e64e4955dd34a7
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/extractive/alphabetically_last_5.json
+  sha256: 458fec6935ddf52c9560d837a2c57a09589cac94e5013adcf842940275880e05
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/extractive/animal_v_object_3.json
+  sha256: c32ba2dde930efcbd2176da93a4a53785645b79967897bf0418ecb84226e3bd7
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/extractive/animal_v_object_5.json
+  sha256: 8cca826d37325f3a031494973bc8f6264a925de44349161cc76e9e8a233382aa
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/extractive/choose_first_of_3.json
+  sha256: cbef55a0187a5fb97c64319978f19ef4ca49249b9bf91df522c992565aa4404f
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/extractive/choose_first_of_5.json
+  sha256: ae5953a7c348269149a5bc2c175c4c9f3a3425108d3bfbe20719bddc05a0dcc1
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/extractive/choose_last_of_3.json
+  sha256: d33e6f95c0556bc79af271f93abbb927da99e329f404e8f81452419813c20a9e
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/extractive/choose_last_of_5.json
+  sha256: a4ac9008fea244afa01a3b11ab3ad4af45f9ff22a2db4d56dc68910e57a7bd49
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/extractive/choose_middle_of_3.json
+  sha256: 6b1c579a8b3963a58865e124c09153a33a2d9bd9db55834e04ea11072a158968
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/extractive/choose_middle_of_5.json
+  sha256: f34c4d38834dcec97d84da4d48f5d1864d69d10897c05b4b581d07c595ecbc89
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/extractive/color_v_animal_3.json
+  sha256: 6740792c0d64bc866987d1d31cec308dc0434a6bef6f8c40f34a0b6c869bba15
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/extractive/color_v_animal_5.json
+  sha256: 941c5b782e023837fdb053901d48611c788de97a5678502f8299fc6f7ff48411
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/extractive/concept_v_object_3.json
+  sha256: dbfd70fd042fa3054f6f80b0f42ff488a927d1f89baf86986ddfe7dc0510bd79
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/extractive/concept_v_object_5.json
+  sha256: e52bc02ffcdde2bfc23f3ff877c249cd9437ae00f827be7026ac2b792bcb7429
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/extractive/conll2003_location.json
+  sha256: 9b8ba2c922a0bd2380bb82bf1ff2e419c1af9e54bc79c0ff3c6bd0faf5a57085
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/extractive/conll2003_organization.json
+  sha256: 13fa905349bfaee62dc34f862b8e9cc20175dc633202422660bf611022a5c8fe
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/extractive/conll2003_person.json
+  sha256: fc064cd7a9425566884046d38ce02cf34f4cb444b90ce19f391db44304929bd7
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/extractive/fruit_v_animal_3.json
+  sha256: 758de31daf01e697ce90c02c52ec679c6301e8401a95d8879780391ca4b5685d
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/extractive/fruit_v_animal_5.json
+  sha256: 9b6e19e5e119e4f80c715c53ebe10eb849bb96d906e3b36cd6f1148e7a3c51d6
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/extractive/object_v_concept_3.json
+  sha256: 03aee234eb2ce10652c03b05dd3f0d2eca220428b1f5ce8494b039f3726c6640
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/extractive/object_v_concept_5.json
+  sha256: 30482a60318c99121fb2bcd117e9b5167f0153c7d7abe49959ab28979d1d7718
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/extractive/squad_val.json
+  sha256: 17a748935bbfec3a346254bbaeda24d2c534a89097bddd174b9f1a6252daaa06
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/extractive/verb_v_adjective_3.json
+  sha256: 2fb43f0d5542e9002d6a0c9a9f5bb1e2799a47d797aaa0fed054f931ef09f2b7
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/extractive/verb_v_adjective_5.json
+  sha256: 2e9b546054101d7a3854c9cbbbd7df88ca79bb8a25a206eeb069cdbf05eba5f6
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/generate/categories.json
+  sha256: fcce05c5c73d9963458b142b23414c83de829822f70f589995b2e1c5dee6865a
+- path: external/task_bank/raw/function_vectors/repo/LICENSE
+  sha256: 5d488ccef808890d04aa42a55f3f5c2b1a1af7156cf28d97ef932796f66e7987
+- path: external/task_bank/raw/function_vectors/repo/dataset_files/README.md
+  sha256: 210bcefbdb98bfc78e5eda6675c18069590dee2aa297179feb1c1030c3681d22
+- path: external/task_bank/raw/function_vectors/repo/src/utils/prompt_utils.py
+  sha256: ff94b663d367630e3e452c0fcce9c52726575a83821eacb2d0493302b75aa674
+tasks:
+- name: fv_antonym
+  family: lexical_antonym
+  domain: lexical semantics
+  n_items_raw: 2398
+  n_items_after_validity_and_dedup: 1000
+  n_items_converted: 1000
+  sampled_ids_file: external/task_bank/tasks/function_vectors/fv_antonym.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'query swap (our construction): same 5 demonstrations in both prompts, clean queries x1 (answer y1), corrupted queries x2 (answer y2 != y1; neither a prefix of the other), equal Qwen3.5 token length
+    of the query line'
+  - prompt format of the paper (Q:/A:, "\n", "\n\n", space before inputs/outputs) with 5 instead of 10 demonstrations; answer " " + output
+  - inputs with several outputs in the source dropped (0 rows here); duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 1000
+  single_token_answers_share: 0.801
+  n_single_token_answers: 801
+  n_ambiguous_inputs_dropped: 0
+  n_facts_used: 2398
+  valid_pair_capacity: 2614033
+  source_file: dataset_files/abstractive/antonym.json
+  n_shots: 5
+  status: converted
+- name: fv_synonym
+  family: lexical_synonym
+  domain: lexical semantics
+  n_items_raw: 2880
+  n_items_after_validity_and_dedup: 1000
+  n_items_converted: 1000
+  sampled_ids_file: external/task_bank/tasks/function_vectors/fv_synonym.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'query swap (our construction): same 5 demonstrations in both prompts, clean queries x1 (answer y1), corrupted queries x2 (answer y2 != y1; neither a prefix of the other), equal Qwen3.5 token length
+    of the query line'
+  - prompt format of the paper (Q:/A:, "\n", "\n\n", space before inputs/outputs) with 5 instead of 10 demonstrations; answer " " + output
+  - inputs with several outputs in the source dropped (0 rows here); duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 1000
+  single_token_answers_share: 0.746
+  n_single_token_answers: 746
+  n_ambiguous_inputs_dropped: 0
+  n_facts_used: 2880
+  valid_pair_capacity: 3863940
+  source_file: dataset_files/abstractive/synonym.json
+  n_shots: 5
+  status: converted
+- name: fv_capitalize
+  family: string_letter_ops
+  domain: string manipulation
+  n_items_raw: 813
+  n_items_after_validity_and_dedup: 1000
+  n_items_converted: 1000
+  sampled_ids_file: external/task_bank/tasks/function_vectors/fv_capitalize.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'query swap (our construction): same 5 demonstrations in both prompts, clean queries x1 (answer y1), corrupted queries x2 (answer y2 != y1; neither a prefix of the other), equal Qwen3.5 token length
+    of the query line'
+  - prompt format of the paper (Q:/A:, "\n", "\n\n", space before inputs/outputs) with 5 instead of 10 demonstrations; answer " " + output
+  - inputs with several outputs in the source dropped (0 rows here); duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 1000
+  single_token_answers_share: 0.47
+  n_single_token_answers: 470
+  n_ambiguous_inputs_dropped: 0
+  n_facts_used: 813
+  valid_pair_capacity: 197589
+  source_file: dataset_files/abstractive/capitalize.json
+  n_shots: 5
+  status: converted
+- name: fv_capitalize_first_letter
+  family: string_letter_ops
+  domain: string manipulation
+  n_items_raw: 813
+  n_items_after_validity_and_dedup: 1000
+  n_items_converted: 1000
+  sampled_ids_file: external/task_bank/tasks/function_vectors/fv_capitalize_first_letter.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'query swap (our construction): same 5 demonstrations in both prompts, clean queries x1 (answer y1), corrupted queries x2 (answer y2 != y1; neither a prefix of the other), equal Qwen3.5 token length
+    of the query line'
+  - prompt format of the paper (Q:/A:, "\n", "\n\n", space before inputs/outputs) with 5 instead of 10 demonstrations; answer " " + output
+  - inputs with several outputs in the source dropped (0 rows here); duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 1000
+  single_token_answers_share: 1.0
+  n_single_token_answers: 1000
+  n_ambiguous_inputs_dropped: 0
+  n_facts_used: 813
+  valid_pair_capacity: 187960
+  source_file: dataset_files/abstractive/capitalize_first_letter.json
+  n_shots: 5
+  status: converted
+- name: fv_capitalize_last_letter
+  family: string_letter_ops
+  domain: string manipulation
+  n_items_raw: 814
+  n_items_after_validity_and_dedup: 1000
+  n_items_converted: 1000
+  sampled_ids_file: external/task_bank/tasks/function_vectors/fv_capitalize_last_letter.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'query swap (our construction): same 5 demonstrations in both prompts, clean queries x1 (answer y1), corrupted queries x2 (answer y2 != y1; neither a prefix of the other), equal Qwen3.5 token length
+    of the query line'
+  - prompt format of the paper (Q:/A:, "\n", "\n\n", space before inputs/outputs) with 5 instead of 10 demonstrations; answer " " + output
+  - inputs with several outputs in the source dropped (0 rows here); duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 1000
+  single_token_answers_share: 1.0
+  n_single_token_answers: 1000
+  n_ambiguous_inputs_dropped: 0
+  n_facts_used: 814
+  valid_pair_capacity: 176292
+  source_file: dataset_files/abstractive/capitalize_last_letter.json
+  n_shots: 5
+  status: converted
+- name: fv_capitalize_second_letter
+  family: string_letter_ops
+  domain: string manipulation
+  n_items_raw: 787
+  n_items_after_validity_and_dedup: 1000
+  n_items_converted: 1000
+  sampled_ids_file: external/task_bank/tasks/function_vectors/fv_capitalize_second_letter.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'query swap (our construction): same 5 demonstrations in both prompts, clean queries x1 (answer y1), corrupted queries x2 (answer y2 != y1; neither a prefix of the other), equal Qwen3.5 token length
+    of the query line'
+  - prompt format of the paper (Q:/A:, "\n", "\n\n", space before inputs/outputs) with 5 instead of 10 demonstrations; answer " " + output
+  - inputs with several outputs in the source dropped (0 rows here); duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 1000
+  single_token_answers_share: 1.0
+  n_single_token_answers: 1000
+  n_ambiguous_inputs_dropped: 0
+  n_facts_used: 787
+  valid_pair_capacity: 162153
+  source_file: dataset_files/abstractive/capitalize_second_letter.json
+  n_shots: 5
+  status: converted
+- name: fv_lowercase_first_letter
+  family: string_letter_ops
+  domain: string manipulation
+  n_items_raw: 814
+  n_items_after_validity_and_dedup: 1000
+  n_items_converted: 1000
+  sampled_ids_file: external/task_bank/tasks/function_vectors/fv_lowercase_first_letter.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'query swap (our construction): same 5 demonstrations in both prompts, clean queries x1 (answer y1), corrupted queries x2 (answer y2 != y1; neither a prefix of the other), equal Qwen3.5 token length
+    of the query line'
+  - prompt format of the paper (Q:/A:, "\n", "\n\n", space before inputs/outputs) with 5 instead of 10 demonstrations; answer " " + output
+  - inputs with several outputs in the source dropped (0 rows here); duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 1000
+  single_token_answers_share: 1.0
+  n_single_token_answers: 1000
+  n_ambiguous_inputs_dropped: 0
+  n_facts_used: 814
+  valid_pair_capacity: 91632
+  source_file: dataset_files/abstractive/lowercase_first_letter.json
+  n_shots: 5
+  status: converted
+- name: fv_lowercase_last_letter
+  family: string_letter_ops
+  domain: string manipulation
+  n_items_raw: 814
+  n_items_after_validity_and_dedup: 1000
+  n_items_converted: 1000
+  sampled_ids_file: external/task_bank/tasks/function_vectors/fv_lowercase_last_letter.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'query swap (our construction): same 5 demonstrations in both prompts, clean queries x1 (answer y1), corrupted queries x2 (answer y2 != y1; neither a prefix of the other), equal Qwen3.5 token length
+    of the query line'
+  - prompt format of the paper (Q:/A:, "\n", "\n\n", space before inputs/outputs) with 5 instead of 10 demonstrations; answer " " + output
+  - inputs with several outputs in the source dropped (0 rows here); duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 1000
+  single_token_answers_share: 1.0
+  n_single_token_answers: 1000
+  n_ambiguous_inputs_dropped: 0
+  n_facts_used: 814
+  valid_pair_capacity: 86107
+  source_file: dataset_files/abstractive/lowercase_last_letter.json
+  n_shots: 5
+  status: converted
+- name: fv_next_capital_letter
+  family: string_letter_ops
+  domain: string manipulation
+  n_items_raw: 814
+  n_items_after_validity_and_dedup: 1000
+  n_items_converted: 1000
+  sampled_ids_file: external/task_bank/tasks/function_vectors/fv_next_capital_letter.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'query swap (our construction): same 5 demonstrations in both prompts, clean queries x1 (answer y1), corrupted queries x2 (answer y2 != y1; neither a prefix of the other), equal Qwen3.5 token length
+    of the query line'
+  - prompt format of the paper (Q:/A:, "\n", "\n\n", space before inputs/outputs) with 5 instead of 10 demonstrations; answer " " + output
+  - inputs with several outputs in the source dropped (0 rows here); duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 1000
+  single_token_answers_share: 1.0
+  n_single_token_answers: 1000
+  n_ambiguous_inputs_dropped: 0
+  n_facts_used: 814
+  valid_pair_capacity: 188554
+  source_file: dataset_files/abstractive/next_capital_letter.json
+  n_shots: 5
+  status: converted
+- name: fv_word_length
+  family: string_length
+  domain: string manipulation
+  n_items_raw: 814
+  n_items_after_validity_and_dedup: 1000
+  n_items_converted: 1000
+  sampled_ids_file: external/task_bank/tasks/function_vectors/fv_word_length.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'query swap (our construction): same 5 demonstrations in both prompts, clean queries x1 (answer y1), corrupted queries x2 (answer y2 != y1; neither a prefix of the other), equal Qwen3.5 token length
+    of the query line'
+  - prompt format of the paper (Q:/A:, "\n", "\n\n", space before inputs/outputs) with 5 instead of 10 demonstrations; answer " " + output
+  - inputs with several outputs in the source dropped (0 rows here); duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 1000
+  single_token_answers_share: 0.0
+  n_single_token_answers: 0
+  n_ambiguous_inputs_dropped: 0
+  n_facts_used: 814
+  valid_pair_capacity: 168310
+  source_file: dataset_files/abstractive/word_length.json
+  n_shots: 5
+  status: converted
+- name: fv_next_item
+  family: sequence_next_prev
+  domain: sequence
+  n_items_raw: 225
+  n_items_after_validity_and_dedup: 1000
+  n_items_converted: 1000
+  sampled_ids_file: external/task_bank/tasks/function_vectors/fv_next_item.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'query swap (our construction): same 5 demonstrations in both prompts, clean queries x1 (answer y1), corrupted queries x2 (answer y2 != y1; neither a prefix of the other), equal Qwen3.5 token length
+    of the query line'
+  - prompt format of the paper (Q:/A:, "\n", "\n\n", space before inputs/outputs) with 5 instead of 10 demonstrations; answer " " + output
+  - inputs with several outputs in the source dropped (16 rows here); duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 1000
+  single_token_answers_share: 0.856
+  n_single_token_answers: 856
+  n_ambiguous_inputs_dropped: 16
+  n_facts_used: 209
+  valid_pair_capacity: 13452
+  source_file: dataset_files/abstractive/next_item.json
+  n_shots: 5
+  status: converted
+- name: fv_prev_item
+  family: sequence_next_prev
+  domain: sequence
+  n_items_raw: 225
+  n_items_after_validity_and_dedup: 1000
+  n_items_converted: 1000
+  sampled_ids_file: external/task_bank/tasks/function_vectors/fv_prev_item.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'query swap (our construction): same 5 demonstrations in both prompts, clean queries x1 (answer y1), corrupted queries x2 (answer y2 != y1; neither a prefix of the other), equal Qwen3.5 token length
+    of the query line'
+  - prompt format of the paper (Q:/A:, "\n", "\n\n", space before inputs/outputs) with 5 instead of 10 demonstrations; answer " " + output
+  - inputs with several outputs in the source dropped (16 rows here); duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 1000
+  single_token_answers_share: 0.859
+  n_single_token_answers: 859
+  n_ambiguous_inputs_dropped: 16
+  n_facts_used: 209
+  valid_pair_capacity: 13442
+  source_file: dataset_files/abstractive/prev_item.json
+  n_shots: 5
+  status: converted
+- name: fv_country_capital
+  family: factual_capital
+  domain: factual knowledge
+  n_items_raw: 197
+  n_items_after_validity_and_dedup: 1000
+  n_items_converted: 1000
+  sampled_ids_file: external/task_bank/tasks/function_vectors/fv_country_capital.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'query swap (our construction): same 5 demonstrations in both prompts, clean queries x1 (answer y1), corrupted queries x2 (answer y2 != y1; neither a prefix of the other), equal Qwen3.5 token length
+    of the query line'
+  - prompt format of the paper (Q:/A:, "\n", "\n\n", space before inputs/outputs) with 5 instead of 10 demonstrations; answer " " + output
+  - inputs with several outputs in the source dropped (0 rows here); duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 1000
+  single_token_answers_share: 0.131
+  n_single_token_answers: 131
+  n_ambiguous_inputs_dropped: 0
+  n_facts_used: 197
+  valid_pair_capacity: 8480
+  source_file: dataset_files/abstractive/country-capital.json
+  n_shots: 5
+  status: converted
+- name: fv_country_currency
+  family: factual_currency
+  domain: factual knowledge
+  n_items_raw: 197
+  n_items_after_validity_and_dedup: 1000
+  n_items_converted: 1000
+  sampled_ids_file: external/task_bank/tasks/function_vectors/fv_country_currency.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'query swap (our construction): same 5 demonstrations in both prompts, clean queries x1 (answer y1), corrupted queries x2 (answer y2 != y1; neither a prefix of the other), equal Qwen3.5 token length
+    of the query line'
+  - prompt format of the paper (Q:/A:, "\n", "\n\n", space before inputs/outputs) with 5 instead of 10 demonstrations; answer " " + output
+  - inputs with several outputs in the source dropped (0 rows here); duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 1000
+  single_token_answers_share: 0.0
+  n_single_token_answers: 0
+  n_ambiguous_inputs_dropped: 0
+  n_facts_used: 197
+  valid_pair_capacity: 8292
+  source_file: dataset_files/abstractive/country-currency.json
+  n_shots: 5
+  status: converted
+- name: fv_landmark_country
+  family: factual_country
+  domain: factual knowledge
+  n_items_raw: 836
+  n_items_after_validity_and_dedup: 1000
+  n_items_converted: 1000
+  sampled_ids_file: external/task_bank/tasks/function_vectors/fv_landmark_country.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'query swap (our construction): same 5 demonstrations in both prompts, clean queries x1 (answer y1), corrupted queries x2 (answer y2 != y1; neither a prefix of the other), equal Qwen3.5 token length
+    of the query line'
+  - prompt format of the paper (Q:/A:, "\n", "\n\n", space before inputs/outputs) with 5 instead of 10 demonstrations; answer " " + output
+  - inputs with several outputs in the source dropped (2 rows here); duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 1000
+  single_token_answers_share: 1.0
+  n_single_token_answers: 1000
+  n_ambiguous_inputs_dropped: 2
+  n_facts_used: 834
+  valid_pair_capacity: 67020
+  source_file: dataset_files/abstractive/landmark-country.json
+  n_shots: 5
+  status: converted
+- name: fv_park_country
+  family: factual_country
+  domain: factual knowledge
+  n_items_raw: 749
+  n_items_after_validity_and_dedup: 1000
+  n_items_converted: 1000
+  sampled_ids_file: external/task_bank/tasks/function_vectors/fv_park_country.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'query swap (our construction): same 5 demonstrations in both prompts, clean queries x1 (answer y1), corrupted queries x2 (answer y2 != y1; neither a prefix of the other), equal Qwen3.5 token length
+    of the query line'
+  - prompt format of the paper (Q:/A:, "\n", "\n\n", space before inputs/outputs) with 5 instead of 10 demonstrations; answer " " + output
+  - inputs with several outputs in the source dropped (2 rows here); duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 1000
+  single_token_answers_share: 0.581
+  n_single_token_answers: 581
+  n_ambiguous_inputs_dropped: 2
+  n_facts_used: 747
+  valid_pair_capacity: 62409
+  source_file: dataset_files/abstractive/park-country.json
+  n_shots: 5
+  status: converted
+- name: fv_national_parks_state
+  family: factual_us_state
+  domain: factual knowledge
+  n_items_raw: 451
+  n_items_after_validity_and_dedup: 1000
+  n_items_converted: 1000
+  sampled_ids_file: external/task_bank/tasks/function_vectors/fv_national_parks_state.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'query swap (our construction): same 5 demonstrations in both prompts, clean queries x1 (answer y1), corrupted queries x2 (answer y2 != y1; neither a prefix of the other), equal Qwen3.5 token length
+    of the query line'
+  - prompt format of the paper (Q:/A:, "\n", "\n\n", space before inputs/outputs) with 5 instead of 10 demonstrations; answer " " + output
+  - inputs with several outputs in the source dropped (57 rows here); duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 1000
+  single_token_answers_share: 0.555
+  n_single_token_answers: 555
+  n_ambiguous_inputs_dropped: 57
+  n_facts_used: 394
+  valid_pair_capacity: 12899
+  source_file: dataset_files/abstractive/national_parks.json
+  n_shots: 5
+  status: converted
+- name: fv_person_instrument
+  family: factual_instrument
+  domain: factual knowledge
+  n_items_raw: 510
+  n_items_after_validity_and_dedup: 1000
+  n_items_converted: 1000
+  sampled_ids_file: external/task_bank/tasks/function_vectors/fv_person_instrument.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'query swap (our construction): same 5 demonstrations in both prompts, clean queries x1 (answer y1), corrupted queries x2 (answer y2 != y1; neither a prefix of the other), equal Qwen3.5 token length
+    of the query line'
+  - prompt format of the paper (Q:/A:, "\n", "\n\n", space before inputs/outputs) with 5 instead of 10 demonstrations; answer " " + output
+  - inputs with several outputs in the source dropped (10 rows here); duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 1000
+  single_token_answers_share: 1.0
+  n_single_token_answers: 1000
+  n_ambiguous_inputs_dropped: 10
+  n_facts_used: 500
+  valid_pair_capacity: 21683
+  source_file: dataset_files/abstractive/person-instrument.json
+  n_shots: 5
+  status: converted
+- name: fv_person_occupation
+  family: factual_occupation
+  domain: factual knowledge
+  n_items_raw: 821
+  n_items_after_validity_and_dedup: 1000
+  n_items_converted: 1000
+  sampled_ids_file: external/task_bank/tasks/function_vectors/fv_person_occupation.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'query swap (our construction): same 5 demonstrations in both prompts, clean queries x1 (answer y1), corrupted queries x2 (answer y2 != y1; neither a prefix of the other), equal Qwen3.5 token length
+    of the query line'
+  - prompt format of the paper (Q:/A:, "\n", "\n\n", space before inputs/outputs) with 5 instead of 10 demonstrations; answer " " + output
+  - inputs with several outputs in the source dropped (0 rows here); duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 1000
+  single_token_answers_share: 0.905
+  n_single_token_answers: 905
+  n_ambiguous_inputs_dropped: 0
+  n_facts_used: 821
+  valid_pair_capacity: 59508
+  source_file: dataset_files/abstractive/person-occupation.json
+  n_shots: 5
+  status: converted
+- name: fv_person_sport
+  family: factual_sport
+  domain: factual knowledge
+  n_items_raw: 318
+  n_items_after_validity_and_dedup: 1000
+  n_items_converted: 1000
+  sampled_ids_file: external/task_bank/tasks/function_vectors/fv_person_sport.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'query swap (our construction): same 5 demonstrations in both prompts, clean queries x1 (answer y1), corrupted queries x2 (answer y2 != y1; neither a prefix of the other), equal Qwen3.5 token length
+    of the query line'
+  - prompt format of the paper (Q:/A:, "\n", "\n\n", space before inputs/outputs) with 5 instead of 10 demonstrations; answer " " + output
+  - inputs with several outputs in the source dropped (0 rows here); duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 1000
+  single_token_answers_share: 1.0
+  n_single_token_answers: 1000
+  n_ambiguous_inputs_dropped: 0
+  n_facts_used: 318
+  valid_pair_capacity: 10117
+  source_file: dataset_files/abstractive/person-sport.json
+  n_shots: 5
+  status: converted
+- name: fv_product_company
+  family: factual_product_company
+  domain: factual knowledge
+  n_items_raw: 522
+  n_items_after_validity_and_dedup: 1000
+  n_items_converted: 1000
+  sampled_ids_file: external/task_bank/tasks/function_vectors/fv_product_company.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'query swap (our construction): same 5 demonstrations in both prompts, clean queries x1 (answer y1), corrupted queries x2 (answer y2 != y1; neither a prefix of the other), equal Qwen3.5 token length
+    of the query line'
+  - prompt format of the paper (Q:/A:, "\n", "\n\n", space before inputs/outputs) with 5 instead of 10 demonstrations; answer " " + output
+  - inputs with several outputs in the source dropped (14 rows here); duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 1000
+  single_token_answers_share: 1.0
+  n_single_token_answers: 1000
+  n_ambiguous_inputs_dropped: 14
+  n_facts_used: 488
+  valid_pair_capacity: 22332
+  source_file: dataset_files/abstractive/product-company.json
+  n_shots: 5
+  status: converted
+- name: fv_english_french
+  family: translation_french
+  domain: translation
+  n_items_raw: 4698
+  n_items_after_validity_and_dedup: 1000
+  n_items_converted: 1000
+  sampled_ids_file: external/task_bank/tasks/function_vectors/fv_english_french.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'query swap (our construction): same 5 demonstrations in both prompts, clean queries x1 (answer y1), corrupted queries x2 (answer y2 != y1; neither a prefix of the other), equal Qwen3.5 token length
+    of the query line'
+  - prompt format of the paper (Q:/A:, "\n", "\n\n", space before inputs/outputs) with 5 instead of 10 demonstrations; answer " " + output
+  - inputs with several outputs in the source dropped (0 rows here); duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 1000
+  single_token_answers_share: 0.273
+  n_single_token_answers: 273
+  n_ambiguous_inputs_dropped: 0
+  n_facts_used: 4698
+  valid_pair_capacity: 9647633
+  source_file: dataset_files/abstractive/english-french.json
+  n_shots: 5
+  status: converted
+- name: fv_english_german
+  family: translation_german
+  domain: translation
+  n_items_raw: 5145
+  n_items_after_validity_and_dedup: 1000
+  n_items_converted: 1000
+  sampled_ids_file: external/task_bank/tasks/function_vectors/fv_english_german.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'query swap (our construction): same 5 demonstrations in both prompts, clean queries x1 (answer y1), corrupted queries x2 (answer y2 != y1; neither a prefix of the other), equal Qwen3.5 token length
+    of the query line'
+  - prompt format of the paper (Q:/A:, "\n", "\n\n", space before inputs/outputs) with 5 instead of 10 demonstrations; answer " " + output
+  - inputs with several outputs in the source dropped (0 rows here); duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 1000
+  single_token_answers_share: 0.122
+  n_single_token_answers: 122
+  n_ambiguous_inputs_dropped: 0
+  n_facts_used: 5145
+  valid_pair_capacity: 11905824
+  source_file: dataset_files/abstractive/english-german.json
+  n_shots: 5
+  status: converted
+- name: fv_english_spanish
+  family: translation_spanish
+  domain: translation
+  n_items_raw: 5199
+  n_items_after_validity_and_dedup: 1000
+  n_items_converted: 1000
+  sampled_ids_file: external/task_bank/tasks/function_vectors/fv_english_spanish.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'query swap (our construction): same 5 demonstrations in both prompts, clean queries x1 (answer y1), corrupted queries x2 (answer y2 != y1; neither a prefix of the other), equal Qwen3.5 token length
+    of the query line'
+  - prompt format of the paper (Q:/A:, "\n", "\n\n", space before inputs/outputs) with 5 instead of 10 demonstrations; answer " " + output
+  - inputs with several outputs in the source dropped (0 rows here); duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 1000
+  single_token_answers_share: 0.331
+  n_single_token_answers: 331
+  n_ambiguous_inputs_dropped: 0
+  n_facts_used: 5199
+  valid_pair_capacity: 11910498
+  source_file: dataset_files/abstractive/english-spanish.json
+  n_shots: 5
+  status: converted
+- name: fv_present_past
+  family: morphology_past_tense
+  domain: morphology
+  n_items_raw: 293
+  n_items_after_validity_and_dedup: 1000
+  n_items_converted: 1000
+  sampled_ids_file: external/task_bank/tasks/function_vectors/fv_present_past.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'query swap (our construction): same 5 demonstrations in both prompts, clean queries x1 (answer y1), corrupted queries x2 (answer y2 != y1; neither a prefix of the other), equal Qwen3.5 token length
+    of the query line'
+  - prompt format of the paper (Q:/A:, "\n", "\n\n", space before inputs/outputs) with 5 instead of 10 demonstrations; answer " " + output
+  - inputs with several outputs in the source dropped (0 rows here); duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 1000
+  single_token_answers_share: 0.973
+  n_single_token_answers: 973
+  n_ambiguous_inputs_dropped: 0
+  n_facts_used: 293
+  valid_pair_capacity: 42486
+  source_file: dataset_files/abstractive/present-past.json
+  n_shots: 5
+  status: converted
+- name: fv_singular_plural
+  family: morphology_plural
+  domain: morphology
+  n_items_raw: 205
+  n_items_after_validity_and_dedup: 1000
+  n_items_converted: 1000
+  sampled_ids_file: external/task_bank/tasks/function_vectors/fv_singular_plural.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'query swap (our construction): same 5 demonstrations in both prompts, clean queries x1 (answer y1), corrupted queries x2 (answer y2 != y1; neither a prefix of the other), equal Qwen3.5 token length
+    of the query line'
+  - prompt format of the paper (Q:/A:, "\n", "\n\n", space before inputs/outputs) with 5 instead of 10 demonstrations; answer " " + output
+  - inputs with several outputs in the source dropped (0 rows here); duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 1000
+  single_token_answers_share: 0.437
+  n_single_token_answers: 437
+  n_ambiguous_inputs_dropped: 0
+  n_facts_used: 205
+  valid_pair_capacity: 14835
+  source_file: dataset_files/abstractive/singular-plural.json
+  n_shots: 5
+  status: converted
+- name: fv_sentiment
+  family: sentiment
+  domain: sentiment
+  n_items_raw: 1167
+  n_items_after_validity_and_dedup: 1000
+  n_items_converted: 1000
+  sampled_ids_file: external/task_bank/tasks/function_vectors/fv_sentiment.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'query swap (our construction): same 5 demonstrations in both prompts, clean queries x1 (answer y1), corrupted queries x2 (answer y2 != y1; neither a prefix of the other), equal Qwen3.5 token length
+    of the query line'
+  - prompt format of the paper (Q:/A:, "\n", "\n\n", space before inputs/outputs) with 5 instead of 10 demonstrations; answer " " + output
+  - inputs with several outputs in the source dropped (0 rows here); duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 1000
+  single_token_answers_share: 1.0
+  n_single_token_answers: 1000
+  n_ambiguous_inputs_dropped: 0
+  n_facts_used: 1167
+  valid_pair_capacity: 27707
+  source_file: dataset_files/abstractive/sentiment.json
+  n_shots: 5
+  status: converted
+- name: fv_extractive_adjective_v_verb_5
+  family: fv_extractive_adjective_v_verb
+  domain: in-context selection
+  n_items_raw: 1000
+  n_items_after_validity_and_dedup: 1000
+  n_items_converted: 1000
+  sampled_ids_file: external/task_bank/tasks/function_vectors/fv_extractive_adjective_v_verb_5.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'query swap (our construction): same 5 demonstrations in both prompts, clean queries x1 (answer y1), corrupted queries x2 (answer y2 != y1; neither a prefix of the other), equal Qwen3.5 token length
+    of the query line'
+  - prompt format of the paper (Q:/A:, "\n", "\n\n", space before inputs/outputs) with 5 instead of 10 demonstrations; answer " " + output
+  - inputs with several outputs in the source dropped (0 rows here); duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 1000
+  single_token_answers_share: 0.83
+  n_single_token_answers: 830
+  n_ambiguous_inputs_dropped: 0
+  n_facts_used: 1000
+  valid_pair_capacity: 226510
+  source_file: dataset_files/extractive/adjective_v_verb_5.json
+  n_shots: 5
+  status: converted
+- name: fv_extractive_alphabetically_first_5
+  family: fv_extractive_alphabetically_first
+  domain: in-context selection
+  n_items_raw: 1000
+  n_items_after_validity_and_dedup: 1000
+  n_items_converted: 1000
+  sampled_ids_file: external/task_bank/tasks/function_vectors/fv_extractive_alphabetically_first_5.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'query swap (our construction): same 5 demonstrations in both prompts, clean queries x1 (answer y1), corrupted queries x2 (answer y2 != y1; neither a prefix of the other), equal Qwen3.5 token length
+    of the query line'
+  - prompt format of the paper (Q:/A:, "\n", "\n\n", space before inputs/outputs) with 5 instead of 10 demonstrations; answer " " + output
+  - inputs with several outputs in the source dropped (0 rows here); duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 1000
+  single_token_answers_share: 0.571
+  n_single_token_answers: 571
+  n_ambiguous_inputs_dropped: 0
+  n_facts_used: 1000
+  valid_pair_capacity: 117458
+  source_file: dataset_files/extractive/alphabetically_first_5.json
+  n_shots: 5
+  status: converted
+- name: fv_extractive_alphabetically_last_5
+  family: fv_extractive_alphabetically_last
+  domain: in-context selection
+  n_items_raw: 1000
+  n_items_after_validity_and_dedup: 1000
+  n_items_converted: 1000
+  sampled_ids_file: external/task_bank/tasks/function_vectors/fv_extractive_alphabetically_last_5.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'query swap (our construction): same 5 demonstrations in both prompts, clean queries x1 (answer y1), corrupted queries x2 (answer y2 != y1; neither a prefix of the other), equal Qwen3.5 token length
+    of the query line'
+  - prompt format of the paper (Q:/A:, "\n", "\n\n", space before inputs/outputs) with 5 instead of 10 demonstrations; answer " " + output
+  - inputs with several outputs in the source dropped (0 rows here); duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 1000
+  single_token_answers_share: 0.662
+  n_single_token_answers: 662
+  n_ambiguous_inputs_dropped: 0
+  n_facts_used: 1000
+  valid_pair_capacity: 118823
+  source_file: dataset_files/extractive/alphabetically_last_5.json
+  n_shots: 5
+  status: converted
+- name: fv_extractive_animal_v_object_5
+  family: fv_extractive_animal_v_object
+  domain: in-context selection
+  n_items_raw: 1000
+  n_items_after_validity_and_dedup: 1000
+  n_items_converted: 1000
+  sampled_ids_file: external/task_bank/tasks/function_vectors/fv_extractive_animal_v_object_5.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'query swap (our construction): same 5 demonstrations in both prompts, clean queries x1 (answer y1), corrupted queries x2 (answer y2 != y1; neither a prefix of the other), equal Qwen3.5 token length
+    of the query line'
+  - prompt format of the paper (Q:/A:, "\n", "\n\n", space before inputs/outputs) with 5 instead of 10 demonstrations; answer " " + output
+  - inputs with several outputs in the source dropped (0 rows here); duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 1000
+  single_token_answers_share: 0.169
+  n_single_token_answers: 169
+  n_ambiguous_inputs_dropped: 0
+  n_facts_used: 1000
+  valid_pair_capacity: 120958
+  source_file: dataset_files/extractive/animal_v_object_5.json
+  n_shots: 5
+  status: converted
+- name: fv_extractive_choose_first_of_5
+  family: fv_extractive_choose_first_of
+  domain: in-context selection
+  n_items_raw: 1000
+  n_items_after_validity_and_dedup: 1000
+  n_items_converted: 1000
+  sampled_ids_file: external/task_bank/tasks/function_vectors/fv_extractive_choose_first_of_5.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'query swap (our construction): same 5 demonstrations in both prompts, clean queries x1 (answer y1), corrupted queries x2 (answer y2 != y1; neither a prefix of the other), equal Qwen3.5 token length
+    of the query line'
+  - prompt format of the paper (Q:/A:, "\n", "\n\n", space before inputs/outputs) with 5 instead of 10 demonstrations; answer " " + output
+  - inputs with several outputs in the source dropped (0 rows here); duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 1000
+  single_token_answers_share: 0.61
+  n_single_token_answers: 610
+  n_ambiguous_inputs_dropped: 0
+  n_facts_used: 1000
+  valid_pair_capacity: 116773
+  source_file: dataset_files/extractive/choose_first_of_5.json
+  n_shots: 5
+  status: converted
+- name: fv_extractive_choose_last_of_5
+  family: fv_extractive_choose_last_of
+  domain: in-context selection
+  n_items_raw: 1000
+  n_items_after_validity_and_dedup: 1000
+  n_items_converted: 1000
+  sampled_ids_file: external/task_bank/tasks/function_vectors/fv_extractive_choose_last_of_5.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'query swap (our construction): same 5 demonstrations in both prompts, clean queries x1 (answer y1), corrupted queries x2 (answer y2 != y1; neither a prefix of the other), equal Qwen3.5 token length
+    of the query line'
+  - prompt format of the paper (Q:/A:, "\n", "\n\n", space before inputs/outputs) with 5 instead of 10 demonstrations; answer " " + output
+  - inputs with several outputs in the source dropped (0 rows here); duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 1000
+  single_token_answers_share: 0.643
+  n_single_token_answers: 643
+  n_ambiguous_inputs_dropped: 0
+  n_facts_used: 1000
+  valid_pair_capacity: 114008
+  source_file: dataset_files/extractive/choose_last_of_5.json
+  n_shots: 5
+  status: converted
+- name: fv_extractive_choose_middle_of_5
+  family: fv_extractive_choose_middle_of
+  domain: in-context selection
+  n_items_raw: 1000
+  n_items_after_validity_and_dedup: 1000
+  n_items_converted: 1000
+  sampled_ids_file: external/task_bank/tasks/function_vectors/fv_extractive_choose_middle_of_5.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'query swap (our construction): same 5 demonstrations in both prompts, clean queries x1 (answer y1), corrupted queries x2 (answer y2 != y1; neither a prefix of the other), equal Qwen3.5 token length
+    of the query line'
+  - prompt format of the paper (Q:/A:, "\n", "\n\n", space before inputs/outputs) with 5 instead of 10 demonstrations; answer " " + output
+  - inputs with several outputs in the source dropped (0 rows here); duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 1000
+  single_token_answers_share: 0.651
+  n_single_token_answers: 651
+  n_ambiguous_inputs_dropped: 0
+  n_facts_used: 1000
+  valid_pair_capacity: 114503
+  source_file: dataset_files/extractive/choose_middle_of_5.json
+  n_shots: 5
+  status: converted
+- name: fv_extractive_color_v_animal_5
+  family: fv_extractive_color_v_animal
+  domain: in-context selection
+  n_items_raw: 1000
+  n_items_after_validity_and_dedup: 1000
+  n_items_converted: 1000
+  sampled_ids_file: external/task_bank/tasks/function_vectors/fv_extractive_color_v_animal_5.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'query swap (our construction): same 5 demonstrations in both prompts, clean queries x1 (answer y1), corrupted queries x2 (answer y2 != y1; neither a prefix of the other), equal Qwen3.5 token length
+    of the query line'
+  - prompt format of the paper (Q:/A:, "\n", "\n\n", space before inputs/outputs) with 5 instead of 10 demonstrations; answer " " + output
+  - inputs with several outputs in the source dropped (0 rows here); duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 1000
+  single_token_answers_share: 0.922
+  n_single_token_answers: 922
+  n_ambiguous_inputs_dropped: 0
+  n_facts_used: 1000
+  valid_pair_capacity: 92766
+  source_file: dataset_files/extractive/color_v_animal_5.json
+  n_shots: 5
+  status: converted
+- name: fv_extractive_concept_v_object_5
+  family: fv_extractive_concept_v_object
+  domain: in-context selection
+  n_items_raw: 1000
+  n_items_after_validity_and_dedup: 1000
+  n_items_converted: 1000
+  sampled_ids_file: external/task_bank/tasks/function_vectors/fv_extractive_concept_v_object_5.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'query swap (our construction): same 5 demonstrations in both prompts, clean queries x1 (answer y1), corrupted queries x2 (answer y2 != y1; neither a prefix of the other), equal Qwen3.5 token length
+    of the query line'
+  - prompt format of the paper (Q:/A:, "\n", "\n\n", space before inputs/outputs) with 5 instead of 10 demonstrations; answer " " + output
+  - inputs with several outputs in the source dropped (0 rows here); duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 1000
+  single_token_answers_share: 0.86
+  n_single_token_answers: 860
+  n_ambiguous_inputs_dropped: 0
+  n_facts_used: 1000
+  valid_pair_capacity: 141294
+  source_file: dataset_files/extractive/concept_v_object_5.json
+  n_shots: 5
+  status: converted
+- name: fv_extractive_fruit_v_animal_5
+  family: fv_extractive_fruit_v_animal
+  domain: in-context selection
+  n_items_raw: 1000
+  n_items_after_validity_and_dedup: 1000
+  n_items_converted: 1000
+  sampled_ids_file: external/task_bank/tasks/function_vectors/fv_extractive_fruit_v_animal_5.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'query swap (our construction): same 5 demonstrations in both prompts, clean queries x1 (answer y1), corrupted queries x2 (answer y2 != y1; neither a prefix of the other), equal Qwen3.5 token length
+    of the query line'
+  - prompt format of the paper (Q:/A:, "\n", "\n\n", space before inputs/outputs) with 5 instead of 10 demonstrations; answer " " + output
+  - inputs with several outputs in the source dropped (0 rows here); duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 1000
+  single_token_answers_share: 0.26
+  n_single_token_answers: 260
+  n_ambiguous_inputs_dropped: 0
+  n_facts_used: 1000
+  valid_pair_capacity: 85704
+  source_file: dataset_files/extractive/fruit_v_animal_5.json
+  n_shots: 5
+  status: converted
+- name: fv_extractive_object_v_concept_5
+  family: fv_extractive_object_v_concept
+  domain: in-context selection
+  n_items_raw: 1000
+  n_items_after_validity_and_dedup: 1000
+  n_items_converted: 1000
+  sampled_ids_file: external/task_bank/tasks/function_vectors/fv_extractive_object_v_concept_5.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'query swap (our construction): same 5 demonstrations in both prompts, clean queries x1 (answer y1), corrupted queries x2 (answer y2 != y1; neither a prefix of the other), equal Qwen3.5 token length
+    of the query line'
+  - prompt format of the paper (Q:/A:, "\n", "\n\n", space before inputs/outputs) with 5 instead of 10 demonstrations; answer " " + output
+  - inputs with several outputs in the source dropped (0 rows here); duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 1000
+  single_token_answers_share: 0.782
+  n_single_token_answers: 782
+  n_ambiguous_inputs_dropped: 0
+  n_facts_used: 1000
+  valid_pair_capacity: 162527
+  source_file: dataset_files/extractive/object_v_concept_5.json
+  n_shots: 5
+  status: converted
+- name: fv_extractive_verb_v_adjective_5
+  family: fv_extractive_verb_v_adjective
+  domain: in-context selection
+  n_items_raw: 1000
+  n_items_after_validity_and_dedup: 1000
+  n_items_converted: 1000
+  sampled_ids_file: external/task_bank/tasks/function_vectors/fv_extractive_verb_v_adjective_5.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'query swap (our construction): same 5 demonstrations in both prompts, clean queries x1 (answer y1), corrupted queries x2 (answer y2 != y1; neither a prefix of the other), equal Qwen3.5 token length
+    of the query line'
+  - prompt format of the paper (Q:/A:, "\n", "\n\n", space before inputs/outputs) with 5 instead of 10 demonstrations; answer " " + output
+  - inputs with several outputs in the source dropped (0 rows here); duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 1000
+  single_token_answers_share: 0.936
+  n_single_token_answers: 936
+  n_ambiguous_inputs_dropped: 0
+  n_facts_used: 1000
+  valid_pair_capacity: 129002
+  source_file: dataset_files/extractive/verb_v_adjective_5.json
+  n_shots: 5
+  status: converted
+- name: fv_ag_news
+  status: not_converted
+  source_file: dataset_files/abstractive/ag_news.json
+  notes: long news articles as input; tier-1 feasible but costly for all-position attribution
+- name: fv_commonsense_qa
+  status: not_converted
+  source_file: dataset_files/abstractive/commonsense_qa.json
+  notes: multi-line multiple-choice prompts (MCQA covered by the MIB group)
+- name: fv_squad_val
+  status: not_converted
+  source_file: dataset_files/extractive/squad_val.json
+  notes: reading-comprehension contexts of ~150 tokens per demonstration
+- name: fv_conll2003_location
+  status: not_converted
+  source_file: dataset_files/extractive/conll2003_location.json
+  notes: NER spans from running text, long inputs
+- name: fv_conll2003_organization
+  status: not_converted
+  source_file: dataset_files/extractive/conll2003_organization.json
+  notes: NER spans from running text, long inputs
+- name: fv_conll2003_person
+  status: not_converted
+  source_file: dataset_files/extractive/conll2003_person.json
+  notes: NER spans from running text, long inputs

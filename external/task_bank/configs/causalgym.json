@@ -1,0 +1,258 @@
+{
+  "agr_gender": {
+    "path": "agr_gender.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "agr_refl_num_obj-relc": {
+    "path": "agr_refl_num_obj-relc.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "agr_refl_num_pp": {
+    "path": "agr_refl_num_pp.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "agr_refl_num_subj-relc": {
+    "path": "agr_refl_num_subj-relc.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "agr_sv_num_obj-relc": {
+    "path": "agr_sv_num_obj-relc.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "agr_sv_num_obj-relc_matched": {
+    "path": "agr_sv_num_obj-relc_matched.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "agr_sv_num_pp": {
+    "path": "agr_sv_num_pp.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "agr_sv_num_pp_matched": {
+    "path": "agr_sv_num_pp_matched.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "agr_sv_num_subj-relc": {
+    "path": "agr_sv_num_subj-relc.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "agr_sv_num_subj-relc_matched": {
+    "path": "agr_sv_num_subj-relc_matched.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "cleft": {
+    "path": "cleft.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "cleft_mod": {
+    "path": "cleft_mod.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "filler_gap_embed_3": {
+    "path": "filler_gap_embed_3.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "filler_gap_embed_4": {
+    "path": "filler_gap_embed_4.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "filler_gap_hierarchy": {
+    "path": "filler_gap_hierarchy.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "filler_gap_obj": {
+    "path": "filler_gap_obj.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "filler_gap_pp": {
+    "path": "filler_gap_pp.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "filler_gap_subj": {
+    "path": "filler_gap_subj.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "garden_mvrr": {
+    "path": "garden_mvrr.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "garden_mvrr_mod": {
+    "path": "garden_mvrr_mod.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "garden_npz_obj": {
+    "path": "garden_npz_obj.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "garden_npz_obj_mod": {
+    "path": "garden_npz_obj_mod.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "garden_npz_v-trans": {
+    "path": "garden_npz_v-trans.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "garden_npz_v-trans_mod": {
+    "path": "garden_npz_v-trans_mod.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "gss_subord": {
+    "path": "gss_subord.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "gss_subord_obj-relc": {
+    "path": "gss_subord_obj-relc.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "gss_subord_pp": {
+    "path": "gss_subord_pp.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "gss_subord_subj-relc": {
+    "path": "gss_subord_subj-relc.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "npi_any_obj-relc": {
+    "path": "npi_any_obj-relc.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "npi_any_subj-relc": {
+    "path": "npi_any_subj-relc.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "npi_ever_obj-relc": {
+    "path": "npi_ever_obj-relc.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "npi_ever_subj-relc": {
+    "path": "npi_ever_subj-relc.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  }
+}

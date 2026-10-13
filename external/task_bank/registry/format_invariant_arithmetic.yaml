@@ -1,0 +1,32 @@
+source_id: format_invariant_arithmetic
+title: Are Arithmetic Heuristic Neurons Form-Invariant? A Mechanistic Analysis of Symbols, Text, and Code in LLMs
+bibkey: naganna2026formInvariant
+bibkey_data: null
+url: https://github.com/SharathHN/format-invariant-arithmetic
+revision: 55ff6e86874c873e1537daf986252d17e764fa36
+download_date: '2026-10-12'
+raw_files:
+- path: external/task_bank/raw/format_invariant_arithmetic/repo/.gitignore
+  sha256: 0e321f2c0832430de80f9af885a86fbf04a71842b2cdd962d6504562985b8113
+- path: external/task_bank/raw/format_invariant_arithmetic/repo/README.md
+  sha256: 425dacb7bcb284cb6cd525d7e4106754248377dfc80186e88f0b175b952722e2
+- path: external/task_bank/raw/format_invariant_arithmetic/repo/run/01_datasets.py
+  sha256: 83c2ea93a849bb059858079db405214ba7d567afea3ac0bdd4f26cd42501ca3e
+- path: external/task_bank/raw/format_invariant_arithmetic/repo/src/config.py
+  sha256: 9e398e51e069e43fcb080f61b5b17254e0bff88ac63554830c2b425014468f9b
+- path: external/task_bank/raw/format_invariant_arithmetic/repo/src/prompts.py
+  sha256: 4f5216d248ef1c0779ce969f60bc5d79999849cd32629fc26aa21d2d80b39001
+- path: external/task_bank/raw/format_invariant_arithmetic/MANIFEST.json
+  sha256: 1d2001a2e3bf1a811ab767b9213430b33553db8eaec19fc927ded71d853ae3dd
+  note: sha256 of all 145 tracked files
+licence: 'unclear: no LICENSE file and no licence statement in the README (the arXiv page lists CC BY 4.0 for the paper only)'
+licence_source: absence of LICENSE at the pinned commit; arXiv abs page for the paper
+redistribute: no (unclear, treated as no)
+tier: 1
+tasks: []
+status: unverified
+notes:
+  authors: 'arXiv: Sharath Naganna, Tanvir Ahmed Sijan, Uddipta Kalita (2026, "Under Review"); repo commits by SharathHN and sijantanvir, consistent.'
+  fit: three formats of the Nikankin prompts (plain "x+y=", Python script ending "Ans = ", word problem "Tom has X apples and Alice gives him Y apples. So he now has "), operators + - * /, operands up to 999 (Llama-3 single-token range), 200 prompts per operator and format, model-conditioned (Llama-3 8B/3B/1B correct prompts); no corruption pairs in the data (patching pairs are random other prompts). A flipping variant would be easy to build from the templates (random same-operator partner with a different answer, as for nikankin_arithmetic) and the code and word formats are not covered by the other sources, so it is worth asking the authors for a licence or re-implementing the three templates with permission.
+  neuron_lists: 'data/<model>/importance/*.pt and heuristics JSON are committed (Llama-3 8B/3B/1B, per format and operator): candidate neuron lists for the later neuron-list pass, licence permitting; Llama tokenizer, not Qwen.'
+  pickles: datasets/*.pkl were not unpickled (untrusted); JSON versions exist only for datasets_wrong of llama1b.

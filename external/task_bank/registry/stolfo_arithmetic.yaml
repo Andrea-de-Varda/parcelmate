@@ -1,0 +1,82 @@
+source_id: stolfo_arithmetic
+title: A Mechanistic Interpretation of Arithmetic Reasoning in Language Models using Causal Mediation Analysis (prompt generator)
+bibkey: stolfo2023mechanistic
+bibkey_data: null
+url: https://github.com/alestolfo/lm-arithmetic
+revision: ec00a0445738857db228d85a64eaf94e2bdf53b3
+download_date: '2026-10-12'
+raw_files:
+- path: external/task_bank/raw/stolfo_arithmetic/repo/LICENSE
+  sha256: 6a5edcd7c77b93dc707aebb872eca5013eaa4ded49d9a89b3859fe9ebe547a66
+- path: external/task_bank/raw/stolfo_arithmetic/repo/README.md
+  sha256: 75536f61d74b8b79c052fb63ca931101dff7f63258a60d38f0dce7c5fd8ed0ed
+- path: external/task_bank/raw/stolfo_arithmetic/repo/conf/config.yaml
+  sha256: 78d20db99d0b0d70337dc992246cb4a54921df9d75d15700091835dfa34db2de
+- path: external/task_bank/raw/stolfo_arithmetic/repo/interventions/intervention.py
+  sha256: 657865b8268a48379916e2bca09841e98bf5ce62b70af691e090dec4d272ad48
+- path: external/task_bank/raw/stolfo_arithmetic/repo/interventions/three_operand_questions.json
+  sha256: 38f374b4a6c63b4ad792a6912f50b26b8481809ac93ad331a986dd846f49fac3
+- path: external/task_bank/raw/stolfo_arithmetic/repo/math_cma.py
+  sha256: 8eb97f8ba56ba71cbe1b4b99a5cfa08db6b212d3e32c2bb8ea489a636298ddbe
+- path: external/task_bank/raw/stolfo_arithmetic/MANIFEST.json
+  sha256: 2dab9d1779618c77374acee37f9baab6ae261c7b72541a4fad26feb6e9d512c1
+  note: sha256 of all 19 tracked files
+licence: MIT (Copyright (c) 2023 Alessandro Stolfo)
+licence_source: LICENSE at the pinned commit
+redistribute: 'yes'
+generator:
+  commit: ec00a0445738857db228d85a64eaf94e2bdf53b3
+  seed: 42
+  params: 'own re-implementation (not the repo code, which needs Hydra, torch and a model tokenizer): max_n=300, n_shots=0, representation=arabic, 2000 items per task'
+tier: 1
+tasks:
+- name: add
+  family: arithmetic_add_numeric_operand_swap
+  domain: arithmetic
+  n_items_raw: generated (no raw data files)
+  n_items_converted: 2000
+  sampled_ids_file: tasks/stolfo_arithmetic/add.ids.txt
+  len_match_share_qwen35: 1.0
+  single_token_answer_share_qwen35: 0.0
+  adaptations: own seed-42 re-implementation of intervention.py sampling (repo has no data files); templates verbatim; template round-robin; equal digit counts per operand position and different results; integer results 1..299 only
+- name: sub
+  family: arithmetic_sub_numeric_operand_swap
+  domain: arithmetic
+  n_items_raw: generated (no raw data files)
+  n_items_converted: 2000
+  sampled_ids_file: tasks/stolfo_arithmetic/sub.ids.txt
+  len_match_share_qwen35: 1.0
+  single_token_answer_share_qwen35: 0.0
+  adaptations: own seed-42 re-implementation of intervention.py sampling (repo has no data files); templates verbatim; template round-robin; equal digit counts per operand position and different results; integer results 1..299 only
+- name: mul
+  family: arithmetic_mul_numeric_operand_swap
+  domain: arithmetic
+  n_items_raw: generated (no raw data files)
+  n_items_converted: 2000
+  sampled_ids_file: tasks/stolfo_arithmetic/mul.ids.txt
+  len_match_share_qwen35: 1.0
+  single_token_answer_share_qwen35: 0.0
+  adaptations: own seed-42 re-implementation of intervention.py sampling (repo has no data files); templates verbatim; template round-robin; equal digit counts per operand position and different results; integer results 1..299 only
+- name: div
+  family: arithmetic_div_numeric_operand_swap
+  domain: arithmetic
+  n_items_raw: generated (no raw data files)
+  n_items_converted: 2000
+  sampled_ids_file: tasks/stolfo_arithmetic/div.ids.txt
+  len_match_share_qwen35: 1.0
+  single_token_answer_share_qwen35: 0.0
+  adaptations: own seed-42 re-implementation of intervention.py sampling (repo has no data files); templates verbatim; template round-robin; equal digit counts per operand position and different results; integer results 1..299 only
+- name: operator_change
+  family: arithmetic_operator_change_numeric
+  domain: arithmetic
+  n_items_raw: generated (no raw data files)
+  n_items_converted: 2000
+  sampled_ids_file: tasks/stolfo_arithmetic/operator_change.ids.txt
+  len_match_share_qwen35: 1.0
+  single_token_answer_share_qwen35: 0.0
+  adaptations: own seed-42 re-implementation of intervention.py sampling (repo has no data files); templates verbatim; template round-robin; same operands, random different operator, results differ; integer results 1..299 only
+status: converted
+notes:
+  not_converted: intervention type 2 (same result, no flip), words representation, three-operand equations (three_operand_questions.json), number-retrieval and LAMA factual tasks
+  answers: leading space before the digits (the repo appends " {res}" in few-shot exemplars)
+  operator_change: the repo draws operator pairs among + - * /; so some pairs are not add/sub.

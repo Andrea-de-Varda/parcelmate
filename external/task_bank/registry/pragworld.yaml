@@ -1,0 +1,47 @@
+source_id: pragworld
+title: 'PragWorld: a benchmark evaluating LLMs'' local world model under minimal linguistic alterations and conversational dynamics'
+bibkey: Vashistha_2026
+bibkey_data: vashistha2025pragworldbenchmarkevaluatingllms (arXiv version)
+url: https://github.com/SachinVashisth/PRAGWORLD
+revision: c20b079a2882b8a933247c85e78df3e47ab95cec
+licence: MIT (LICENSE at the pinned commit); seed dialogues come from GRICE and CICERO, whose licences are not stated in the repository
+licence_source: external/task_bank/raw/pragworld/repo/LICENSE
+redistribute: yes (MIT repo; upstream seed-data licences unchecked, flagged)
+tier: 1
+tokenizer:
+  tokenizer_repo: Qwen/Qwen3.5-2B
+  tokenizer_revision: 15852e8c16360a2fea060d615a32b45270f8a8fc
+  note: Qwen3.5-2B tokenizer.json; the 4B tokenizer is the same (checked by the circuits group)
+status: converted
+download_date: '2026-10-12'
+raw_files:
+- path: external/task_bank/raw/pragworld/repo/Manual_Dataset_500_Final.csv
+  sha256: 5066b0140b15871992e286eeaf534de38d3953a7ef862f19d1631f0240cdab7f
+- path: external/task_bank/raw/pragworld/repo/synthetic_final.csv
+  sha256: af6106a93072b83aa9282281800dd3447403ae7b03513642eaa6958b6a7f8563
+- path: external/task_bank/raw/pragworld/repo/LICENSE
+  sha256: f1e8216e9b3579bbf5b7d955e46325670a4cbf6abf16603b3a5968ac9c788144
+- path: external/task_bank/raw/pragworld/repo/README.md
+  sha256: 1bcadda925c9e32529c72f2ccc265641df2ce4fe862f282a7fc945014fdfa766
+tasks:
+- name: pragworld_flip
+  family: pragmatics_dialogue_yesno
+  domain: pragmatics / local world model
+  n_items_raw: 2076
+  n_items_after_validity_and_dedup: 219
+  n_items_converted: 219
+  sampled_ids_file: external/task_bank/tasks/pragworld/pragworld_flip.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - pairs original and perturbed conversation of the same item whose yes/no gold answers differ (from the answers, not from the Perturbation Effect label; 0 manual rows disagree with the label)
+  - 'prompt "<dialogue>\n\nQuestion: <q>\nAnswer (Yes or No):", answers " Yes"/" No"; zero-shot; whitespace normalised'
+  - orientation by seeded coin
+  - 'dropped: 314 pairs with a non yes/no answer (notsure, cannot answer, typos), 1543 pairs with equal answers (answer-invariant perturbations)'
+  len_match_share_qwen35: 0.7032
+  n_len_match: 154
+  single_token_answers_share: 1.0
+  n_single_token_answers: 219
+  n_manual: 135
+  n_synthetic: 84
+  status: converted
+  notes: below the 300-item target

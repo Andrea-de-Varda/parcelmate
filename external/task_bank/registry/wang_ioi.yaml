@@ -1,0 +1,55 @@
+source_id: wang_ioi
+title: IOI dataset generator of Wang et al. (Easy-Transformer ioi_dataset.py; copy in the ACDC repo)
+bibkey: wang2022interpretabilitywildcircuitindirect
+bibkey_data: []
+url: https://github.com/redwoodresearch/Easy-Transformer
+download_date: '2026-10-12'
+tier: 1
+revision:
+  Easy-Transformer: ea15315dd24481e9e2ac5c3ef335d82907a1dc34
+  Automatic-Circuit-Discovery: bc99ace817974b5584b7ee203d596a8e2bbcd399
+raw_files:
+- path: external/task_bank/raw/wang_ioi/Easy-Transformer/LICENSE
+  sha256: 52b805cc952e6830623831cb38031f3e56f49e20ee28fe917b5a3b1d941a98de
+- path: external/task_bank/raw/wang_ioi/Easy-Transformer/easy_transformer/ioi_dataset.py
+  sha256: 94a72de90e426382322fd690669024a0d2d4bd72a45ed9ce820a99ae9173d231
+- path: external/task_bank/raw/wang_ioi/Automatic-Circuit-Discovery/LICENSE
+  sha256: 16c66e455dff5897c2ea5ab783bf49fd7fd63cbefb7bf1dece191d6729c21f87
+- path: external/task_bank/raw/wang_ioi/Automatic-Circuit-Discovery/acdc/ioi/ioi_dataset.py
+  sha256: 0c76473307e6815ebd31e9c3586fb4b775fa065eea0be45ace8b90e3eb34b7fe
+licence:
+  Easy-Transformer: MIT
+  Automatic-Circuit-Discovery: MIT-style grant text (Copyright 2023 Arthur Conmy, Adria Garriga-Alonso)
+licence_source: raw/wang_ioi/Easy-Transformer/LICENSE; raw/wang_ioi/Automatic-Circuit-Discovery/LICENSE
+redistribute: yes (generator output from MIT-licensed code and word lists)
+generator:
+  commit: ea15315dd24481e9e2ac5c3ef335d82907a1dc34
+  seed: 42
+  N: 2000
+  script: scripts/task_bank/convert_wang_ioi.py
+  frozen_output: external/task_bank/tasks/wang_ioi/ioi_wang_s2_flip.json
+  frozen_output_sha256: 6113d8fae7c7169681094cd72cbbab5447faf61c6f20ec7d5951e63fd50c93d1
+tokenizer:
+  tokenizer_repo: Qwen/Qwen3.5-2B
+  tokenizer_revision: 15852e8c16360a2fea060d615a32b45270f8a8fc
+  note: Qwen3.5-4B tokenizer.json is byte-identical in content to 2B
+status: converted
+notes: Third-party code was only parsed (ast), never executed. ACDC copy of ioi_dataset.py is a slightly edited version (see its header) and was not used.
+tasks:
+- name: ioi_wang_s2_flip
+  family: ioi
+  domain: syntax/semantics (name movement)
+  n_items_raw: 2000
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampling_rule: all items kept
+  adaptations:
+  - Generated with our re-implementation of Wang et al.'s gen_prompt_uniform (seed 42, N=2000, all 30 BABA/ABBA templates, names drawn from the 99 NAMES, 8 places, 8 objects, symmetric=False); the names
+    are single GPT-2 tokens by construction.
+  - 'Corrupted prompt = the original generator''s ("S2","IO") flip: the last mention of S is replaced by IO. IO and S exchange roles, so the answer flips; one token differs, equal length when the names
+    are single tokens. The ABC corruption (random third name) used in the paper does not flip the answer and is not used.'
+  - 'Differences from the original: random.Random(42) instead of the global `random` state, no prefixes/endoftext, and all templates (not the first 7 of the `mixed` option).'
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 1.0
+  equal_answer_token_count_share: 1.0

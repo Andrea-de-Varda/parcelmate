@@ -1,0 +1,151 @@
+source_id: oi_subspace
+title: Representational Analysis of Binding in Language Models (ordering-ID binding data)
+bibkey: dai-etal-2024-representational
+bibkey_data: feng2024languagemodelsbindentities (Binding ID mechanism); prakash2024finetuningenhancesexistingmechanisms (boxes data)
+url: https://github.com/cl-tohoku/OI-Subspace
+revision: e70f4717d40d399974167f386235051014b0c783
+data_url: https://aclanthology.org/attachments/2024.emnlp-main.967.software.zip
+data_revision: none (unversioned ACL Anthology attachment; identified by sha256 of the zip)
+licence: MIT for the GitHub repository (Copyright 2024 Tohoku NLP Group); the data attachment on the ACL Anthology page has no licence statement of its own
+licence_source: external/task_bank/raw/oi_subspace/repo/LICENSE
+redistribute: 'yes (assumed: MIT repo whose README designates the attachment as its data; flagged as an assumption)'
+tier: 1
+tokenizer:
+  tokenizer_repo: Qwen/Qwen3.5-2B
+  tokenizer_revision: 15852e8c16360a2fea060d615a32b45270f8a8fc
+  note: Qwen3.5-2B tokenizer.json; the 4B tokenizer is the same (checked by the circuits group)
+status: converted
+notes: 'The repository itself contains only README and LICENSE (README: "GitHub page for more comprehensive analysis will be completed soon").'
+download_date: '2026-10-12'
+raw_files:
+- path: external/task_bank/raw/oi_subspace/acl_software/2024.emnlp-main.967.software.zip
+  sha256: 2c92ff0cba813a7fa71a66199b882e0b210f7af7018a44bc12217c181a647aef
+- path: external/task_bank/raw/oi_subspace/acl_software/model/Binding_ID_subspace_base_activation_patching.ipynb
+  sha256: 4af0ada0695dd33ffd23bc2adebe812c313a565c005e676c160e01290627a06e
+- path: external/task_bank/raw/oi_subspace/acl_software/model/bi_data/dataset.jsonl
+  sha256: c2631807e1900a3f66c323bc6df2b3ae88da1a31f4ce9ee6c2424dbe6d3702b9
+- path: external/task_bank/raw/oi_subspace/acl_software/model/bi_data/dataset_apply_a.jsonl
+  sha256: 2dd2c33a253e8f82b56bce119eae8d7e86d792cb2e1c88e09a64d88820295dfc
+- path: external/task_bank/raw/oi_subspace/acl_software/model/bi_data/dataset_bring_a.jsonl
+  sha256: 33574c2be25d6033ab34176678bee7d30d78aaf76f5b636f3a7155dd2782d0a6
+- path: external/task_bank/raw/oi_subspace/acl_software/model/bi_data/dataset_move_a.jsonl
+  sha256: d88dce76c27d5e7e37e09c77b3510b00e09278118b4b617638199a44adc42ae1
+- path: external/task_bank/raw/oi_subspace/acl_software/model/bi_data/dataset_push_a.jsonl
+  sha256: f995cc196d6cf511bd05830c3f9ab5d285526622bb43047d0b4b841513fcc992
+- path: external/task_bank/raw/oi_subspace/acl_software/model/bi_data/dataset_sell_a.jsonl
+  sha256: 4aecc6187e98043a3ff60964b66cf5f905e0d240c81b39e82873d8d1a1610f53
+- path: external/task_bank/raw/oi_subspace/acl_software/model/readme.txt
+  sha256: e97d0af97e8c8520bc901694a25ce15a46249a76e5ba20b9a770df70d218cd1e
+- path: external/task_bank/raw/oi_subspace/repo/LICENSE
+  sha256: 561f9918fe44f412379e044f50b5c2981ecbcaaec975ff191107fae4022c574b
+- path: external/task_bank/raw/oi_subspace/repo/README.md
+  sha256: 990c9cce93665d6a66b972954c403c65ac43682172d1baf140d2b9ed1305cc63
+tasks:
+- name: oi_sell
+  family: binding_ordering_id
+  domain: variable binding
+  n_items_raw: 15400
+  n_items_after_validity_and_dedup: 15141
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/oi_subspace/oi_sell.ids.txt
+  sampling_rule: proportional stratified sample, seed 42, cap 2000
+  adaptations:
+  - 'query cut before the object: prompt = context + " Person <Name> <verb phrase> the", answer " <object>"'
+  - 'flip (our construction): exchange the person names of the queried clause and one other clause (random.Random("42:<task>:<row>")); query unchanged; token permutation, equal length by construction'
+  - random common words as objects (the paper uses them to avoid semantic cues), so answers are often not intuitive nouns
+  - rows whose context repeats a person name or an object (259 of 15400) are dropped because the binding is ambiguous
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 1.0
+  n_single_token_answers: 2000
+  verb: sell
+  n_clauses: 7
+  n_shots: 0
+  status: converted
+- name: oi_apply
+  family: binding_ordering_id
+  domain: variable binding
+  n_items_raw: 15400
+  n_items_after_validity_and_dedup: 15183
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/oi_subspace/oi_apply.ids.txt
+  sampling_rule: proportional stratified sample, seed 42, cap 2000
+  adaptations:
+  - 'query cut before the object: prompt = context + " Person <Name> <verb phrase> the", answer " <object>"'
+  - 'flip (our construction): exchange the person names of the queried clause and one other clause (random.Random("42:<task>:<row>")); query unchanged; token permutation, equal length by construction'
+  - random common words as objects (the paper uses them to avoid semantic cues), so answers are often not intuitive nouns
+  - rows whose context repeats a person name or an object (217 of 15400) are dropped because the binding is ambiguous
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 1.0
+  n_single_token_answers: 2000
+  verb: apply
+  n_clauses: 7
+  n_shots: 0
+  status: converted
+- name: oi_move
+  family: binding_ordering_id
+  domain: variable binding
+  n_items_raw: 15400
+  n_items_after_validity_and_dedup: 15113
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/oi_subspace/oi_move.ids.txt
+  sampling_rule: proportional stratified sample, seed 42, cap 2000
+  adaptations:
+  - 'query cut before the object: prompt = context + " Person <Name> <verb phrase> the", answer " <object>"'
+  - 'flip (our construction): exchange the person names of the queried clause and one other clause (random.Random("42:<task>:<row>")); query unchanged; token permutation, equal length by construction'
+  - random common words as objects (the paper uses them to avoid semantic cues), so answers are often not intuitive nouns
+  - rows whose context repeats a person name or an object (287 of 15400) are dropped because the binding is ambiguous
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 1.0
+  n_single_token_answers: 2000
+  verb: move
+  n_clauses: 7
+  n_shots: 0
+  status: converted
+- name: oi_bring
+  family: binding_ordering_id
+  domain: variable binding
+  n_items_raw: 15400
+  n_items_after_validity_and_dedup: 15162
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/oi_subspace/oi_bring.ids.txt
+  sampling_rule: proportional stratified sample, seed 42, cap 2000
+  adaptations:
+  - 'query cut before the object: prompt = context + " Person <Name> <verb phrase> the", answer " <object>"'
+  - 'flip (our construction): exchange the person names of the queried clause and one other clause (random.Random("42:<task>:<row>")); query unchanged; token permutation, equal length by construction'
+  - random common words as objects (the paper uses them to avoid semantic cues), so answers are often not intuitive nouns
+  - rows whose context repeats a person name or an object (238 of 15400) are dropped because the binding is ambiguous
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 1.0
+  n_single_token_answers: 2000
+  verb: bring
+  n_clauses: 7
+  n_shots: 0
+  status: converted
+- name: oi_push
+  family: binding_ordering_id
+  domain: variable binding
+  n_items_raw: 15400
+  n_items_after_validity_and_dedup: 15148
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/oi_subspace/oi_push.ids.txt
+  sampling_rule: proportional stratified sample, seed 42, cap 2000
+  adaptations:
+  - 'query cut before the object: prompt = context + " Person <Name> <verb phrase> the", answer " <object>"'
+  - 'flip (our construction): exchange the person names of the queried clause and one other clause (random.Random("42:<task>:<row>")); query unchanged; token permutation, equal length by construction'
+  - random common words as objects (the paper uses them to avoid semantic cues), so answers are often not intuitive nouns
+  - rows whose context repeats a person name or an object (252 of 15400) are dropped because the binding is ambiguous
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 1.0
+  n_single_token_answers: 2000
+  verb: push
+  n_clauses: 7
+  n_shots: 0
+  status: converted
+- name: oi_boxes
+  status: not_converted
+  notes: bi_data/dataset.jsonl is byte-identical to the Prakash et al. boxes data; converted once as entity_tracking_prakash/boxes_binding

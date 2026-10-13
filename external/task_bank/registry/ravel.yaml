@@ -1,0 +1,498 @@
+source_id: ravel
+title: 'RAVEL: entity-attribute dataset (cities, Nobel laureates, verbs, physical objects, occupations), full version'
+bibkey: huang-etal-2024-ravel
+url: https://github.com/explanare/ravel
+revision: e421fc9e132b3613b1d0020f856d539217fb30ca
+licence: 'MIT (Copyright 2024 Jing Huang); the Hugging Face dataset card hij/ravel (revision 2c45eb232b9944c235509db5320345eaba563e07, city type only) also states license: mit'
+licence_source: external/task_bank/raw/ravel/repo/LICENSE
+redistribute: yes (MIT)
+tier: 1
+tokenizer:
+  tokenizer_repo: Qwen/Qwen3.5-2B
+  tokenizer_revision: 15852e8c16360a2fea060d615a32b45270f8a8fc
+  note: Qwen3.5-2B tokenizer.json; the 4B tokenizer is the same (checked by the circuits group)
+status: converted
+notes: MIB RAVEL (mib-bench/ravel, revision 53dc7a4dbe84276567b895d8fb608b3f169b9276, 100,347+15,950+1,000 rows, city only, attributes Continent/Country/Language, no licence field on its card) derives from
+  the same data; it is converted by another agent and not duplicated here. data.tgz in the GitHub repo is the version used (not the Hugging Face copy).
+download_date: '2026-10-12'
+raw_files:
+- path: external/task_bank/raw/ravel/data_unpacked/data/ravel_city_attribute_to_prompts.json
+  sha256: 4e40cb291cf532c6c8d3c764a3e9b46c2678120feb513055fab39ec51b66398a
+- path: external/task_bank/raw/ravel/data_unpacked/data/ravel_city_entity_attributes.json
+  sha256: c3568f424f4c4349b85404be17f7671c36fd54945f4759ae533079cba9cd54fd
+- path: external/task_bank/raw/ravel/data_unpacked/data/ravel_city_entity_to_split.json
+  sha256: 9a1e0886b59d4313c153637ffdbeee9e403bce2dbdba8b59ff2a58b9049b842f
+- path: external/task_bank/raw/ravel/data_unpacked/data/ravel_city_prompt_to_split.json
+  sha256: f805ec435d64673f0d4eff77b2c4a107abbd2a55df19543876a7e2b0feba352c
+- path: external/task_bank/raw/ravel/data_unpacked/data/ravel_nobel_prize_winner_attribute_to_prompts.json
+  sha256: fad17ac4c798e4d5412591afd4c06a20f1cde930b53ded199f5e27ab21656f2d
+- path: external/task_bank/raw/ravel/data_unpacked/data/ravel_nobel_prize_winner_entity_attributes.json
+  sha256: 2a4d66328011bb2c63abc6434446236ccb0da73c727c2f68ea12447277f81c6f
+- path: external/task_bank/raw/ravel/data_unpacked/data/ravel_nobel_prize_winner_entity_to_split.json
+  sha256: 066e470ee344a4836f87d2f680ab13850ed1bcba86a788d6e20fa6d4abd80f45
+- path: external/task_bank/raw/ravel/data_unpacked/data/ravel_nobel_prize_winner_prompt_to_split.json
+  sha256: ac070b66540acc9fbca5fc13e8fe612d7c32a9d99940c1e6e93bf4de0ed60982
+- path: external/task_bank/raw/ravel/data_unpacked/data/ravel_occupation_attribute_to_prompts.json
+  sha256: 59bd9bd6613512c9172c7b1871c85a10e4eeea1dc77f97510b241c9545ac45e8
+- path: external/task_bank/raw/ravel/data_unpacked/data/ravel_occupation_entity_attributes.json
+  sha256: b670c6f2f521b19ef5d62e55a1380ec5ff046c14cfa72fdd440c07dde7d01066
+- path: external/task_bank/raw/ravel/data_unpacked/data/ravel_occupation_entity_to_split.json
+  sha256: fe137fa81baa27b91855abc8730855b070ee880c3be6659fd3c1c11df2165b86
+- path: external/task_bank/raw/ravel/data_unpacked/data/ravel_occupation_prompt_to_split.json
+  sha256: 78b336530d354cc25ce29caaae1e4534765de2c15918a0db9d532174e3739296
+- path: external/task_bank/raw/ravel/data_unpacked/data/ravel_physical_object_attribute_to_prompts.json
+  sha256: f84547c0c3478fe5f966aaafdf3601b1eef6e6326070fa735083f151800d8de9
+- path: external/task_bank/raw/ravel/data_unpacked/data/ravel_physical_object_entity_attributes.json
+  sha256: 672584e27d5027e9ff3391d33a72e69ccdde1cadbf15260a277e1084dd5d1b7a
+- path: external/task_bank/raw/ravel/data_unpacked/data/ravel_physical_object_entity_to_split.json
+  sha256: d085553d2dd8377e7ef502c7cf7033fe6c9ff614933bb85ca6bd6147c3c128b6
+- path: external/task_bank/raw/ravel/data_unpacked/data/ravel_physical_object_prompt_to_split.json
+  sha256: 9f87c9e2079636d990b64ab08e294d16bbc37d87c1290be4b2217357db1062f0
+- path: external/task_bank/raw/ravel/data_unpacked/data/ravel_verb_attribute_to_prompts.json
+  sha256: e7fa54f8d3e2bd865b8821bff33976d69ac12cebb661f7a13314221636b719ee
+- path: external/task_bank/raw/ravel/data_unpacked/data/ravel_verb_entity_attributes.json
+  sha256: 309c015a1e14fc32090d16b48ff3634d7e627cd7a2a055ea879070db97d10347
+- path: external/task_bank/raw/ravel/data_unpacked/data/ravel_verb_entity_to_split.json
+  sha256: 4ebfadc203a3e3098d9a8ce680d7185acc78fc0e66124a0391424c22805b565d
+- path: external/task_bank/raw/ravel/data_unpacked/data/ravel_verb_prompt_to_split.json
+  sha256: dac8e8d38bd1fb6c1d8a5a4efeb1ad011b17589a9b4d1686b6be6ba6bcac4d6f
+- path: external/task_bank/raw/ravel/data_unpacked/data/wikipedia_city_entity_prompts.json
+  sha256: 0b27cc890efbaf62ef5292fcb9f157c170685a0d8930327dc4e8f8b5a4f8722f
+- path: external/task_bank/raw/ravel/data_unpacked/data/wikipedia_nobel_prize_winner_entity_prompts.json
+  sha256: 0b98d65358cc779bcf67c3a5dc065795521a9e8ed303f72159d33af18d05d4a2
+- path: external/task_bank/raw/ravel/data_unpacked/data/wikipedia_occupation_entity_prompts.json
+  sha256: 9232b746f18d8cf7ad1da1d0662e5f3ce7e8dfb3509f2e5af32043f00710a612
+- path: external/task_bank/raw/ravel/data_unpacked/data/wikipedia_physical_object_entity_prompts.json
+  sha256: 821e4c4aeadf1faa0a1df1708c50df7b87e4cf44684793fc0b4d691c6225dcbf
+- path: external/task_bank/raw/ravel/data_unpacked/data/wikipedia_verb_entity_prompts.json
+  sha256: f599f546ff76f4ec59e831042d4026747aa7ebfaeb7e747c94a0f5bf6e9ba462
+- path: external/task_bank/raw/ravel/repo/LICENSE
+  sha256: 20fb6d10ba6b0db267dc9166b9bfb4b38aa7cc2907ede5fa3b6a761e7f852663
+- path: external/task_bank/raw/ravel/repo/README.md
+  sha256: da3179ef8b662651fef31e36978677fd6b3cf582292c49f21aee0d4d03d97345
+- path: external/task_bank/raw/ravel/repo/data.tgz
+  sha256: b148f0ded1979cb0e17e301cfda41cb120517a109d3c758cc768e376946d96bc
+tasks:
+- name: ravel_city_country
+  family: factual_country
+  domain: entity-attribute knowledge (city)
+  n_items_raw: 3552
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/ravel/ravel_city_country.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'entity swap within one entity type, attribute and prompt template: gold values must differ and neither answer may be a prefix of the other; equal Qwen3.5 token length of the full prompt'
+  - gold attribute values from the dataset (not model-labelled completions); answer = value (templates ending in a double quote) or " " + value; templates ending in space, "(", "/" or "UTC" dropped, and
+    for Nobel Gender only templates mentioning gender kept (0 of 46 dropped)
+  - 0 entities dropped (missing value, multi-valued comma list, or empty)
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 0.405
+  n_single_token_answers: 810
+  entity_type: city
+  attribute: Country
+  n_entities_used: 3552
+  n_entities_dropped: 0
+  n_templates_total: 46
+  n_templates_used: 46
+  n_templates_dropped_by_ending: 0
+  n_distinct_values: 158
+  valid_pair_capacity: 125141400
+  status: converted
+- name: ravel_city_continent
+  family: factual_continent
+  domain: entity-attribute knowledge (city)
+  n_items_raw: 3552
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/ravel/ravel_city_continent.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'entity swap within one entity type, attribute and prompt template: gold values must differ and neither answer may be a prefix of the other; equal Qwen3.5 token length of the full prompt'
+  - gold attribute values from the dataset (not model-labelled completions); answer = value (templates ending in a double quote) or " " + value; templates ending in space, "(", "/" or "UTC" dropped, and
+    for Nobel Gender only templates mentioning gender kept (0 of 43 dropped)
+  - 0 entities dropped (missing value, multi-valued comma list, or empty)
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 0.3685
+  n_single_token_answers: 737
+  entity_type: city
+  attribute: Continent
+  n_entities_used: 3552
+  n_entities_dropped: 0
+  n_templates_total: 43
+  n_templates_used: 43
+  n_templates_dropped_by_ending: 0
+  n_distinct_values: 6
+  valid_pair_capacity: 97260581
+  status: converted
+- name: ravel_city_language
+  family: factual_language
+  domain: entity-attribute knowledge (city)
+  n_items_raw: 3552
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/ravel/ravel_city_language.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'entity swap within one entity type, attribute and prompt template: gold values must differ and neither answer may be a prefix of the other; equal Qwen3.5 token length of the full prompt'
+  - gold attribute values from the dataset (not model-labelled completions); answer = value (templates ending in a double quote) or " " + value; templates ending in space, "(", "/" or "UTC" dropped, and
+    for Nobel Gender only templates mentioning gender kept (0 of 44 dropped)
+  - 467 entities dropped (missing value, multi-valued comma list, or empty)
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 0.519
+  n_single_token_answers: 1038
+  entity_type: city
+  attribute: Language
+  n_entities_used: 3085
+  n_entities_dropped: 467
+  n_templates_total: 44
+  n_templates_used: 44
+  n_templates_dropped_by_ending: 0
+  n_distinct_values: 98
+  valid_pair_capacity: 82869666
+  status: converted
+- name: ravel_city_timezone
+  family: factual_timezone
+  domain: entity-attribute knowledge (city)
+  n_items_raw: 3552
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/ravel/ravel_city_timezone.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'entity swap within one entity type, attribute and prompt template: gold values must differ and neither answer may be a prefix of the other; equal Qwen3.5 token length of the full prompt'
+  - gold attribute values from the dataset (not model-labelled completions); answer = value (templates ending in a double quote) or " " + value; templates ending in space, "(", "/" or "UTC" dropped, and
+    for Nobel Gender only templates mentioning gender kept (30 of 73 dropped)
+  - 0 entities dropped (missing value, multi-valued comma list, or empty)
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 0.0
+  n_single_token_answers: 0
+  entity_type: city
+  attribute: Timezone
+  n_entities_used: 3552
+  n_entities_dropped: 0
+  n_templates_total: 73
+  n_templates_used: 43
+  n_templates_dropped_by_ending: 30
+  n_distinct_values: 267
+  valid_pair_capacity: 113214101
+  status: converted
+- name: ravel_nobel_field
+  family: factual_nobel_field
+  domain: entity-attribute knowledge (nobel_prize_winner)
+  n_items_raw: 928
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/ravel/ravel_nobel_field.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'entity swap within one entity type, attribute and prompt template: gold values must differ and neither answer may be a prefix of the other; equal Qwen3.5 token length of the full prompt'
+  - gold attribute values from the dataset (not model-labelled completions); answer = value (templates ending in a double quote) or " " + value; templates ending in space, "(", "/" or "UTC" dropped, and
+    for Nobel Gender only templates mentioning gender kept (0 of 64 dropped)
+  - 4 entities dropped (missing value, multi-valued comma list, or empty)
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 0.5835
+  n_single_token_answers: 1167
+  entity_type: nobel_prize_winner
+  attribute: Field
+  n_entities_used: 924
+  n_entities_dropped: 4
+  n_templates_total: 64
+  n_templates_used: 64
+  n_templates_dropped_by_ending: 0
+  n_distinct_values: 6
+  valid_pair_capacity: 4518124
+  status: converted
+- name: ravel_nobel_country_of_birth
+  family: factual_country
+  domain: entity-attribute knowledge (nobel_prize_winner)
+  n_items_raw: 928
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/ravel/ravel_nobel_country_of_birth.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'entity swap within one entity type, attribute and prompt template: gold values must differ and neither answer may be a prefix of the other; equal Qwen3.5 token length of the full prompt'
+  - gold attribute values from the dataset (not model-labelled completions); answer = value (templates ending in a double quote) or " " + value; templates ending in space, "(", "/" or "UTC" dropped, and
+    for Nobel Gender only templates mentioning gender kept (0 of 67 dropped)
+  - 2 entities dropped (missing value, multi-valued comma list, or empty)
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 0.2455
+  n_single_token_answers: 491
+  entity_type: nobel_prize_winner
+  attribute: Country of Birth
+  n_entities_used: 926
+  n_entities_dropped: 2
+  n_templates_total: 67
+  n_templates_used: 67
+  n_templates_dropped_by_ending: 0
+  n_distinct_values: 80
+  valid_pair_capacity: 5098574
+  status: converted
+- name: ravel_nobel_gender
+  family: factual_gender
+  domain: entity-attribute knowledge (nobel_prize_winner)
+  n_items_raw: 928
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/ravel/ravel_nobel_gender.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'entity swap within one entity type, attribute and prompt template: gold values must differ and neither answer may be a prefix of the other; equal Qwen3.5 token length of the full prompt'
+  - gold attribute values from the dataset (not model-labelled completions); answer = value (templates ending in a double quote) or " " + value; templates ending in space, "(", "/" or "UTC" dropped, and
+    for Nobel Gender only templates mentioning gender kept (33 of 36 dropped)
+  - 2 entities dropped (missing value, multi-valued comma list, or empty)
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 1.0
+  n_single_token_answers: 2000
+  entity_type: nobel_prize_winner
+  attribute: Gender
+  n_entities_used: 926
+  n_entities_dropped: 2
+  n_templates_total: 36
+  n_templates_used: 3
+  n_templates_dropped_by_ending: 33
+  n_distinct_values: 2
+  valid_pair_capacity: 27149
+  status: converted
+- name: ravel_verb_past_tense
+  family: morphology_past_tense
+  domain: entity-attribute knowledge (verb)
+  n_items_raw: 986
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/ravel/ravel_verb_past_tense.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'entity swap within one entity type, attribute and prompt template: gold values must differ and neither answer may be a prefix of the other; equal Qwen3.5 token length of the full prompt'
+  - gold attribute values from the dataset (not model-labelled completions); answer = value (templates ending in a double quote) or " " + value; templates ending in space, "(", "/" or "UTC" dropped, and
+    for Nobel Gender only templates mentioning gender kept (0 of 87 dropped)
+  - 0 entities dropped (missing value, multi-valued comma list, or empty)
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 0.839
+  n_single_token_answers: 1678
+  entity_type: verb
+  attribute: Past Tense
+  n_entities_used: 986
+  n_entities_dropped: 0
+  n_templates_total: 87
+  n_templates_used: 87
+  n_templates_dropped_by_ending: 0
+  n_distinct_values: 986
+  valid_pair_capacity: 41991072
+  status: converted
+- name: ravel_verb_third_person
+  family: morphology_third_person
+  domain: entity-attribute knowledge (verb)
+  n_items_raw: 986
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/ravel/ravel_verb_third_person.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'entity swap within one entity type, attribute and prompt template: gold values must differ and neither answer may be a prefix of the other; equal Qwen3.5 token length of the full prompt'
+  - gold attribute values from the dataset (not model-labelled completions); answer = value (templates ending in a double quote) or " " + value; templates ending in space, "(", "/" or "UTC" dropped, and
+    for Nobel Gender only templates mentioning gender kept (0 of 93 dropped)
+  - 0 entities dropped (missing value, multi-valued comma list, or empty)
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 0.582
+  n_single_token_answers: 1164
+  entity_type: verb
+  attribute: Singular
+  n_entities_used: 986
+  n_entities_dropped: 0
+  n_templates_total: 93
+  n_templates_used: 93
+  n_templates_dropped_by_ending: 0
+  n_distinct_values: 986
+  valid_pair_capacity: 44648516
+  status: converted
+- name: ravel_object_category
+  family: commonsense_object_category
+  domain: entity-attribute knowledge (physical_object)
+  n_items_raw: 563
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/ravel/ravel_object_category.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'entity swap within one entity type, attribute and prompt template: gold values must differ and neither answer may be a prefix of the other; equal Qwen3.5 token length of the full prompt'
+  - gold attribute values from the dataset (not model-labelled completions); answer = value (templates ending in a double quote) or " " + value; templates ending in space, "(", "/" or "UTC" dropped, and
+    for Nobel Gender only templates mentioning gender kept (0 of 54 dropped)
+  - 0 entities dropped (missing value, multi-valued comma list, or empty)
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 0.239
+  n_single_token_answers: 478
+  entity_type: physical_object
+  attribute: Category
+  n_entities_used: 563
+  n_entities_dropped: 0
+  n_templates_total: 54
+  n_templates_used: 54
+  n_templates_dropped_by_ending: 0
+  n_distinct_values: 3
+  valid_pair_capacity: 1921906
+  status: converted
+- name: ravel_object_color
+  family: commonsense_object_color
+  domain: entity-attribute knowledge (physical_object)
+  n_items_raw: 563
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/ravel/ravel_object_color.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'entity swap within one entity type, attribute and prompt template: gold values must differ and neither answer may be a prefix of the other; equal Qwen3.5 token length of the full prompt'
+  - gold attribute values from the dataset (not model-labelled completions); answer = value (templates ending in a double quote) or " " + value; templates ending in space, "(", "/" or "UTC" dropped, and
+    for Nobel Gender only templates mentioning gender kept (0 of 37 dropped)
+  - 0 entities dropped (missing value, multi-valued comma list, or empty)
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 0.9995
+  n_single_token_answers: 1999
+  entity_type: physical_object
+  attribute: Color
+  n_entities_used: 563
+  n_entities_dropped: 0
+  n_templates_total: 37
+  n_templates_used: 37
+  n_templates_dropped_by_ending: 0
+  n_distinct_values: 12
+  valid_pair_capacity: 1781748
+  status: converted
+- name: ravel_object_texture
+  family: commonsense_object_texture
+  domain: entity-attribute knowledge (physical_object)
+  n_items_raw: 563
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/ravel/ravel_object_texture.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'entity swap within one entity type, attribute and prompt template: gold values must differ and neither answer may be a prefix of the other; equal Qwen3.5 token length of the full prompt'
+  - gold attribute values from the dataset (not model-labelled completions); answer = value (templates ending in a double quote) or " " + value; templates ending in space, "(", "/" or "UTC" dropped, and
+    for Nobel Gender only templates mentioning gender kept (0 of 36 dropped)
+  - 0 entities dropped (missing value, multi-valued comma list, or empty)
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 1.0
+  n_single_token_answers: 2000
+  entity_type: physical_object
+  attribute: Texture
+  n_entities_used: 563
+  n_entities_dropped: 0
+  n_templates_total: 36
+  n_templates_used: 36
+  n_templates_dropped_by_ending: 0
+  n_distinct_values: 2
+  valid_pair_capacity: 960822
+  status: converted
+- name: ravel_occupation_industry
+  family: commonsense_occupation_industry
+  domain: entity-attribute knowledge (occupation)
+  n_items_raw: 799
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/ravel/ravel_occupation_industry.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'entity swap within one entity type, attribute and prompt template: gold values must differ and neither answer may be a prefix of the other; equal Qwen3.5 token length of the full prompt'
+  - gold attribute values from the dataset (not model-labelled completions); answer = value (templates ending in a double quote) or " " + value; templates ending in space, "(", "/" or "UTC" dropped, and
+    for Nobel Gender only templates mentioning gender kept (0 of 34 dropped)
+  - 0 entities dropped (missing value, multi-valued comma list, or empty)
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 0.3425
+  n_single_token_answers: 685
+  entity_type: occupation
+  attribute: Industry
+  n_entities_used: 799
+  n_entities_dropped: 0
+  n_templates_total: 34
+  n_templates_used: 34
+  n_templates_dropped_by_ending: 0
+  n_distinct_values: 280
+  valid_pair_capacity: 4595452
+  status: converted
+- name: ravel_occupation_work_location
+  family: commonsense_occupation_location
+  domain: entity-attribute knowledge (occupation)
+  n_items_raw: 799
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/ravel/ravel_occupation_work_location.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'entity swap within one entity type, attribute and prompt template: gold values must differ and neither answer may be a prefix of the other; equal Qwen3.5 token length of the full prompt'
+  - gold attribute values from the dataset (not model-labelled completions); answer = value (templates ending in a double quote) or " " + value; templates ending in space, "(", "/" or "UTC" dropped, and
+    for Nobel Gender only templates mentioning gender kept (0 of 25 dropped)
+  - 0 entities dropped (missing value, multi-valued comma list, or empty)
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 0.573
+  n_single_token_answers: 1146
+  entity_type: occupation
+  attribute: Work Location
+  n_entities_used: 799
+  n_entities_dropped: 0
+  n_templates_total: 25
+  n_templates_used: 25
+  n_templates_dropped_by_ending: 0
+  n_distinct_values: 128
+  valid_pair_capacity: 3074144
+  status: converted
+- name: ravel_city_latitude
+  status: not_converted
+  entity_type: city
+  attribute: Latitude
+  notes: numeric
+- name: ravel_city_longitude
+  status: not_converted
+  entity_type: city
+  attribute: Longitude
+  notes: numeric
+- name: ravel_nobel_prize_winner_award_year
+  status: not_converted
+  entity_type: nobel_prize_winner
+  attribute: Award Year
+  notes: numeric year
+- name: ravel_nobel_prize_winner_birth_year
+  status: not_converted
+  entity_type: nobel_prize_winner
+  attribute: Birth Year
+  notes: numeric year
+- name: ravel_verb_definition
+  status: not_converted
+  entity_type: verb
+  attribute: Definition
+  notes: free-text definitions
+- name: ravel_verb_pronunciation
+  status: not_converted
+  entity_type: verb
+  attribute: Pronunciation
+  notes: IPA strings
+- name: ravel_physical_object_size
+  status: not_converted
+  entity_type: physical_object
+  attribute: Size
+  notes: gold abbreviations (cm/m/mm/km) do not match the spelled-out units shown in the templates
+- name: ravel_occupation_duty
+  status: not_converted
+  entity_type: occupation
+  attribute: Duty
+  notes: free-text duties
+- name: ravel_occupation_gender_bias
+  status: not_converted
+  entity_type: occupation
+  attribute: Gender Bias
+  notes: no gold values in the entity file

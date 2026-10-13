@@ -1,0 +1,802 @@
+source_id: counterfact
+title: 'CounterFact (ROME): factual statements with counterfactual targets, used here as true-fact subject-swap pairs'
+bibkey: meng2023locatingeditingfactualassociations
+bibkey_data: meng2023locatingeditingfactualassociations (CounterFact is introduced in the same paper; NeurIPS 2022)
+url: https://rome.baulab.info/data/dsets/counterfact.json
+revision: none (unversioned file; identified by sha256 d017056125178a13728594e66a801357a8db9ed7973a7425554bb4271de9fc6f)
+code_repo: https://github.com/kmeng01/rome
+code_repo_revision: 0874014cd9837e4365f3e6f3c71400ef11509e04
+licence: 'unclear for the data: the code repository kmeng01/rome is MIT (LICENSE at the pinned commit) but neither the repository nor the host page states a licence for counterfact.json; the data derives
+  from ParaRel (Elazar et al., MIT) and Wikidata (CC0)'
+licence_source: external/task_bank/raw/counterfact/rome_repo/LICENSE (code only)
+redistribute: no (data licence unclear; keep converted items out of git until decided)
+tier: 1
+tokenizer:
+  tokenizer_repo: Qwen/Qwen3.5-2B
+  tokenizer_revision: 15852e8c16360a2fea060d615a32b45270f8a8fc
+  note: Qwen3.5-2B tokenizer.json; the 4B tokenizer is the same (checked by the circuits group)
+status: converted
+notes: Mirrors on Hugging Face (azhx/counterfact sha c01c413f..., 19,728+2,191 = 21,919 records; NeelNanda/counterfact-tracing sha c945b082..., 21,919 rows) carry the same records; they were not used. 21,919
+  records = the official file.
+download_date: '2026-10-12'
+raw_files:
+- path: external/task_bank/raw/counterfact/official/counterfact.json
+  sha256: d017056125178a13728594e66a801357a8db9ed7973a7425554bb4271de9fc6f
+- path: external/task_bank/raw/counterfact/rome_repo/LICENSE
+  sha256: 46c273d5a0a7f8bc3889863398e1bb20493e256f38033dfd637ec46bf654c531
+- path: external/task_bank/raw/counterfact/rome_repo/dsets/counterfact.py
+  sha256: 7aa2705295f52ef73bf09192250298c350339ada5fa814113c14bb06ab399e29
+tasks:
+- name: cf_P17_country
+  family: factual_country
+  domain: factual knowledge
+  n_items_raw: 875
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/counterfact/cf_P17_country.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - pairs two records of the same relation_id and the same prompt template whose TRUE objects differ (subject swap); target_new (the counterfactual object) is unused
+  - pairs restricted to equal Qwen3.5 token length of the full prompt and to answers that are not prefixes of each other
+  - answers are " " + target_true; zero-shot, no demonstrations
+  - records whose prompt text has several distinct true objects in the source (2 here) are dropped; duplicate records kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 1.0
+  n_single_token_answers: 2000
+  n_ambiguous_prompts_dropped: 2
+  n_facts_used: 873
+  relation: P17 (country)
+  n_templates: 5
+  valid_pair_capacity: 14268
+  status: converted
+- name: cf_P19_place_of_birth
+  family: factual_relation_place_of_birth
+  domain: factual knowledge
+  n_items_raw: 779
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/counterfact/cf_P19_place_of_birth.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - pairs two records of the same relation_id and the same prompt template whose TRUE objects differ (subject swap); target_new (the counterfactual object) is unused
+  - pairs restricted to equal Qwen3.5 token length of the full prompt and to answers that are not prefixes of each other
+  - answers are " " + target_true; zero-shot, no demonstrations
+  - records whose prompt text has several distinct true objects in the source (0 here) are dropped; duplicate records kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 0.9775
+  n_single_token_answers: 1955
+  n_ambiguous_prompts_dropped: 0
+  n_facts_used: 779
+  relation: P19 (place of birth)
+  n_templates: 7
+  valid_pair_capacity: 8991
+  status: converted
+- name: cf_P20_place_of_death
+  family: factual_relation_place_of_death
+  domain: factual knowledge
+  n_items_raw: 816
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/counterfact/cf_P20_place_of_death.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - pairs two records of the same relation_id and the same prompt template whose TRUE objects differ (subject swap); target_new (the counterfactual object) is unused
+  - pairs restricted to equal Qwen3.5 token length of the full prompt and to answers that are not prefixes of each other
+  - answers are " " + target_true; zero-shot, no demonstrations
+  - records whose prompt text has several distinct true objects in the source (0 here) are dropped; duplicate records kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 0.979
+  n_single_token_answers: 1958
+  n_ambiguous_prompts_dropped: 0
+  n_facts_used: 816
+  relation: P20 (place of death)
+  n_templates: 9
+  valid_pair_capacity: 6576
+  status: converted
+- name: cf_P27_country_of_citizenship
+  family: factual_relation_country_of_citizenship
+  domain: factual knowledge
+  n_items_raw: 958
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/counterfact/cf_P27_country_of_citizenship.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - pairs two records of the same relation_id and the same prompt template whose TRUE objects differ (subject swap); target_new (the counterfactual object) is unused
+  - pairs restricted to equal Qwen3.5 token length of the full prompt and to answers that are not prefixes of each other
+  - answers are " " + target_true; zero-shot, no demonstrations
+  - records whose prompt text has several distinct true objects in the source (0 here) are dropped; duplicate records kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 0.9945
+  n_single_token_answers: 1989
+  n_ambiguous_prompts_dropped: 0
+  n_facts_used: 958
+  relation: P27 (country of citizenship)
+  n_templates: 7
+  valid_pair_capacity: 12354
+  status: converted
+- name: cf_P30_continent
+  family: factual_continent
+  domain: factual knowledge
+  n_items_raw: 959
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/counterfact/cf_P30_continent.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - pairs two records of the same relation_id and the same prompt template whose TRUE objects differ (subject swap); target_new (the counterfactual object) is unused
+  - pairs restricted to equal Qwen3.5 token length of the full prompt and to answers that are not prefixes of each other
+  - answers are " " + target_true; zero-shot, no demonstrations
+  - records whose prompt text has several distinct true objects in the source (2 here) are dropped; duplicate records kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 1.0
+  n_single_token_answers: 2000
+  n_ambiguous_prompts_dropped: 2
+  n_facts_used: 957
+  relation: P30 (continent)
+  n_templates: 6
+  valid_pair_capacity: 7102
+  status: converted
+- name: cf_P36_capital
+  family: factual_capital
+  domain: factual knowledge
+  n_items_raw: 139
+  n_items_after_validity_and_dedup: 233
+  n_items_converted: 233
+  sampled_ids_file: external/task_bank/tasks/counterfact/cf_P36_capital.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - pairs two records of the same relation_id and the same prompt template whose TRUE objects differ (subject swap); target_new (the counterfactual object) is unused
+  - pairs restricted to equal Qwen3.5 token length of the full prompt and to answers that are not prefixes of each other
+  - answers are " " + target_true; zero-shot, no demonstrations
+  - records whose prompt text has several distinct true objects in the source (0 here) are dropped; duplicate records kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 233
+  single_token_answers_share: 0.9099
+  n_single_token_answers: 212
+  n_ambiguous_prompts_dropped: 0
+  n_facts_used: 139
+  relation: P36 (capital)
+  n_templates: 8
+  valid_pair_capacity: 233
+  status: converted
+  notes: below the 300-item target (valid-pair capacity 233)
+- name: cf_P37_official_language
+  family: factual_language
+  domain: factual knowledge
+  n_items_raw: 891
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/counterfact/cf_P37_official_language.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - pairs two records of the same relation_id and the same prompt template whose TRUE objects differ (subject swap); target_new (the counterfactual object) is unused
+  - pairs restricted to equal Qwen3.5 token length of the full prompt and to answers that are not prefixes of each other
+  - answers are " " + target_true; zero-shot, no demonstrations
+  - records whose prompt text has several distinct true objects in the source (85 here) are dropped; duplicate records kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 1.0
+  n_single_token_answers: 2000
+  n_ambiguous_prompts_dropped: 85
+  n_facts_used: 806
+  relation: P37 (official language)
+  n_templates: 5
+  valid_pair_capacity: 11350
+  status: converted
+- name: cf_P39_position_held
+  family: factual_relation_position_held
+  domain: factual knowledge
+  n_items_raw: 476
+  n_items_after_validity_and_dedup: 1629
+  n_items_converted: 1629
+  sampled_ids_file: external/task_bank/tasks/counterfact/cf_P39_position_held.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - pairs two records of the same relation_id and the same prompt template whose TRUE objects differ (subject swap); target_new (the counterfactual object) is unused
+  - pairs restricted to equal Qwen3.5 token length of the full prompt and to answers that are not prefixes of each other
+  - answers are " " + target_true; zero-shot, no demonstrations
+  - records whose prompt text has several distinct true objects in the source (3 here) are dropped; duplicate records kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 1629
+  single_token_answers_share: 0.9951
+  n_single_token_answers: 1621
+  n_ambiguous_prompts_dropped: 3
+  n_facts_used: 473
+  relation: P39 (position held)
+  n_templates: 8
+  valid_pair_capacity: 1629
+  status: converted
+- name: cf_P101_field_of_work
+  family: factual_relation_field_of_work
+  domain: factual knowledge
+  n_items_raw: 545
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/counterfact/cf_P101_field_of_work.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - pairs two records of the same relation_id and the same prompt template whose TRUE objects differ (subject swap); target_new (the counterfactual object) is unused
+  - pairs restricted to equal Qwen3.5 token length of the full prompt and to answers that are not prefixes of each other
+  - answers are " " + target_true; zero-shot, no demonstrations
+  - records whose prompt text has several distinct true objects in the source (12 here) are dropped; duplicate records kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 0.9845
+  n_single_token_answers: 1969
+  n_ambiguous_prompts_dropped: 12
+  n_facts_used: 533
+  relation: P101 (field of work)
+  n_templates: 10
+  valid_pair_capacity: 2520
+  status: converted
+- name: cf_P103_native_language
+  family: factual_language
+  domain: factual knowledge
+  n_items_raw: 919
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/counterfact/cf_P103_native_language.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - pairs two records of the same relation_id and the same prompt template whose TRUE objects differ (subject swap); target_new (the counterfactual object) is unused
+  - pairs restricted to equal Qwen3.5 token length of the full prompt and to answers that are not prefixes of each other
+  - answers are " " + target_true; zero-shot, no demonstrations
+  - records whose prompt text has several distinct true objects in the source (0 here) are dropped; duplicate records kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 1.0
+  n_single_token_answers: 2000
+  n_ambiguous_prompts_dropped: 0
+  n_facts_used: 919
+  relation: P103 (native language)
+  n_templates: 6
+  valid_pair_capacity: 7406
+  status: converted
+- name: cf_P106_occupation
+  family: factual_occupation
+  domain: factual knowledge
+  n_items_raw: 821
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/counterfact/cf_P106_occupation.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - pairs two records of the same relation_id and the same prompt template whose TRUE objects differ (subject swap); target_new (the counterfactual object) is unused
+  - pairs restricted to equal Qwen3.5 token length of the full prompt and to answers that are not prefixes of each other
+  - answers are " " + target_true; zero-shot, no demonstrations
+  - records whose prompt text has several distinct true objects in the source (0 here) are dropped; duplicate records kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 0.9045
+  n_single_token_answers: 1809
+  n_ambiguous_prompts_dropped: 0
+  n_facts_used: 821
+  relation: P106 (occupation)
+  n_templates: 7
+  valid_pair_capacity: 7884
+  status: converted
+- name: cf_P108_employer
+  family: factual_relation_employer
+  domain: factual knowledge
+  n_items_raw: 350
+  n_items_after_validity_and_dedup: 1904
+  n_items_converted: 1904
+  sampled_ids_file: external/task_bank/tasks/counterfact/cf_P108_employer.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - pairs two records of the same relation_id and the same prompt template whose TRUE objects differ (subject swap); target_new (the counterfactual object) is unused
+  - pairs restricted to equal Qwen3.5 token length of the full prompt and to answers that are not prefixes of each other
+  - answers are " " + target_true; zero-shot, no demonstrations
+  - records whose prompt text has several distinct true objects in the source (0 here) are dropped; duplicate records kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 1904
+  single_token_answers_share: 1.0
+  n_single_token_answers: 1904
+  n_ambiguous_prompts_dropped: 0
+  n_facts_used: 350
+  relation: P108 (employer)
+  n_templates: 5
+  valid_pair_capacity: 1904
+  status: converted
+- name: cf_P127_owned_by
+  family: factual_relation_owned_by
+  domain: factual knowledge
+  n_items_raw: 433
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/counterfact/cf_P127_owned_by.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - pairs two records of the same relation_id and the same prompt template whose TRUE objects differ (subject swap); target_new (the counterfactual object) is unused
+  - pairs restricted to equal Qwen3.5 token length of the full prompt and to answers that are not prefixes of each other
+  - answers are " " + target_true; zero-shot, no demonstrations
+  - records whose prompt text has several distinct true objects in the source (0 here) are dropped; duplicate records kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 0.966
+  n_single_token_answers: 1932
+  n_ambiguous_prompts_dropped: 0
+  n_facts_used: 433
+  relation: P127 (owned by)
+  n_templates: 6
+  valid_pair_capacity: 3023
+  status: converted
+- name: cf_P131_located_in_the_administrative_territoria
+  family: factual_relation_located_in_the_administrative_territoria
+  domain: factual knowledge
+  n_items_raw: 714
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/counterfact/cf_P131_located_in_the_administrative_territoria.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - pairs two records of the same relation_id and the same prompt template whose TRUE objects differ (subject swap); target_new (the counterfactual object) is unused
+  - pairs restricted to equal Qwen3.5 token length of the full prompt and to answers that are not prefixes of each other
+  - answers are " " + target_true; zero-shot, no demonstrations
+  - records whose prompt text has several distinct true objects in the source (0 here) are dropped; duplicate records kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 1.0
+  n_single_token_answers: 2000
+  n_ambiguous_prompts_dropped: 0
+  n_facts_used: 714
+  relation: P131 (located in the administrative territorial entity)
+  n_templates: 5
+  valid_pair_capacity: 10175
+  status: converted
+- name: cf_P136_genre
+  family: factual_relation_genre
+  domain: factual knowledge
+  n_items_raw: 847
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/counterfact/cf_P136_genre.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - pairs two records of the same relation_id and the same prompt template whose TRUE objects differ (subject swap); target_new (the counterfactual object) is unused
+  - pairs restricted to equal Qwen3.5 token length of the full prompt and to answers that are not prefixes of each other
+  - answers are " " + target_true; zero-shot, no demonstrations
+  - records whose prompt text has several distinct true objects in the source (0 here) are dropped; duplicate records kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 1.0
+  n_single_token_answers: 2000
+  n_ambiguous_prompts_dropped: 0
+  n_facts_used: 847
+  relation: P136 (genre)
+  n_templates: 6
+  valid_pair_capacity: 8849
+  status: converted
+- name: cf_P138_named_after
+  family: factual_relation_named_after
+  domain: factual knowledge
+  n_items_raw: 279
+  n_items_after_validity_and_dedup: 520
+  n_items_converted: 520
+  sampled_ids_file: external/task_bank/tasks/counterfact/cf_P138_named_after.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - pairs two records of the same relation_id and the same prompt template whose TRUE objects differ (subject swap); target_new (the counterfactual object) is unused
+  - pairs restricted to equal Qwen3.5 token length of the full prompt and to answers that are not prefixes of each other
+  - answers are " " + target_true; zero-shot, no demonstrations
+  - records whose prompt text has several distinct true objects in the source (4 here) are dropped; duplicate records kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 520
+  single_token_answers_share: 0.9692
+  n_single_token_answers: 504
+  n_ambiguous_prompts_dropped: 4
+  n_facts_used: 275
+  relation: P138 (named after)
+  n_templates: 15
+  valid_pair_capacity: 520
+  status: converted
+- name: cf_P140_religion_or_worldview
+  family: factual_relation_religion_or_worldview
+  domain: factual knowledge
+  n_items_raw: 430
+  n_items_after_validity_and_dedup: 1984
+  n_items_converted: 1984
+  sampled_ids_file: external/task_bank/tasks/counterfact/cf_P140_religion_or_worldview.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - pairs two records of the same relation_id and the same prompt template whose TRUE objects differ (subject swap); target_new (the counterfactual object) is unused
+  - pairs restricted to equal Qwen3.5 token length of the full prompt and to answers that are not prefixes of each other
+  - answers are " " + target_true; zero-shot, no demonstrations
+  - records whose prompt text has several distinct true objects in the source (0 here) are dropped; duplicate records kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 1984
+  single_token_answers_share: 0.9698
+  n_single_token_answers: 1924
+  n_ambiguous_prompts_dropped: 0
+  n_facts_used: 430
+  relation: P140 (religion or worldview)
+  n_templates: 4
+  valid_pair_capacity: 2050
+  status: converted
+- name: cf_P159_headquarters_location
+  family: factual_relation_headquarters_location
+  domain: factual knowledge
+  n_items_raw: 756
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/counterfact/cf_P159_headquarters_location.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - pairs two records of the same relation_id and the same prompt template whose TRUE objects differ (subject swap); target_new (the counterfactual object) is unused
+  - pairs restricted to equal Qwen3.5 token length of the full prompt and to answers that are not prefixes of each other
+  - answers are " " + target_true; zero-shot, no demonstrations
+  - records whose prompt text has several distinct true objects in the source (0 here) are dropped; duplicate records kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 0.996
+  n_single_token_answers: 1992
+  n_ambiguous_prompts_dropped: 0
+  n_facts_used: 756
+  relation: P159 (headquarters location)
+  n_templates: 7
+  valid_pair_capacity: 9113
+  status: converted
+- name: cf_P176_manufacturer
+  family: factual_product_company
+  domain: factual knowledge
+  n_items_raw: 911
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/counterfact/cf_P176_manufacturer.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - pairs two records of the same relation_id and the same prompt template whose TRUE objects differ (subject swap); target_new (the counterfactual object) is unused
+  - pairs restricted to equal Qwen3.5 token length of the full prompt and to answers that are not prefixes of each other
+  - answers are " " + target_true; zero-shot, no demonstrations
+  - records whose prompt text has several distinct true objects in the source (0 here) are dropped; duplicate records kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 1.0
+  n_single_token_answers: 2000
+  n_ambiguous_prompts_dropped: 0
+  n_facts_used: 908
+  relation: P176 (manufacturer)
+  n_templates: 7
+  valid_pair_capacity: 9809
+  status: converted
+- name: cf_P178_developer
+  family: factual_relation_developer
+  domain: factual knowledge
+  n_items_raw: 579
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/counterfact/cf_P178_developer.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - pairs two records of the same relation_id and the same prompt template whose TRUE objects differ (subject swap); target_new (the counterfactual object) is unused
+  - pairs restricted to equal Qwen3.5 token length of the full prompt and to answers that are not prefixes of each other
+  - answers are " " + target_true; zero-shot, no demonstrations
+  - records whose prompt text has several distinct true objects in the source (0 here) are dropped; duplicate records kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 1.0
+  n_single_token_answers: 2000
+  n_ambiguous_prompts_dropped: 0
+  n_facts_used: 579
+  relation: P178 (developer)
+  n_templates: 12
+  valid_pair_capacity: 2848
+  status: converted
+- name: cf_P190_twinned_administrative_body
+  family: factual_relation_twinned_administrative_body
+  domain: factual knowledge
+  n_items_raw: 621
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/counterfact/cf_P190_twinned_administrative_body.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - pairs two records of the same relation_id and the same prompt template whose TRUE objects differ (subject swap); target_new (the counterfactual object) is unused
+  - pairs restricted to equal Qwen3.5 token length of the full prompt and to answers that are not prefixes of each other
+  - answers are " " + target_true; zero-shot, no demonstrations
+  - records whose prompt text has several distinct true objects in the source (375 here) are dropped; duplicate records kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 0.976
+  n_single_token_answers: 1952
+  n_ambiguous_prompts_dropped: 375
+  n_facts_used: 246
+  relation: P190 (twinned administrative body)
+  n_templates: 3
+  valid_pair_capacity: 3487
+  status: converted
+- name: cf_P264_record_label
+  family: factual_relation_record_label
+  domain: factual knowledge
+  n_items_raw: 53
+  n_ambiguous_prompts_dropped: 0
+  n_facts_used: 53
+  relation: P264 (record label)
+  n_templates: 14
+  valid_pair_capacity: 15
+  status: not_converted
+  n_items_converted: 0
+  notes: fewer than 200 valid pairs (same template, equal token length, different answers)
+- name: cf_P276_location
+  family: factual_relation_location
+  domain: factual knowledge
+  n_items_raw: 613
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/counterfact/cf_P276_location.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - pairs two records of the same relation_id and the same prompt template whose TRUE objects differ (subject swap); target_new (the counterfactual object) is unused
+  - pairs restricted to equal Qwen3.5 token length of the full prompt and to answers that are not prefixes of each other
+  - answers are " " + target_true; zero-shot, no demonstrations
+  - records whose prompt text has several distinct true objects in the source (15 here) are dropped; duplicate records kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 0.9315
+  n_single_token_answers: 1863
+  n_ambiguous_prompts_dropped: 15
+  n_facts_used: 598
+  relation: P276 (location)
+  n_templates: 5
+  valid_pair_capacity: 6065
+  status: converted
+- name: cf_P364_original_language_of_film_or_tv_show
+  family: factual_language
+  domain: factual knowledge
+  n_items_raw: 751
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/counterfact/cf_P364_original_language_of_film_or_tv_show.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - pairs two records of the same relation_id and the same prompt template whose TRUE objects differ (subject swap); target_new (the counterfactual object) is unused
+  - pairs restricted to equal Qwen3.5 token length of the full prompt and to answers that are not prefixes of each other
+  - answers are " " + target_true; zero-shot, no demonstrations
+  - records whose prompt text has several distinct true objects in the source (0 here) are dropped; duplicate records kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 0.9915
+  n_single_token_answers: 1983
+  n_ambiguous_prompts_dropped: 0
+  n_facts_used: 751
+  relation: P364 (original language of film or TV show)
+  n_templates: 4
+  valid_pair_capacity: 11907
+  status: converted
+- name: cf_P407_language_of_work_or_name
+  family: factual_language
+  domain: factual knowledge
+  n_items_raw: 216
+  n_items_after_validity_and_dedup: 1134
+  n_items_converted: 1134
+  sampled_ids_file: external/task_bank/tasks/counterfact/cf_P407_language_of_work_or_name.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - pairs two records of the same relation_id and the same prompt template whose TRUE objects differ (subject swap); target_new (the counterfactual object) is unused
+  - pairs restricted to equal Qwen3.5 token length of the full prompt and to answers that are not prefixes of each other
+  - answers are " " + target_true; zero-shot, no demonstrations
+  - records whose prompt text has several distinct true objects in the source (0 here) are dropped; duplicate records kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 1134
+  single_token_answers_share: 0.9912
+  n_single_token_answers: 1124
+  n_ambiguous_prompts_dropped: 0
+  n_facts_used: 216
+  relation: P407 (language of work or name)
+  n_templates: 4
+  valid_pair_capacity: 1134
+  status: converted
+- name: cf_P413_position_played_on_team___speciality
+  family: factual_sport_position
+  domain: factual knowledge
+  n_items_raw: 952
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/counterfact/cf_P413_position_played_on_team___speciality.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - pairs two records of the same relation_id and the same prompt template whose TRUE objects differ (subject swap); target_new (the counterfactual object) is unused
+  - pairs restricted to equal Qwen3.5 token length of the full prompt and to answers that are not prefixes of each other
+  - answers are " " + target_true; zero-shot, no demonstrations
+  - records whose prompt text has several distinct true objects in the source (0 here) are dropped; duplicate records kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 0.6395
+  n_single_token_answers: 1279
+  n_ambiguous_prompts_dropped: 0
+  n_facts_used: 952
+  relation: P413 (position played on team / speciality)
+  n_templates: 5
+  valid_pair_capacity: 16874
+  status: converted
+- name: cf_P449_original_broadcaster
+  family: factual_relation_original_broadcaster
+  domain: factual knowledge
+  n_items_raw: 794
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/counterfact/cf_P449_original_broadcaster.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - pairs two records of the same relation_id and the same prompt template whose TRUE objects differ (subject swap); target_new (the counterfactual object) is unused
+  - pairs restricted to equal Qwen3.5 token length of the full prompt and to answers that are not prefixes of each other
+  - answers are " " + target_true; zero-shot, no demonstrations
+  - records whose prompt text has several distinct true objects in the source (2 here) are dropped; duplicate records kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 1.0
+  n_single_token_answers: 2000
+  n_ambiguous_prompts_dropped: 2
+  n_facts_used: 792
+  relation: P449 (original broadcaster)
+  n_templates: 6
+  valid_pair_capacity: 8925
+  status: converted
+- name: cf_P463_member_of
+  family: factual_relation_member_of
+  domain: factual knowledge
+  n_items_raw: 163
+  n_items_after_validity_and_dedup: 217
+  n_items_converted: 217
+  sampled_ids_file: external/task_bank/tasks/counterfact/cf_P463_member_of.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - pairs two records of the same relation_id and the same prompt template whose TRUE objects differ (subject swap); target_new (the counterfactual object) is unused
+  - pairs restricted to equal Qwen3.5 token length of the full prompt and to answers that are not prefixes of each other
+  - answers are " " + target_true; zero-shot, no demonstrations
+  - records whose prompt text has several distinct true objects in the source (2 here) are dropped; duplicate records kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 217
+  single_token_answers_share: 1.0
+  n_single_token_answers: 217
+  n_ambiguous_prompts_dropped: 2
+  n_facts_used: 161
+  relation: P463 (member of)
+  n_templates: 5
+  valid_pair_capacity: 217
+  status: converted
+  notes: below the 300-item target (valid-pair capacity 217)
+- name: cf_P495_country_of_origin
+  family: factual_relation_country_of_origin
+  domain: factual knowledge
+  n_items_raw: 904
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/counterfact/cf_P495_country_of_origin.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - pairs two records of the same relation_id and the same prompt template whose TRUE objects differ (subject swap); target_new (the counterfactual object) is unused
+  - pairs restricted to equal Qwen3.5 token length of the full prompt and to answers that are not prefixes of each other
+  - answers are " " + target_true; zero-shot, no demonstrations
+  - records whose prompt text has several distinct true objects in the source (2 here) are dropped; duplicate records kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 1.0
+  n_single_token_answers: 2000
+  n_ambiguous_prompts_dropped: 2
+  n_facts_used: 902
+  relation: P495 (country of origin)
+  n_templates: 16
+  valid_pair_capacity: 4878
+  status: converted
+- name: cf_P641_sport
+  family: factual_sport
+  domain: factual knowledge
+  n_items_raw: 318
+  n_items_after_validity_and_dedup: 1776
+  n_items_converted: 1776
+  sampled_ids_file: external/task_bank/tasks/counterfact/cf_P641_sport.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - pairs two records of the same relation_id and the same prompt template whose TRUE objects differ (subject swap); target_new (the counterfactual object) is unused
+  - pairs restricted to equal Qwen3.5 token length of the full prompt and to answers that are not prefixes of each other
+  - answers are " " + target_true; zero-shot, no demonstrations
+  - records whose prompt text has several distinct true objects in the source (0 here) are dropped; duplicate records kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 1776
+  single_token_answers_share: 1.0
+  n_single_token_answers: 1776
+  n_ambiguous_prompts_dropped: 0
+  n_facts_used: 318
+  relation: P641 (sport)
+  n_templates: 5
+  valid_pair_capacity: 1776
+  status: converted
+- name: cf_P740_location_of_formation
+  family: factual_relation_location_of_formation
+  domain: factual knowledge
+  n_items_raw: 774
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/counterfact/cf_P740_location_of_formation.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - pairs two records of the same relation_id and the same prompt template whose TRUE objects differ (subject swap); target_new (the counterfactual object) is unused
+  - pairs restricted to equal Qwen3.5 token length of the full prompt and to answers that are not prefixes of each other
+  - answers are " " + target_true; zero-shot, no demonstrations
+  - records whose prompt text has several distinct true objects in the source (0 here) are dropped; duplicate records kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 0.997
+  n_single_token_answers: 1994
+  n_ambiguous_prompts_dropped: 0
+  n_facts_used: 774
+  relation: P740 (location of formation)
+  n_templates: 14
+  valid_pair_capacity: 5363
+  status: converted
+- name: cf_P937_work_location
+  family: factual_relation_work_location
+  domain: factual knowledge
+  n_items_raw: 846
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/counterfact/cf_P937_work_location.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - pairs two records of the same relation_id and the same prompt template whose TRUE objects differ (subject swap); target_new (the counterfactual object) is unused
+  - pairs restricted to equal Qwen3.5 token length of the full prompt and to answers that are not prefixes of each other
+  - answers are " " + target_true; zero-shot, no demonstrations
+  - records whose prompt text has several distinct true objects in the source (6 here) are dropped; duplicate records kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 1.0
+  n_single_token_answers: 2000
+  n_ambiguous_prompts_dropped: 6
+  n_facts_used: 840
+  relation: P937 (work location)
+  n_templates: 6
+  valid_pair_capacity: 9606
+  status: converted
+- name: cf_P1303_instrument
+  family: factual_instrument
+  domain: factual knowledge
+  n_items_raw: 513
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/counterfact/cf_P1303_instrument.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - pairs two records of the same relation_id and the same prompt template whose TRUE objects differ (subject swap); target_new (the counterfactual object) is unused
+  - pairs restricted to equal Qwen3.5 token length of the full prompt and to answers that are not prefixes of each other
+  - answers are " " + target_true; zero-shot, no demonstrations
+  - records whose prompt text has several distinct true objects in the source (2 here) are dropped; duplicate records kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 1.0
+  n_single_token_answers: 2000
+  n_ambiguous_prompts_dropped: 2
+  n_facts_used: 511
+  relation: P1303 (instrument)
+  n_templates: 7
+  valid_pair_capacity: 3068
+  status: converted
+- name: cf_P1412_languages_spoken__written_or_signed
+  family: factual_language
+  domain: factual knowledge
+  n_items_raw: 924
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/counterfact/cf_P1412_languages_spoken__written_or_signed.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - pairs two records of the same relation_id and the same prompt template whose TRUE objects differ (subject swap); target_new (the counterfactual object) is unused
+  - pairs restricted to equal Qwen3.5 token length of the full prompt and to answers that are not prefixes of each other
+  - answers are " " + target_true; zero-shot, no demonstrations
+  - records whose prompt text has several distinct true objects in the source (0 here) are dropped; duplicate records kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 0.9935
+  n_single_token_answers: 1987
+  n_ambiguous_prompts_dropped: 0
+  n_facts_used: 924
+  relation: P1412 (languages spoken, written or signed)
+  n_templates: 4
+  valid_pair_capacity: 18295
+  status: converted

@@ -1,0 +1,26 @@
+{
+  "et_state_noop": {
+    "path": "et_state_noop.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "et_state_1remove": {
+    "path": "et_state_1remove.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "et_state_1move": {
+    "path": "et_state_1move.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  }
+}

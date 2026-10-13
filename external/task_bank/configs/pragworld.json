@@ -1,0 +1,10 @@
+{
+  "pragworld_flip": {
+    "path": "pragworld_flip.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  }
+}

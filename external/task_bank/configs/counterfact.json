@@ -1,0 +1,266 @@
+{
+  "cf_P17_country": {
+    "path": "cf_P17_country.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "cf_P19_place_of_birth": {
+    "path": "cf_P19_place_of_birth.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "cf_P20_place_of_death": {
+    "path": "cf_P20_place_of_death.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "cf_P27_country_of_citizenship": {
+    "path": "cf_P27_country_of_citizenship.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "cf_P30_continent": {
+    "path": "cf_P30_continent.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "cf_P36_capital": {
+    "path": "cf_P36_capital.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "cf_P37_official_language": {
+    "path": "cf_P37_official_language.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "cf_P39_position_held": {
+    "path": "cf_P39_position_held.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "cf_P101_field_of_work": {
+    "path": "cf_P101_field_of_work.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "cf_P103_native_language": {
+    "path": "cf_P103_native_language.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "cf_P106_occupation": {
+    "path": "cf_P106_occupation.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "cf_P108_employer": {
+    "path": "cf_P108_employer.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "cf_P127_owned_by": {
+    "path": "cf_P127_owned_by.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "cf_P131_located_in_the_administrative_territoria": {
+    "path": "cf_P131_located_in_the_administrative_territoria.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "cf_P136_genre": {
+    "path": "cf_P136_genre.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "cf_P138_named_after": {
+    "path": "cf_P138_named_after.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "cf_P140_religion_or_worldview": {
+    "path": "cf_P140_religion_or_worldview.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "cf_P159_headquarters_location": {
+    "path": "cf_P159_headquarters_location.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "cf_P176_manufacturer": {
+    "path": "cf_P176_manufacturer.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "cf_P178_developer": {
+    "path": "cf_P178_developer.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "cf_P190_twinned_administrative_body": {
+    "path": "cf_P190_twinned_administrative_body.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "cf_P276_location": {
+    "path": "cf_P276_location.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "cf_P364_original_language_of_film_or_tv_show": {
+    "path": "cf_P364_original_language_of_film_or_tv_show.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "cf_P407_language_of_work_or_name": {
+    "path": "cf_P407_language_of_work_or_name.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "cf_P413_position_played_on_team___speciality": {
+    "path": "cf_P413_position_played_on_team___speciality.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "cf_P449_original_broadcaster": {
+    "path": "cf_P449_original_broadcaster.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "cf_P463_member_of": {
+    "path": "cf_P463_member_of.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "cf_P495_country_of_origin": {
+    "path": "cf_P495_country_of_origin.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "cf_P641_sport": {
+    "path": "cf_P641_sport.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "cf_P740_location_of_formation": {
+    "path": "cf_P740_location_of_formation.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "cf_P937_work_location": {
+    "path": "cf_P937_work_location.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "cf_P1303_instrument": {
+    "path": "cf_P1303_instrument.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "cf_P1412_languages_spoken__written_or_signed": {
+    "path": "cf_P1412_languages_spoken__written_or_signed.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  }
+}

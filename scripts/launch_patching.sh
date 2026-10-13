@@ -26,9 +26,15 @@ ATTR_MODELS=${ATTR_MODELS:-"Qwen/Qwen3.5-2B Qwen/Qwen3.5-4B"}
 EXCLUDE=${EXCLUDE:-jagupard32}
 SCREEN_MODELS=${SCREEN_MODELS:-"Qwen/Qwen3-0.6B Qwen/Qwen3-1.7B Qwen/Qwen3-4B Qwen/Qwen3.5-0.8B Qwen/Qwen3.5-2B Qwen/Qwen3.5-4B LiquidAI/LFM2.5-1.2B-Instruct ibm-granite/granite-4.2-3b google/gemma-4-e4b-it"}
 
+# Task-bank screen (info/TASK_BANK.md): accuracy only, on the (source, task) pairs of
+# external/task_bank/eval_tasks.txt. tasks/ is gitignored: rsync it to the cluster first
+# (rsync -avP external/task_bank/tasks/ scdt:$WORK/external/task_bank/tasks/); the job checks
+# it against tasks_manifest.tsv before running.
+BANK_MODELS=${BANK_MODELS:-"Qwen/Qwen3.5-2B Qwen/Qwen3.5-4B"}
+
 case "$MODE" in
-    generate|submit|generate_screen|submit_screen|generate_attribution|submit_attribution) ;;
-    *) echo "usage: $0 generate | submit | generate_screen | submit_screen | generate_attribution | submit_attribution  (SCREEN_MODELS=, ATTR_MODELS= to override)" >&2; exit 2 ;;
+    generate|submit|generate_screen|submit_screen|generate_attribution|submit_attribution|generate_bank|submit_bank) ;;
+    *) echo "usage: $0 generate | submit | generate_screen | submit_screen | generate_attribution | submit_attribution | generate_bank | submit_bank  (SCREEN_MODELS=, ATTR_MODELS=, BANK_MODELS= to override)" >&2; exit 2 ;;
 esac
 
 cd "$WORK"
@@ -135,7 +141,33 @@ submit_attribution() {
     done
 }
 
+bank_name() { echo "bank.$(echo "$1" | tr '/' '_' | tr '.' '-')"; }
+
+generate_bank() {
+    # 240 tasks, about 334k items x 4 teacher-forced passes, float32. Sized from the
+    # LLM_Modularity screen (58k items: 75 min at 2B, 157 min at 4B on an a6000), with
+    # margin; finished tasks are cached, so a timed-out job resumes where it stopped.
+    mkdir -p jobs logs
+    local m hours
+    for m in $BANK_MODELS; do
+        case "$m" in *4B*) hours=36 ;; *) hours=18 ;; esac
+        job "$(bank_name $m)" $hours 48 "python scripts/task_bank/manifest.py --check && python -m parcelmate.bin.patch_eval --model $m --bank --bos none --batch-size 16 --out results/patching_bank"
+    done
+}
+
+submit_bank() {
+    mkdir -p logs
+    echo "code at $(git log --oneline | head -1)"
+    local m id
+    for m in $BANK_MODELS; do
+        id=$(sbatch --parsable jobs/$(bank_name $m).pbs)
+        echo "$m bank screen -> $id"
+    done
+}
+
 case "$MODE" in
+    generate_bank) generate_bank ;;
+    submit_bank)   submit_bank ;;
     generate) generate ;;
     generate_attribution) generate_attribution ;;
     submit_attribution)   submit_attribution ;;

@@ -1,0 +1,136 @@
+source_id: entity_tracking_mi
+title: Do Language Models Track Entities Across State Changes? (box-data generator and pilot datasets)
+bibkey: tang2026languagemodelstrackentities
+bibkey_data: kim-schuster-2023-entity (the generator derives from their code)
+url: https://github.com/PootieT/entity-tracking-mi
+revision: 21b1304872708fb85b21cf86730bd7df3d73da73
+licence: MIT (Copyright 2026 Zilu (Peter) Tang)
+licence_source: external/task_bank/raw/entity_tracking_mi/repo/LICENSE
+redistribute: yes (MIT; the generator derives from Kim & Schuster 2023 code, whose licence was not checked; their password-protected data is not used)
+tier: 1
+tokenizer:
+  tokenizer_repo: Qwen/Qwen3.5-2B
+  tokenizer_revision: 15852e8c16360a2fea060d615a32b45270f8a8fc
+  note: Qwen3.5-2B tokenizer.json; the 4B tokenizer is the same (checked by the circuits group)
+status: converted
+generator:
+  commit: 21b1304872708fb85b21cf86730bd7df3d73da73
+  seed: 42
+  runs:
+    boxes_AltForm_1remove:
+      paper_script: dataset_generation/boxes_AltForm_1remove.sh
+      command: '-P <repo>/external/task_bank/raw/entity_tracking_mi/generated/generate_boxes_data_patched.py --object_vocabulary_file <repo>/external/task_bank/raw/entity_tracking_mi/repo/data/objects/llama_friendly_objects.csv
+        --output_dir <repo>/external/task_bank/raw/entity_tracking_mi/generated/boxes_AltForm_1remove --num_samples 7000 --allowed_operations remove --num_operations 1 --alternative_forms always --seed
+        42 --cft_formats '
+      env: PYTHONHASHSEED=0
+    boxes_AltForm_1move:
+      paper_script: dataset_generation/boxes_AltForm_1move.sh
+      command: '-P <repo>/external/task_bank/raw/entity_tracking_mi/generated/generate_boxes_data_patched.py --object_vocabulary_file <repo>/external/task_bank/raw/entity_tracking_mi/repo/data/objects/llama_friendly_objects.csv
+        --output_dir <repo>/external/task_bank/raw/entity_tracking_mi/generated/boxes_AltForm_1move --num_samples 5000 --allowed_operations move --num_operations 1 --alternative_forms always --seed 42 --cft_formats '
+      env: PYTHONHASHSEED=0
+    boxes_AltForm_1put_1fixObj:
+      paper_script: dataset_generation/boxes_AltForm_1put_1fixObj.sh
+      command: '-P <repo>/external/task_bank/raw/entity_tracking_mi/generated/generate_boxes_data_patched.py --object_vocabulary_file <repo>/external/task_bank/raw/entity_tracking_mi/repo/data/objects/llama_friendly_objects.csv
+        --output_dir <repo>/external/task_bank/raw/entity_tracking_mi/generated/boxes_AltForm_1put_1fixObj --num_samples 5000 --allowed_operations put --num_operations 1 --fix_object_count_per_phrase 1
+        --alternative_forms always --seed 42 --cft_formats '
+      env: PYTHONHASHSEED=0
+  patch: random.sample(x, k) -> random.sample(sorted(x), k) at two call sites (Python >= 3.11 compatibility); PYTHONHASHSEED=0; run with python -s -P
+notes: The paper additionally offers data on Google Drive (not fetched; the generator reproduces it).
+download_date: '2026-10-12'
+raw_files:
+- path: external/task_bank/raw/entity_tracking_mi/repo/dataset_generation/generate_boxes_data_modified.py
+  sha256: d3da9473bbc6bc8a225f3154aa46d72509d8ffd963a275f7f304804138f95409
+- path: external/task_bank/raw/entity_tracking_mi/generated/generate_boxes_data_patched.py
+  sha256: 90ab65c7e4b15adff2c182f08afb1f6a90dabe67e4c682f5b5bcbc6707240702
+- path: external/task_bank/raw/entity_tracking_mi/repo/data/objects/llama_friendly_objects.csv
+  sha256: dfdfb0da5cd1803cd56042c2e85b7d4c8b78bd4c8447b36672e95f4723f6b593
+- path: external/task_bank/raw/entity_tracking_mi/repo/LICENSE
+  sha256: ce485ed810b736a08d3a0603e7b02fc964c3c9155484c21a70ce203b7a9f1399
+- path: external/task_bank/raw/entity_tracking_mi/generated/boxes_AltForm_1remove/train-t5.jsonl
+  sha256: 08b04642340c872f8ebbf03cd81d07d9fe21e775142d8b965215b89e0c78bc23
+- path: external/task_bank/raw/entity_tracking_mi/generated/boxes_AltForm_1move/train-t5.jsonl
+  sha256: 8e92d28b1919eb03416e298d501c8ccaefe6627e0411e8096302643bf2977dbb
+- path: external/task_bank/raw/entity_tracking_mi/generated/boxes_AltForm_1put_1fixObj/train-t5.jsonl
+  sha256: 05eaf70aea58047db07f5163ba90b0de4840004056754437af70c989b7285231
+tasks:
+- name: et_state_noop
+  family: entity_tracking_boxes
+  domain: entity tracking
+  n_items_raw: 98000
+  n_items_after_validity_and_dedup: 6988
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/entity_tracking_mi/et_state_noop.ids.txt
+  sampling_rule: proportional stratified sample, seed 42, cap 2000
+  adaptations:
+  - generated with the paper's own parameter set (boxes_AltForm_1remove) and seed 42 instead of their default 2255 (patched copy of their generator for Python >= 3.11, PYTHONHASHSEED=0)
+  - rows with a single-object gold content only; prompt cut at "Box <q> contains the", answer " <object>"
+  - 'flip (our construction): same context, query box q1 vs a different query box q2 holding a different single object (the generator''s rand_query_id counterfactual restricted to unambiguous boxes); equal
+    length (one digit)'
+  - one random pair of single-object boxes per context
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 1.0
+  n_single_token_answers: 2000
+  generator_run: boxes_AltForm_1remove
+  n_operations: 0
+  n_boxes: 7
+  n_shots: 0
+  status: converted
+- name: et_state_1remove
+  family: entity_tracking_boxes_state
+  domain: entity tracking
+  n_items_raw: 98000
+  n_items_after_validity_and_dedup: 1043
+  n_items_converted: 1043
+  sampled_ids_file: external/task_bank/tasks/entity_tracking_mi/et_state_1remove.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - generated with the paper's own parameter set (boxes_AltForm_1remove) and seed 42 instead of their default 2255 (patched copy of their generator for Python >= 3.11, PYTHONHASHSEED=0)
+  - rows with a single-object gold content only; prompt cut at "Box <q> contains the", answer " <object>"
+  - 'flip (our construction): same context, query box q1 vs a different query box q2 holding a different single object (the generator''s rand_query_id counterfactual restricted to unambiguous boxes); equal
+    length (one digit)'
+  - clean box = a box changed by the operation that still holds exactly one object; partner = random other single-object box with a different object
+  len_match_share_qwen35: 1.0
+  n_len_match: 1043
+  single_token_answers_share: 1.0
+  n_single_token_answers: 1043
+  generator_run: boxes_AltForm_1remove
+  n_operations: 1
+  n_boxes: 7
+  n_shots: 0
+  status: converted
+- name: et_state_1move
+  family: entity_tracking_boxes_state
+  domain: entity tracking
+  n_items_raw: 70000
+  n_items_after_validity_and_dedup: 792
+  n_items_converted: 792
+  sampled_ids_file: external/task_bank/tasks/entity_tracking_mi/et_state_1move.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - generated with the paper's own parameter set (boxes_AltForm_1move) and seed 42 instead of their default 2255 (patched copy of their generator for Python >= 3.11, PYTHONHASHSEED=0)
+  - rows with a single-object gold content only; prompt cut at "Box <q> contains the", answer " <object>"
+  - 'flip (our construction): same context, query box q1 vs a different query box q2 holding a different single object (the generator''s rand_query_id counterfactual restricted to unambiguous boxes); equal
+    length (one digit)'
+  - clean box = a box changed by the operation that still holds exactly one object; partner = random other single-object box with a different object
+  len_match_share_qwen35: 1.0
+  n_len_match: 792
+  single_token_answers_share: 1.0
+  n_single_token_answers: 792
+  generator_run: boxes_AltForm_1move
+  n_operations: 1
+  n_boxes: 7
+  n_shots: 0
+  status: converted
+- name: et_state_1put
+  status: not_fitting_tier1
+  notes: the changed box ends with two objects listed in random order (set-valued gold); candidate for tier 2 only if the first-mentioned object is accepted
+- name: pilot_noop_remove
+  status: not_fitting_tier1
+  notes: pilot file of the paper for the Remove degeneracy analysis; gold contents are sets (e.g. ["drink","sheet"]) and prompts end in "Box k contains the"
+- name: pilot_reintroduce_removed_object
+  status: not_fitting_tier1
+  notes: pilot file of the paper for the Remove degeneracy analysis; gold contents are sets (e.g. ["drink","sheet"]) and prompts end in "Box k contains the"
+- name: pilot_shared_label_object_remove
+  status: not_fitting_tier1
+  notes: pilot file of the paper for the Remove degeneracy analysis; gold contents are sets (e.g. ["drink","sheet"]) and prompts end in "Box k contains the"

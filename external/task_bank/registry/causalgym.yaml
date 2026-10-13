@@ -1,0 +1,442 @@
+source_id: causalgym
+title: 'CausalGym: Benchmarking causal interpretability methods on linguistic tasks'
+bibkey: arora-etal-2024-causalgym
+bibkey_data: gauthier-etal-2020-syntaxgym; hu-etal-2020-systematic
+url: 'https://huggingface.co/datasets/aryaman/causalgym (templates: https://github.com/aryamanarora/causalgym)'
+revision:
+  hf_dataset: 95349c3a5e53e2506e8b212482ea6dd784978156
+  github_commit: 0f3129ff3b6c5c8264892f30a25be25150ae9179
+download_date: '2026-10-12'
+raw_files:
+- path: raw/causalgym/hf/train.json
+  sha256: 021f40afe202c312db3523497988097f77deb59d74c487234f28b7d3360ad0ba
+- path: raw/causalgym/hf/dev.json
+  sha256: 0f32cdfa742e7633bb13e49601d346f832f9c17b19107f1eeaffd53995912ce8
+- path: raw/causalgym/hf/test.json
+  sha256: d433abfc2b910f9cc339cc0be392a85b9f3fa4361e07e235816ade821144cdef
+licence: MIT
+licence_source: 'Hugging Face dataset card (hf/README.md front matter, license: mit) at the pinned revision; the GitHub repo at the pinned commit has no LICENSE file'
+redistribute: yes (MIT per dataset card; the GitHub repo has no licence file, derived SyntaxGym stimuli are covered by the card)
+tier: 1
+tasks:
+- name: agr_gender
+  family: gender_pronoun_agreement
+  domain: syntax
+  n_items_raw: 600
+  n_items_converted: 600
+  sampled_ids_file: tasks/causalgym/agr_gender.ids.txt
+  sampling_rule: all items kept (pool <= 2000 after dropping exact duplicates)
+  adaptations:
+  - leading <|endoftext|> span stripped
+  - train/dev/test pooled
+  - exact duplicates dropped
+  len_match_share_qwen35: 0.35
+  single_token_answer_share: 1.0
+- name: agr_refl_num_obj-relc
+  family: reflexive_number_across_obj_rc
+  domain: syntax
+  n_items_raw: 600
+  n_items_converted: 600
+  sampled_ids_file: tasks/causalgym/agr_refl_num_obj-relc.ids.txt
+  sampling_rule: all items kept (pool <= 2000 after dropping exact duplicates)
+  adaptations:
+  - leading <|endoftext|> span stripped
+  - train/dev/test pooled
+  - exact duplicates dropped
+  len_match_share_qwen35: 0.7833
+  single_token_answer_share: 1.0
+- name: agr_refl_num_pp
+  family: reflexive_number_across_pp
+  domain: syntax
+  n_items_raw: 600
+  n_items_converted: 600
+  sampled_ids_file: tasks/causalgym/agr_refl_num_pp.ids.txt
+  sampling_rule: all items kept (pool <= 2000 after dropping exact duplicates)
+  adaptations:
+  - leading <|endoftext|> span stripped
+  - train/dev/test pooled
+  - exact duplicates dropped
+  len_match_share_qwen35: 0.7833
+  single_token_answer_share: 1.0
+- name: agr_refl_num_subj-relc
+  family: reflexive_number_across_subj_rc
+  domain: syntax
+  n_items_raw: 600
+  n_items_converted: 600
+  sampled_ids_file: tasks/causalgym/agr_refl_num_subj-relc.ids.txt
+  sampling_rule: all items kept (pool <= 2000 after dropping exact duplicates)
+  adaptations:
+  - leading <|endoftext|> span stripped
+  - train/dev/test pooled
+  - exact duplicates dropped
+  len_match_share_qwen35: 0.8033
+  single_token_answer_share: 1.0
+- name: agr_sv_num_obj-relc
+  family: sva_across_obj_rc
+  domain: syntax
+  n_items_raw: 600
+  n_items_converted: 600
+  sampled_ids_file: tasks/causalgym/agr_sv_num_obj-relc.ids.txt
+  sampling_rule: all items kept (pool <= 2000 after dropping exact duplicates)
+  adaptations:
+  - leading <|endoftext|> span stripped
+  - train/dev/test pooled
+  - exact duplicates dropped
+  len_match_share_qwen35: 0.8333
+  single_token_answer_share: 1.0
+- name: agr_sv_num_obj-relc_matched
+  family: sva_across_obj_rc
+  domain: syntax
+  n_items_raw: 600
+  n_items_converted: 600
+  sampled_ids_file: tasks/causalgym/agr_sv_num_obj-relc_matched.ids.txt
+  sampling_rule: all items kept (pool <= 2000 after dropping exact duplicates)
+  adaptations:
+  - leading <|endoftext|> span stripped
+  - train/dev/test pooled
+  - exact duplicates dropped
+  - clean_incorrect replaced by the number-flipped form of clean_correct (is/are, has/have, was/were); original src_label kept as original_src_label
+  len_match_share_qwen35: 0.8333
+  single_token_answer_share: 1.0
+- name: agr_sv_num_pp
+  family: sva_across_pp
+  domain: syntax
+  n_items_raw: 600
+  n_items_converted: 600
+  sampled_ids_file: tasks/causalgym/agr_sv_num_pp.ids.txt
+  sampling_rule: all items kept (pool <= 2000 after dropping exact duplicates)
+  adaptations:
+  - leading <|endoftext|> span stripped
+  - train/dev/test pooled
+  - exact duplicates dropped
+  len_match_share_qwen35: 0.8433
+  single_token_answer_share: 1.0
+- name: agr_sv_num_pp_matched
+  family: sva_across_pp
+  domain: syntax
+  n_items_raw: 600
+  n_items_converted: 600
+  sampled_ids_file: tasks/causalgym/agr_sv_num_pp_matched.ids.txt
+  sampling_rule: all items kept (pool <= 2000 after dropping exact duplicates)
+  adaptations:
+  - leading <|endoftext|> span stripped
+  - train/dev/test pooled
+  - exact duplicates dropped
+  - clean_incorrect replaced by the number-flipped form of clean_correct (is/are, has/have, was/were); original src_label kept as original_src_label
+  len_match_share_qwen35: 0.8433
+  single_token_answer_share: 1.0
+- name: agr_sv_num_subj-relc
+  family: sva_across_subj_rc
+  domain: syntax
+  n_items_raw: 600
+  n_items_converted: 600
+  sampled_ids_file: tasks/causalgym/agr_sv_num_subj-relc.ids.txt
+  sampling_rule: all items kept (pool <= 2000 after dropping exact duplicates)
+  adaptations:
+  - leading <|endoftext|> span stripped
+  - train/dev/test pooled
+  - exact duplicates dropped
+  len_match_share_qwen35: 0.8467
+  single_token_answer_share: 1.0
+- name: agr_sv_num_subj-relc_matched
+  family: sva_across_subj_rc
+  domain: syntax
+  n_items_raw: 600
+  n_items_converted: 600
+  sampled_ids_file: tasks/causalgym/agr_sv_num_subj-relc_matched.ids.txt
+  sampling_rule: all items kept (pool <= 2000 after dropping exact duplicates)
+  adaptations:
+  - leading <|endoftext|> span stripped
+  - train/dev/test pooled
+  - exact duplicates dropped
+  - clean_incorrect replaced by the number-flipped form of clean_correct (is/are, has/have, was/were); original src_label kept as original_src_label
+  len_match_share_qwen35: 0.8467
+  single_token_answer_share: 1.0
+- name: cleft
+  family: cleft
+  domain: syntax
+  n_items_raw: 600
+  n_items_converted: 528
+  sampled_ids_file: tasks/causalgym/cleft.ids.txt
+  sampling_rule: all items kept (pool <= 2000 after dropping exact duplicates)
+  adaptations:
+  - leading <|endoftext|> span stripped
+  - train/dev/test pooled
+  - exact duplicates dropped
+  len_match_share_qwen35: 0.8977
+  single_token_answer_share: 1.0
+- name: cleft_mod
+  family: cleft
+  domain: syntax
+  n_items_raw: 600
+  n_items_converted: 600
+  sampled_ids_file: tasks/causalgym/cleft_mod.ids.txt
+  sampling_rule: all items kept (pool <= 2000 after dropping exact duplicates)
+  adaptations:
+  - leading <|endoftext|> span stripped
+  - train/dev/test pooled
+  - exact duplicates dropped
+  len_match_share_qwen35: 0.9067
+  single_token_answer_share: 1.0
+- name: filler_gap_embed_3
+  family: filler_gap
+  domain: syntax
+  n_items_raw: 600
+  n_items_converted: 600
+  sampled_ids_file: tasks/causalgym/filler_gap_embed_3.ids.txt
+  sampling_rule: all items kept (pool <= 2000 after dropping exact duplicates)
+  adaptations:
+  - leading <|endoftext|> span stripped
+  - train/dev/test pooled
+  - exact duplicates dropped
+  len_match_share_qwen35: 1.0
+  single_token_answer_share: 1.0
+- name: filler_gap_embed_4
+  family: filler_gap
+  domain: syntax
+  n_items_raw: 600
+  n_items_converted: 600
+  sampled_ids_file: tasks/causalgym/filler_gap_embed_4.ids.txt
+  sampling_rule: all items kept (pool <= 2000 after dropping exact duplicates)
+  adaptations:
+  - leading <|endoftext|> span stripped
+  - train/dev/test pooled
+  - exact duplicates dropped
+  len_match_share_qwen35: 1.0
+  single_token_answer_share: 1.0
+- name: filler_gap_hierarchy
+  family: filler_gap
+  domain: syntax
+  n_items_raw: 600
+  n_items_converted: 600
+  sampled_ids_file: tasks/causalgym/filler_gap_hierarchy.ids.txt
+  sampling_rule: all items kept (pool <= 2000 after dropping exact duplicates)
+  adaptations:
+  - leading <|endoftext|> span stripped
+  - train/dev/test pooled
+  - exact duplicates dropped
+  len_match_share_qwen35: 1.0
+  single_token_answer_share: 1.0
+- name: filler_gap_obj
+  family: filler_gap
+  domain: syntax
+  n_items_raw: 600
+  n_items_converted: 594
+  sampled_ids_file: tasks/causalgym/filler_gap_obj.ids.txt
+  sampling_rule: all items kept (pool <= 2000 after dropping exact duplicates)
+  adaptations:
+  - leading <|endoftext|> span stripped
+  - train/dev/test pooled
+  - exact duplicates dropped
+  len_match_share_qwen35: 1.0
+  single_token_answer_share: 1.0
+- name: filler_gap_pp
+  family: filler_gap
+  domain: syntax
+  n_items_raw: 600
+  n_items_converted: 594
+  sampled_ids_file: tasks/causalgym/filler_gap_pp.ids.txt
+  sampling_rule: all items kept (pool <= 2000 after dropping exact duplicates)
+  adaptations:
+  - leading <|endoftext|> span stripped
+  - train/dev/test pooled
+  - exact duplicates dropped
+  len_match_share_qwen35: 1.0
+  single_token_answer_share: 1.0
+- name: filler_gap_subj
+  family: filler_gap
+  domain: syntax
+  n_items_raw: 600
+  n_items_converted: 594
+  sampled_ids_file: tasks/causalgym/filler_gap_subj.ids.txt
+  sampling_rule: all items kept (pool <= 2000 after dropping exact duplicates)
+  adaptations:
+  - leading <|endoftext|> span stripped
+  - train/dev/test pooled
+  - exact duplicates dropped
+  len_match_share_qwen35: 1.0
+  single_token_answer_share: 1.0
+- name: garden_mvrr
+  family: garden_path_mvrr
+  domain: syntax
+  n_items_raw: 600
+  n_items_converted: 530
+  sampled_ids_file: tasks/causalgym/garden_mvrr.ids.txt
+  sampling_rule: all items kept (pool <= 2000 after dropping exact duplicates)
+  adaptations:
+  - leading <|endoftext|> span stripped
+  - train/dev/test pooled
+  - exact duplicates dropped
+  len_match_share_qwen35: 0.0
+  single_token_answer_share: 1.0
+- name: garden_mvrr_mod
+  family: garden_path_mvrr
+  domain: syntax
+  n_items_raw: 600
+  n_items_converted: 530
+  sampled_ids_file: tasks/causalgym/garden_mvrr_mod.ids.txt
+  sampling_rule: all items kept (pool <= 2000 after dropping exact duplicates)
+  adaptations:
+  - leading <|endoftext|> span stripped
+  - train/dev/test pooled
+  - exact duplicates dropped
+  len_match_share_qwen35: 0.0
+  single_token_answer_share: 1.0
+- name: garden_npz_obj
+  family: garden_path_npz
+  domain: syntax
+  n_items_raw: 600
+  n_items_converted: 600
+  sampled_ids_file: tasks/causalgym/garden_npz_obj.ids.txt
+  sampling_rule: all items kept (pool <= 2000 after dropping exact duplicates)
+  adaptations:
+  - leading <|endoftext|> span stripped
+  - train/dev/test pooled
+  - exact duplicates dropped
+  len_match_share_qwen35: 0.0
+  single_token_answer_share: 1.0
+- name: garden_npz_obj_mod
+  family: garden_path_npz
+  domain: syntax
+  n_items_raw: 600
+  n_items_converted: 600
+  sampled_ids_file: tasks/causalgym/garden_npz_obj_mod.ids.txt
+  sampling_rule: all items kept (pool <= 2000 after dropping exact duplicates)
+  adaptations:
+  - leading <|endoftext|> span stripped
+  - train/dev/test pooled
+  - exact duplicates dropped
+  len_match_share_qwen35: 0.0
+  single_token_answer_share: 1.0
+- name: garden_npz_v-trans
+  family: garden_path_npz
+  domain: syntax
+  n_items_raw: 600
+  n_items_converted: 600
+  sampled_ids_file: tasks/causalgym/garden_npz_v-trans.ids.txt
+  sampling_rule: all items kept (pool <= 2000 after dropping exact duplicates)
+  adaptations:
+  - leading <|endoftext|> span stripped
+  - train/dev/test pooled
+  - exact duplicates dropped
+  len_match_share_qwen35: 0.8967
+  single_token_answer_share: 1.0
+- name: garden_npz_v-trans_mod
+  family: garden_path_npz
+  domain: syntax
+  n_items_raw: 600
+  n_items_converted: 600
+  sampled_ids_file: tasks/causalgym/garden_npz_v-trans_mod.ids.txt
+  sampling_rule: all items kept (pool <= 2000 after dropping exact duplicates)
+  adaptations:
+  - leading <|endoftext|> span stripped
+  - train/dev/test pooled
+  - exact duplicates dropped
+  len_match_share_qwen35: 0.88
+  single_token_answer_share: 1.0
+- name: gss_subord
+  family: gss_subordination
+  domain: syntax
+  n_items_raw: 600
+  n_items_converted: 582
+  sampled_ids_file: tasks/causalgym/gss_subord.ids.txt
+  sampling_rule: all items kept (pool <= 2000 after dropping exact duplicates)
+  adaptations:
+  - leading <|endoftext|> span stripped
+  - train/dev/test pooled
+  - exact duplicates dropped
+  len_match_share_qwen35: 0.0
+  single_token_answer_share: 1.0
+- name: gss_subord_obj-relc
+  family: gss_subordination
+  domain: syntax
+  n_items_raw: 600
+  n_items_converted: 600
+  sampled_ids_file: tasks/causalgym/gss_subord_obj-relc.ids.txt
+  sampling_rule: all items kept (pool <= 2000 after dropping exact duplicates)
+  adaptations:
+  - leading <|endoftext|> span stripped
+  - train/dev/test pooled
+  - exact duplicates dropped
+  len_match_share_qwen35: 0.0
+  single_token_answer_share: 1.0
+- name: gss_subord_pp
+  family: gss_subordination
+  domain: syntax
+  n_items_raw: 600
+  n_items_converted: 600
+  sampled_ids_file: tasks/causalgym/gss_subord_pp.ids.txt
+  sampling_rule: all items kept (pool <= 2000 after dropping exact duplicates)
+  adaptations:
+  - leading <|endoftext|> span stripped
+  - train/dev/test pooled
+  - exact duplicates dropped
+  len_match_share_qwen35: 0.0
+  single_token_answer_share: 1.0
+- name: gss_subord_subj-relc
+  family: gss_subordination
+  domain: syntax
+  n_items_raw: 600
+  n_items_converted: 600
+  sampled_ids_file: tasks/causalgym/gss_subord_subj-relc.ids.txt
+  sampling_rule: all items kept (pool <= 2000 after dropping exact duplicates)
+  adaptations:
+  - leading <|endoftext|> span stripped
+  - train/dev/test pooled
+  - exact duplicates dropped
+  len_match_share_qwen35: 0.0
+  single_token_answer_share: 1.0
+- name: npi_any_obj-relc
+  family: npi_any
+  domain: syntax
+  n_items_raw: 600
+  n_items_converted: 600
+  sampled_ids_file: tasks/causalgym/npi_any_obj-relc.ids.txt
+  sampling_rule: all items kept (pool <= 2000 after dropping exact duplicates)
+  adaptations:
+  - leading <|endoftext|> span stripped
+  - train/dev/test pooled
+  - exact duplicates dropped
+  len_match_share_qwen35: 1.0
+  single_token_answer_share: 1.0
+- name: npi_any_subj-relc
+  family: npi_any
+  domain: syntax
+  n_items_raw: 600
+  n_items_converted: 600
+  sampled_ids_file: tasks/causalgym/npi_any_subj-relc.ids.txt
+  sampling_rule: all items kept (pool <= 2000 after dropping exact duplicates)
+  adaptations:
+  - leading <|endoftext|> span stripped
+  - train/dev/test pooled
+  - exact duplicates dropped
+  len_match_share_qwen35: 1.0
+  single_token_answer_share: 1.0
+- name: npi_ever_obj-relc
+  family: npi_ever
+  domain: syntax
+  n_items_raw: 600
+  n_items_converted: 596
+  sampled_ids_file: tasks/causalgym/npi_ever_obj-relc.ids.txt
+  sampling_rule: all items kept (pool <= 2000 after dropping exact duplicates)
+  adaptations:
+  - leading <|endoftext|> span stripped
+  - train/dev/test pooled
+  - exact duplicates dropped
+  len_match_share_qwen35: 1.0
+  single_token_answer_share: 1.0
+- name: npi_ever_subj-relc
+  family: npi_ever
+  domain: syntax
+  n_items_raw: 600
+  n_items_converted: 596
+  sampled_ids_file: tasks/causalgym/npi_ever_subj-relc.ids.txt
+  sampling_rule: all items kept (pool <= 2000 after dropping exact duplicates)
+  adaptations:
+  - leading <|endoftext|> span stripped
+  - train/dev/test pooled
+  - exact duplicates dropped
+  len_match_share_qwen35: 1.0
+  single_token_answer_share: 1.0
+status: converted
+notes: Labels are the next token after the prompt. Spans are aligned by index and can differ in token count; no alignment is needed here because prompts are used whole. Several task contrasts are class contrasts, not minimal lexical pairs (see REPORT_syntax.md).

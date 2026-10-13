@@ -1,0 +1,310 @@
+source_id: eap_ig
+title: EAP-IG task set (ioi, gender-bias, fact-retrieval-comma, hypernymy-comma, sva, greater-than*) of "Have Faith in Faithfulness"
+bibkey: hanna2024faithfaithfulnessgoingcircuit
+bibkey_data:
+- wang2022interpretabilitywildcircuitindirect
+- hanna2023doesgpt2computegreaterthan
+- marvin-linzen-2018-targeted
+url: https://github.com/hannamw/eap-ig-faithfulness
+download_date: '2026-10-12'
+tier: 1
+revision:
+  eap-ig-faithfulness: d42fea6aa2c7acca39007c9c94923770669cb9ae
+  EAP-IG: e24bafd3d22af2c59ac5a83e0a6581b89b5c05dd
+  gpt2-greater-than: 0e6dc8c2da87f7d2befeb2a4dd432fae404ea35a
+raw_files:
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/hypernymy-comma/gpt2.csv
+  sha256: 569112f2a1cec681819d81a9327faad7fd447ce9c8d0447df43a3aa3cfc10315
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/hypernymy-comma/pythia.csv
+  sha256: 5a2539d1f4484c6268d1e3c711c586e968b50f7cb38e7ed130c03946db671e0e
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/hypernymy-comma/top_answers.json
+  sha256: 5c5e6540f84c5852f335ccbce43d85a13850caf7acdd13f75c8a692797da868a
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/hypernymy-comma/top_answers_other.json
+  sha256: 318433c8f2617e5dd41d4207bc94d2d111f9bd2c4d3d36e4bb6557be8231bbfb
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/hypernymy-comma/top_answers_type.json
+  sha256: 5c5e6540f84c5852f335ccbce43d85a13850caf7acdd13f75c8a692797da868a
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/hypernymy-comma/valid_answers.json
+  sha256: cc87cf711860d20d82c15ab2e30f3101bc41b5df7e9090ecc2fdf3e770be4396
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/ioi/create_dataset.py
+  sha256: 5f17e18265e057f16aab65e2bfbef0ca6f635c6fbc7bb9b91e859ab9a40cc7ea
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/ioi/gpt2.csv
+  sha256: a3de03844889e044569d90022f86f8af863319a28547d2f89ff11b9b6b33ea9b
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/ioi/ioi_dataset.py
+  sha256: 3daf08739e372392a3f25c996fc19fc1dc109207ed3802b95b1d7e3ab9c16ef3
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/ioi/pythia.csv
+  sha256: 6518a7b0df83ee777432c198153eb6bbd2ae7d83994829bf7a3f7c2770813ec5
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/sva/combined_verb_list.csv
+  sha256: 278a64cee91d49b57e9313192a9fa0c4e0114a06a8cd2f532b955d436bee8d7b
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/sva/create_dataset.py
+  sha256: 1e7e96296c42a7e7a519dd34633aa5f8b2ce07c8508199178c4c2ac1cef4075d
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/sva/gpt2 copy.csv
+  sha256: 7cc0d23a051cbd355176f74d32ee357f8b7ea10e8ee58e38271e1156d9d60c37
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/sva/gpt2.csv
+  sha256: a297cae20f5e48c83d5a52b71cbb19d142d4832f3d137a7ed0b7be3ccc04405d
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/sva/pythia.csv
+  sha256: 760aa029a9789cbcbd746ca07d7831b2bda7dd2e56a72550700b9c8f41db34c2
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/sva/sva_raw_data/ML-long_vp_coord_all.csv
+  sha256: daf5228c56d4eae14625d6657435f11ebce898c7fc5e54621839c89ee8181ada
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/sva/sva_raw_data/ML-obj_rel_across_anim_all.csv
+  sha256: e91ade1899c49ef1afb85c491462b41bd7c1a9ff7baa66c8cef04032d36ab9da
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/sva/sva_raw_data/ML-obj_rel_across_inanim_all.csv
+  sha256: cbbcccd1ddf9529cd109d5533bf79ba182d5bacb9863f368a1d02dd6e8f8e753
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/sva/sva_raw_data/ML-obj_rel_no_comp_across_anim_all.csv
+  sha256: 1daef79fb2e2ebd2a8f432ccb49c02e47d693e9f7a127db86c3881aedd90d8e8
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/sva/sva_raw_data/ML-obj_rel_no_comp_across_inanim_all.csv
+  sha256: 53e5f04862f0b04f6a8d3a4e356c4281b43f6e7b357e053d30c0a88079aa8e6e
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/sva/sva_raw_data/ML-obj_rel_no_comp_within_anim_all.csv
+  sha256: e441bf0dbb44df24dd9d6acba8091dc7359e5b4b24028ed01115152f477d4767
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/sva/sva_raw_data/ML-obj_rel_no_comp_within_inanim_all.csv
+  sha256: 2294d568d3759c21b21af0929cc01561003a9fc7c2ece59bc54ba2bf54b9ea9a
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/sva/sva_raw_data/ML-obj_rel_within_anim_all.csv
+  sha256: fc42a38c6d98134f46376eba5fe9cf0b6c7498b92c225ad702275047a5bd0c8e
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/sva/sva_raw_data/ML-obj_rel_within_inanim_all.csv
+  sha256: 67336789736e81132dfe9884eb571f92839475486691d4c24e27367330665897
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/sva/sva_raw_data/ML-prep_anim_all.csv
+  sha256: fe9e20ca6d64b4398e5f11cb1077a3e305309bd831a3592a7fbe52ba02b0d783
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/sva/sva_raw_data/ML-prep_inanim_all.csv
+  sha256: 45593ec5d38da4d055c625688ecd1c645a0da27118a4666e4aa8adfada9b48a4
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/sva/sva_raw_data/ML-sent_comp_all.csv
+  sha256: 42a6d0815309e4dd55e9e64dd4ff9caddbfcddb1f0928cfeecb89478f7f6b17d
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/sva/sva_raw_data/ML-simple_agrmt_all.csv
+  sha256: 1438e310e7c8cdd2039d86b7d1994809d9933cb83c59a6a0c73447b7ba062eee
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/sva/sva_raw_data/ML-subj_rel_all.csv
+  sha256: f034d5edb429b0fe9cc22a76b240b69852d582d805a1417aa299647dc6a0fcaf
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/sva/sva_raw_data/ML-vp_coord_all.csv
+  sha256: 4d85c469e5e074b770f6aaac94c460949b84ae2f548b9fe4144dd40768c14177
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/sva/sva_raw_data/blimp-distractor_agreement_relational_noun.csv
+  sha256: 10bbdc55021a187f85b0d7d956a79bd99d88be071da351dc44312ebecf209fa7
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/sva/sva_raw_data/blimp-distractor_agreement_relative_clause.csv
+  sha256: dccd982c31fc5fef1141be981ae9560a2be97b9f41df8de768810611573e0bc7
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/sva/sva_raw_data/blimp-irregular_plural_subject_verb_agreement_1.csv
+  sha256: 5c835c057fd6636d3bd59b849a750083d4c24176cc868a9845bebf1ddbb6c3aa
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/sva/sva_raw_data/blimp-regular_plural_subject_verb_agreement_1.csv
+  sha256: 6a19cc13efaef770ea0aea20ce09f40af086ef2c9413caaab497f601fcfbf2d5
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/greater-than/create_dataset.py
+  sha256: ac13f573cf3200233fe9d25c53c0f94e56a820f004f81e9264f9d0d0d8b0aede
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/greater-than/gpt2.csv
+  sha256: 05f0479c0f5198838465a6cb540dc8e839dc02232f4e4f423a28c78a858fc6fe
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/greater-than/greater_than_dataset.py
+  sha256: 3e9dcbe23a9699c72fbeb8fe5f9d1bfed360bc35f9c7603b887dd5564125d913
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/greater-than/pythia.csv
+  sha256: e11a4bba1a996597edc51ae24ea9be8b7c39207b35e4432340c10da90ef8bb52
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/fact-retrieval-comma/country_capitals.csv
+  sha256: f75dbb710d013f738a1bce878454902bb530bbcc1b6f10e9c34bc1ad5e4b29bb
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/fact-retrieval-comma/generate_country_dataset.py
+  sha256: 32ab4010fff5a24837a515d3f96a1f5cb61b13e67442fc53aa963ff9884b2ac6
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/fact-retrieval-comma/gpt2.csv
+  sha256: b8dff2117cce0069aa7088a7fafddab5a0fd1501e1e8a72f87e321b616a34929
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/fact-retrieval-comma/pythia.csv
+  sha256: 2e3d02dfd341f784180f8d02ef69c7520945195710542e229ea5574da17bbf60
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/greater-than-price/create_dataset.py
+  sha256: 32e907c94ad0ffaac815c35ee2233d5a49331529084d34990a08967c820497a9
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/greater-than-price/gpt2.csv
+  sha256: 8e40415ed59adfd8d1330ecadfce2a3ca1bc2ea1f32d68a63529aceaa7f4e924
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/greater-than-price/greater_than_price_dataset.py
+  sha256: 075d783cdfd15bf989b9c5aa66d6905e5b62bed336e4b3e2807464b6f14ed4c9
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/gender-bias/create_dataset.py
+  sha256: 0c37227b42f744ee69a1e3dcf92afb1110b5a64ce8ca227f66022e38c280a8d1
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/gender-bias/gpt2.csv
+  sha256: 09dfcbf32a464e314f7c42b571ff46fc937513cfcf338a89aab8f0dbf8b5c5a9
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/gender-bias/professions.json
+  sha256: 32cc82c7761e7cfb14e37e06dc1aa9f758bc8441f79ca7288996d3fc7c24639a
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/gender-bias/professions.py
+  sha256: e181dca34ae5d690301c2e16f484306e8884d7f2ca018dc25a7ad2074357cfd1
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/gender-bias/professions_female_stereo.json
+  sha256: f0e4d577136a9b5df9c9100a642b19bc4375985e6e5ff66cb3a5198cd2af1383
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/gender-bias/professions_female_stereo_filtered.json
+  sha256: 78f61f712a10cc728784c4c7583db6b2c7935734291d6aa6e85def941e270982
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/gender-bias/professions_male_stereo.json
+  sha256: 1731c96f6783a839aeebc1f7e647f103aeff38a2b81de725813708fe847addd2
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/gender-bias/professions_male_stereo_filtered.json
+  sha256: 62067345d6ad50e88919cf13a9f3f83a331dbfdc38745c924b604fd6903626a5
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/gender-bias/pythia.csv
+  sha256: 91bf186d9e9f7f1ee65f2e3648e575345460f23d01586410bdc199a18d035892
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/greater-than-sequence/create_dataset.py
+  sha256: fde2d49251d4e1c11f7ec3d2e705e6490ff80154c014b0eba9b8032b4774e6db
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/greater-than-sequence/gpt2.csv
+  sha256: 072c1012cdc7712f443bf8b417bcdff25781bccf944e0a2cd3c25390c6312e51
+- path: external/task_bank/raw/eap_ig/eap-ig-faithfulness/data/greater-than-sequence/greater_than_dataset.py
+  sha256: 3e9dcbe23a9699c72fbeb8fe5f9d1bfed360bc35f9c7603b887dd5564125d913
+- path: external/task_bank/raw/eap_ig/EAP-IG/LICENSE
+  sha256: c3be6335a036aee13d07ea66f1b67fab0b7aa56fe585233ef23b7694b4d702d9
+- path: external/task_bank/raw/eap_ig/EAP-IG/greater_than_data.csv
+  sha256: 8a7dd2764bbbda12ddc03795ac62f8f99a61c4a9deedefd61abd7d6b98c4f81d
+- path: external/task_bank/raw/eap_ig/EAP-IG/ioi_llama.csv
+  sha256: 8d457ed826f8b69bddee0853b0f1882f870ae0c392b1661a23f665cefccfcf0a
+licence:
+  eap-ig-faithfulness: none (no LICENSE file in the repo)
+  EAP-IG: MIT
+  gpt2-greater-than: no LICENSE file
+licence_source: raw/eap_ig/EAP-IG/LICENSE (MIT); eap-ig-faithfulness and gpt2-greater-than contain no licence file; Tigges et al. 2024 appendix also states greater-than and gendered-pronoun data are released
+  without a licence
+redistribute: unclear (unlicensed repo; data is derived from public templates and word lists, but no permission is recorded)
+tokenizer:
+  tokenizer_repo: Qwen/Qwen3.5-2B
+  tokenizer_revision: 15852e8c16360a2fea060d615a32b45270f8a8fc
+  note: Qwen3.5-4B tokenizer.json is byte-identical in content to 2B
+gpt2_tokenizer_revision: 607a30d783dfa663caf39e06633721c8d4cfcd7e
+converter: scripts/task_bank/convert_eap_ig.py
+seed: 42
+status: converted
+notes: gpt2.csv files are filtered for GPT-2 tokenisation; pythia.csv variants (different filtered subsets) not converted.
+tasks:
+- name: ioi_eapig_gpt2
+  family: ioi
+  domain: syntax/semantics (name movement)
+  n_items_raw: 1000
+  n_items_after_validity_and_dedup: 1000
+  n_items_converted: 1000
+  sampling_rule: all items kept
+  adaptations:
+  - 'data/ioi/gpt2.csv of eap-ig-faithfulness (1,000 items from the Wang et al. generator, filtered so names are single GPT-2 tokens). The CSV has `corrupted` (ABC: S2 replaced by a third name; the answer
+    does not flip) and `corrupted_hard` (S2 replaced by the IO name, so IO and S exchange roles). We use `corrupted_hard` as the corrupted prompt: this is the flipping variant. Answers decoded from correct_idx/incorrect_idx
+    (asserted equal to the names in the text).'
+  - The ABC `corrupted` column is not used (no flip).
+  len_match_share_qwen35: 1.0
+  n_len_match: 1000
+  single_token_answers_share: 1.0
+  equal_answer_token_count_share: 1.0
+- name: ioi_eapig_llama
+  family: ioi
+  domain: syntax/semantics (name movement)
+  n_items_raw: 499
+  n_items_after_validity_and_dedup: 499
+  n_items_converted: 499
+  sampling_rule: all items kept
+  adaptations:
+  - ioi_llama.csv of the hannamw/EAP-IG repo (499 rows; names single tokens for the Llama tokenizer, ids are Llama ids and are not used); answers recovered from the text (name written in place of S2 in
+    `corrupted_hard`). Same structure and template family as ioi_eapig_gpt2, different item sample.
+  len_match_share_qwen35: 1.0
+  n_len_match: 499
+  single_token_answers_share: 1.0
+  equal_answer_token_count_share: 1.0
+- name: gender_bias
+  family: gender_pronoun
+  domain: social/bias (stereotyped pronoun)
+  n_items_raw: 986
+  n_items_after_validity_and_dedup: 986
+  n_items_converted: 986
+  sampling_rule: all items kept
+  adaptations:
+  - data/gender-bias/gpt2.csv (986 items). Clean = stereotyped profession ("The nurse said that"); corrupted = a gendered noun ("The man ..."); answers are the pronoun tokens decoded from clean_answer_idx
+    / corrupted_answer_idx with GPT-2 (e.g. " she"/" he"); they differ in every kept item, so the flip is natural. "Correct" is stereotype-defined, not grammatical.
+  len_match_share_qwen35: 0.9574
+  n_len_match: 944
+  single_token_answers_share: 1.0
+  equal_answer_token_count_share: 1.0
+- name: capital_country
+  family: factual_capital
+  domain: factual knowledge (capital -> country)
+  n_items_raw: 190
+  n_items_after_validity_and_dedup: 190
+  n_items_converted: 190
+  sampling_rule: all items kept
+  adaptations:
+  - 'data/fact-retrieval-comma/gpt2.csv (190 items): " Kabul, the capital of" -> " Afghanistan"; the corrupted prompt uses another capital. The source scores the FIRST GPT-2 token of the country (country_idx,
+    e.g. " United" for "United Kingdom"); we use the full country name with a leading space as the answer (multi-token answers are allowed), and keep the first-token string in metadata. Answer token counts
+    can differ between clean and corrupted answer, which biases summed log-probabilities slightly.'
+  - 'Country -> capital direction: not in the repo (the repo only contains capital -> country, "fact-retrieval-comma"); not built.'
+  len_match_share_qwen35: 0.7211
+  n_len_match: 137
+  single_token_answers_share: 0.4053
+  equal_answer_token_count_share: 0.4789
+- name: hypernymy_comma
+  family: hypernymy
+  domain: lexical semantics (hypernym completion)
+  n_items_raw: 198
+  n_items_after_validity_and_dedup: 198
+  n_items_converted: 198
+  sampling_rule: all items kept
+  adaptations:
+  - 'data/hypernymy-comma/gpt2.csv (198 items), prompt ", gemstones and other" (the source `clean`/`corrupted` columns; note the leading comma). Each item has a SET of acceptable answers; the source metric
+    sums probability over the set. Tier 1 needs one answer: we take the first listed answer (token decoded from answers_idx, leading space) that is not in the other item''s answer set, for the clean and
+    for the corrupted item; the order of the lists is as in the source and its principle is not documented. Full sets kept in metadata.'
+  - Source reports a low GPT-2 baseline for this task (prob_diff mean about 0.2).
+  len_match_share_qwen35: 0.8636
+  n_len_match: 171
+  single_token_answers_share: 1.0
+  equal_answer_token_count_share: 1.0
+- name: hypernymy_type_of
+  family: hypernymy
+  domain: lexical semantics (hypernym completion)
+  n_items_raw: 198
+  n_items_after_validity_and_dedup: 198
+  n_items_converted: 198
+  sampling_rule: all items kept
+  adaptations:
+  - 'data/hypernymy-comma/gpt2.csv (198 items), prompt "gemstones are a type of" (the source `clean2`/`corrupted2` columns). Each item has a SET of acceptable answers; the source metric sums probability
+    over the set. Tier 1 needs one answer: we take the first listed answer (token decoded from answers_idx, leading space) that is not in the other item''s answer set, for the clean and for the corrupted
+    item; the order of the lists is as in the source and its principle is not documented. Full sets kept in metadata.'
+  - Source reports a low GPT-2 baseline for this task (prob_diff mean about 0.2).
+  len_match_share_qwen35: 0.4899
+  n_len_match: 97
+  single_token_answers_share: 1.0
+  equal_answer_token_count_share: 1.0
+- name: sva
+  family: sva
+  domain: syntax (subject-verb agreement)
+  n_items_raw: 12400
+  n_items_after_validity_and_dedup: 10660
+  n_items_converted: 2000
+  sampling_rule: proportional stratified sample, seed 42, cap 2000
+  adaptations:
+  - data/sva/gpt2.csv (12,400 items, 15 Marvin & Linzen-style structures `group`, half plural-clean, half singular-clean; clean/corrupted differ by the number of one noun, filtered to equal GPT-2 length).
+    The source metric sums logit/prob over a whole list of singular vs plural verbs (data/sva/combined_verb_list.csv); the CSV has no single answer word.
+  - 'OUR ADAPTATION: answer pair " is"/" are" for all structures (plural clean -> " are" correct). Not a perfect fit for the `within` groups (next word is the embedded verb) and vp_coord groups (next word
+    is a verb after "and"); the `group` field allows restricting to structures where an auxiliary is natural (simple_agrmt, prep_*, subj_rel, obj_rel_across_*, obj_rel_no_comp_across_*, sent_comp).'
+  - 'RESTRICTED (2026-10-12): the `within` and vp_coord groups are excluded, since the remaining pool exceeds the 2,000-item cap.'
+  - Pooled across groups, stratified by group x clean number. Rows come from the gpt2-filtered CSV; pythia.csv (different filtered subset) not converted. The raw template data (sva_raw_data) also contain
+    BLiMP files, not converted (BLiMP is covered by group 2).
+  - Matching of the repo-level `gpt2 copy.csv` ignored (stray duplicate).
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 1.0
+  equal_answer_token_count_share: 1.0
+- name: greater_than
+  family: greater_than
+  domain: arithmetic/comparison
+  n_items_raw: 1000
+  n_items_converted: 0
+  status: not_fitting_tier1
+  source_file: data/greater-than/gpt2.csv
+  adaptations:
+  - 'The corrupted prompt (start year ending in "01") makes every two-digit end year valid, so no answer pair flips; and no flipping variant exists for the "to the year XX" frame: with a monotone constraint
+    (end > start), if token a is valid after start s_c and token b is invalid, a corrupted start s_k can make b valid only if s_k < b, but then a (> s_c) cannot be invalid unless a <= s_k < b, contradicting
+    b <= s_c < a. Fits tier 2 (prompt + one valid and one invalid year token, no corrupted prompt).'
+  suits_tier2: 'yes'
+- name: greater_than_price
+  family: greater_than
+  domain: arithmetic/comparison
+  n_items_raw: 1000
+  n_items_converted: 0
+  status: not_fitting_tier1
+  source_file: data/greater-than-price/gpt2.csv
+  adaptations:
+  - 'The corrupted prompt (start year ending in "01") makes every two-digit end year valid, so no answer pair flips; and no flipping variant exists for the "to the year XX" frame: with a monotone constraint
+    (end > start), if token a is valid after start s_c and token b is invalid, a corrupted start s_k can make b valid only if s_k < b, but then a (> s_c) cannot be invalid unless a <= s_k < b, contradicting
+    b <= s_c < a. Fits tier 2 (prompt + one valid and one invalid year token, no corrupted prompt).'
+  suits_tier2: 'yes'
+- name: greater_than_sequence
+  family: greater_than
+  domain: arithmetic/comparison
+  n_items_raw: 825
+  n_items_converted: 0
+  status: not_fitting_tier1
+  source_file: data/greater-than-sequence/gpt2.csv
+  adaptations:
+  - 'The corrupted prompt (start year ending in "01") makes every two-digit end year valid, so no answer pair flips; and no flipping variant exists for the "to the year XX" frame: with a monotone constraint
+    (end > start), if token a is valid after start s_c and token b is invalid, a corrupted start s_k can make b valid only if s_k < b, but then a (> s_c) cannot be invalid unless a <= s_k < b, contradicting
+    b <= s_c < a. Fits tier 2 (prompt + one valid and one invalid year token, no corrupted prompt).'
+  suits_tier2: 'yes'
+- name: greater_than_data_csv_EAP-IG
+  family: greater_than
+  domain: arithmetic/comparison
+  n_items_raw: 1000
+  n_items_converted: 0
+  status: not_fitting_tier1
+  source_file: EAP-IG/greater_than_data.csv
+  adaptations:
+  - Same as greater_than (clean/corrupted "01"/label), a duplicate-style copy in the EAP-IG repo; see greater_than.
+  suits_tier2: 'yes'

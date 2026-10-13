@@ -1,0 +1,162 @@
+{
+  "lre_factual_company_ceo": {
+    "path": "lre_factual_company_ceo.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "lre_factual_company_hq": {
+    "path": "lre_factual_company_hq.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "lre_factual_landmark_in_country": {
+    "path": "lre_factual_landmark_in_country.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "lre_factual_landmark_on_continent": {
+    "path": "lre_factual_landmark_on_continent.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "lre_factual_person_father": {
+    "path": "lre_factual_person_father.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "lre_factual_person_mother": {
+    "path": "lre_factual_person_mother.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "lre_factual_person_native_language": {
+    "path": "lre_factual_person_native_language.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "lre_factual_person_occupation": {
+    "path": "lre_factual_person_occupation.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "lre_factual_person_plays_instrument": {
+    "path": "lre_factual_person_plays_instrument.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "lre_factual_person_plays_position_in_sport": {
+    "path": "lre_factual_person_plays_position_in_sport.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "lre_factual_person_plays_pro_sport": {
+    "path": "lre_factual_person_plays_pro_sport.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "lre_factual_person_university": {
+    "path": "lre_factual_person_university.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "lre_factual_product_by_company": {
+    "path": "lre_factual_product_by_company.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "lre_factual_star_constellation": {
+    "path": "lre_factual_star_constellation.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "lre_factual_superhero_archnemesis": {
+    "path": "lre_factual_superhero_archnemesis.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "lre_factual_superhero_person": {
+    "path": "lre_factual_superhero_person.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "lre_linguistic_adj_superlative": {
+    "path": "lre_linguistic_adj_superlative.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "lre_linguistic_verb_past_tense": {
+    "path": "lre_linguistic_verb_past_tense.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "lre_linguistic_word_first_letter": {
+    "path": "lre_linguistic_word_first_letter.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "lre_linguistic_word_last_letter": {
+    "path": "lre_linguistic_word_last_letter.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  }
+}

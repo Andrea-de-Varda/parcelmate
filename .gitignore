@@ -12,3 +12,7 @@ tests/.probe.txt
 logs/
 *.out
 *.err
+
+# Task bank raw downloads (tracked by sha256 in external/task_bank/registry/)
+external/task_bank/raw/
+external/task_bank/tasks/

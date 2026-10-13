@@ -1,0 +1,84 @@
+source_id: marks_sfc_sva
+title: Sparse Feature Circuits subject-verb agreement data (Marks et al.)
+bibkey: ICLR2025_3ba4d47a
+bibkey_data: finlayson-etal-2021-causal (stimuli the data are modified from)
+url: https://github.com/saprmarks/feature-circuits (data/)
+revision:
+  github_commit: 7fbd82b895ae16294f4e6fc7bfc675d1d680d659
+download_date: '2026-10-12'
+raw_files:
+- path: raw/marks_sfc_sva/repo/data/simple_train.json
+  sha256: 38eb04f0f3392a6e2fc1bdda025fb402ccea44c582f963b558deeb21d77a2cad
+- path: raw/marks_sfc_sva/repo/data/simple_test.json
+  sha256: 59d71a81d02627e3045ab1806f16398dda1055d744d08d816717bec7580eec44
+- path: raw/marks_sfc_sva/repo/data/rc_train.json
+  sha256: d6f7c5cf4bfac73b7957cb45193e0179e48246eabd2f9169e03dec42303c53be
+- path: raw/marks_sfc_sva/repo/data/rc_test.json
+  sha256: 64d81aac18b935765f26f11ab83dc695c4ee0d97e61097a19d0f551f0b3e1a52
+- path: raw/marks_sfc_sva/repo/data/within_rc_train.json
+  sha256: 1995507cdf6ff8f30f94d50b58e1a0a7e01ac5d6a657132b8bcf811a965d4f30
+- path: raw/marks_sfc_sva/repo/data/within_rc_test.json
+  sha256: 4d67095b2a3ca0e2a922db7673dc64430fe2b12c5b4e6c8b40368918fbc28e83
+- path: raw/marks_sfc_sva/repo/data/nounpp_train.json
+  sha256: 993d7162f09291fb5be22aae8fb4e1a1984377b592a0579ba6394177ceb15424
+- path: raw/marks_sfc_sva/repo/data/nounpp_test.json
+  sha256: 41ebac4cab62a574cfae6d86509f95c87aa52f2a63c35c5ea3245ec0c4368737
+licence: MIT
+licence_source: external/task_bank/raw/marks_sfc_sva/repo/LICENSE
+redistribute: 'yes'
+tier: 1
+tasks:
+- name: simple
+  family: sva_simple
+  domain: syntax
+  n_items_raw: 600
+  n_items_converted: 155
+  n_items_after_dedup: 155
+  sampled_ids_file: tasks/marks_sfc_sva/simple.ids.txt
+  sampling_rule: exact duplicates dropped; if > 2000, seed-42 proportional sample stratified on (split, case)
+  adaptations:
+  - train and test files pooled (split kept as metadata)
+  - no change to prompts or answers
+  len_match_share_qwen35: 0.8452
+  single_token_answer_share: 1.0
+- name: rc
+  family: sva_across_obj_rc
+  domain: syntax
+  n_items_raw: 132000
+  n_items_converted: 2000
+  n_items_after_dedup: 34734
+  sampled_ids_file: tasks/marks_sfc_sva/rc.ids.txt
+  sampling_rule: exact duplicates dropped; if > 2000, seed-42 proportional sample stratified on (split, case)
+  adaptations:
+  - train and test files pooled (split kept as metadata)
+  - no change to prompts or answers
+  len_match_share_qwen35: 0.847
+  single_token_answer_share: 1.0
+- name: within_rc
+  family: sva_within_obj_rc
+  domain: syntax
+  n_items_raw: 12000
+  n_items_converted: 2000
+  n_items_after_dedup: 3158
+  sampled_ids_file: tasks/marks_sfc_sva/within_rc.ids.txt
+  sampling_rule: exact duplicates dropped; if > 2000, seed-42 proportional sample stratified on (split, case)
+  adaptations:
+  - train and test files pooled (split kept as metadata)
+  - no change to prompts or answers
+  len_match_share_qwen35: 1.0
+  single_token_answer_share: 1.0
+- name: nounpp
+  family: sva_across_pp
+  domain: syntax
+  n_items_raw: 2400
+  n_items_converted: 2000
+  n_items_after_dedup: 2114
+  sampled_ids_file: tasks/marks_sfc_sva/nounpp.ids.txt
+  sampling_rule: exact duplicates dropped; if > 2000, seed-42 proportional sample stratified on (split, case)
+  adaptations:
+  - train and test files pooled (split kept as metadata)
+  - no change to prompts or answers
+  len_match_share_qwen35: 0.848
+  single_token_answer_share: 1.0
+status: converted
+notes: Verb sets restricted to those whose singular and plural forms are single tokens in the Pythia tokenizer; stimuli modified from Finlayson et al. (2021) (same nouns and structures). README states this; Finlayson et al. licence not checked here.

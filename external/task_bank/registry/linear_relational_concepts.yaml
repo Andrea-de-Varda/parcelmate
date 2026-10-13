@@ -1,0 +1,119 @@
+source_id: linear_relational_concepts
+title: 'Linear relational concepts (Chanin et al.): code and a copy of the LRE relation data'
+bibkey: chanin-etal-2024-identifying
+bibkey_data: hernandez2024linearityrelationdecodingtransformer (the data)
+url: https://github.com/chanind/linear-relational-concepts
+revision: ec5db9ad942b84b998536a97a621dab6c75733e7
+licence: MIT (Copyright 2023 David Chanin)
+licence_source: external/task_bank/raw/linear_relational_concepts/repo/LICENSE
+redistribute: yes (MIT)
+tier: 1 via lre_relations (same data); the LRC benchmark itself is tier 2 at most
+status: not_converted_duplicate_of:lre_relations
+notes: 'data/lre/*: 47 of 47 files equal (as parsed JSON) to the same-named files in evandez/relations (revision 1b9ec3cf2b8368e42bde7e80fcef384312a6ec07); 0 relation files exist only in evandez/relations:
+  []. Items are converted once, in lre_relations.'
+download_date: '2026-10-12'
+raw_files:
+- path: external/task_bank/raw/linear_relational_concepts/repo/data/lre/bias/characteristic_gender.json
+  sha256: a89e266418179f86891f580f500dd92ce65918b54112daf2912e80d28ed74d0f
+- path: external/task_bank/raw/linear_relational_concepts/repo/data/lre/bias/degree_gender.json
+  sha256: cb4c69f57ff5cddf3466e1dd48b15eaa5209c5935d2a36f1b0cbcb7b422b1cd2
+- path: external/task_bank/raw/linear_relational_concepts/repo/data/lre/bias/name_birthplace.json
+  sha256: b796df239a577a6bf09d6ad6f1b537a72a7b1a483352090a1586a91f7712584e
+- path: external/task_bank/raw/linear_relational_concepts/repo/data/lre/bias/name_gender.json
+  sha256: cfeded39fc091fb548791cf588e9ab0d1613b2ab5f8e72645929b55a4583fcf2
+- path: external/task_bank/raw/linear_relational_concepts/repo/data/lre/bias/name_religion.json
+  sha256: 49552370e79d2ea17ce0c3e5335af42506ac09d6924618de96be20201b300aed
+- path: external/task_bank/raw/linear_relational_concepts/repo/data/lre/bias/occupation_age.json
+  sha256: cc06ab94193e2a0c0a4b0a343ae3b234487cb4893e0377078eee90e3d474f276
+- path: external/task_bank/raw/linear_relational_concepts/repo/data/lre/bias/occupation_gender.json
+  sha256: 1b5e02c08ebfcd79225f3e89dd43c859c9e7026beaf5cfc1e5135e053eb10a2f
+- path: external/task_bank/raw/linear_relational_concepts/repo/data/lre/bias/person_native_language.json
+  sha256: ad6f699fbad04cecf45a424713249803921598187c6302dd2a8e20702f4c1928
+- path: external/task_bank/raw/linear_relational_concepts/repo/data/lre/commonsense/fruit_inside_color.json
+  sha256: 7986138d585ca5abea5b6821f94b749e17adb027db737618fa7ba44ff2b94c61
+- path: external/task_bank/raw/linear_relational_concepts/repo/data/lre/commonsense/fruit_outside_color.json
+  sha256: b0c11dbdd220f670e232db0ff2899ef221d2d91746415696d2a2ce0513ac033a
+- path: external/task_bank/raw/linear_relational_concepts/repo/data/lre/commonsense/object_superclass.json
+  sha256: e594c3288df3059638ae885d83f2934266bb1968932272c027786bf7b3c02678
+- path: external/task_bank/raw/linear_relational_concepts/repo/data/lre/commonsense/substance_phase.json
+  sha256: 8b2fcb4a1d1d5619b8bfa6d229c4fc144eed0fcdc12995853a32e4e925f8c5ab
+- path: external/task_bank/raw/linear_relational_concepts/repo/data/lre/commonsense/task_done_by_person.json
+  sha256: 5d60985abf904aa01010171ab0eade79a8050ff9cf38b2b003fd531b7c3e4155
+- path: external/task_bank/raw/linear_relational_concepts/repo/data/lre/commonsense/task_done_by_tool.json
+  sha256: 846b190fdb6fa0d58bca47dc7756d81e8104d34ad624428b8fae1662a2a8d9f8
+- path: external/task_bank/raw/linear_relational_concepts/repo/data/lre/commonsense/word_sentiment.json
+  sha256: 436546dfbd9f308b6d27748359489e3f3e20a845e8913ab2da62ab2fead80487
+- path: external/task_bank/raw/linear_relational_concepts/repo/data/lre/commonsense/work_location.json
+  sha256: 2438376757f35fc80e8925070e855c190f42693f04e6305266cdc2b76e9878c1
+- path: external/task_bank/raw/linear_relational_concepts/repo/data/lre/factual/city_in_country.json
+  sha256: 5fd8f9e99e6d8567d05cfb4e7c9324ed03b07ba1ebf827614b7b58a811bc11a5
+- path: external/task_bank/raw/linear_relational_concepts/repo/data/lre/factual/company_ceo.json
+  sha256: c75f9b31c872b85601b7163b2c7a8f11c439f2852a876d5a126401d57ea3a81b
+- path: external/task_bank/raw/linear_relational_concepts/repo/data/lre/factual/company_hq.json
+  sha256: 22c86cf64b908db86c73b17add31e59fd6022ac74e500840fcad35bd706a8e4e
+- path: external/task_bank/raw/linear_relational_concepts/repo/data/lre/factual/country_capital_city.json
+  sha256: 9945d2da1fa1145c1d7e59ac61a25ebee74299c00bd53fc9308167f9e1d44fc0
+- path: external/task_bank/raw/linear_relational_concepts/repo/data/lre/factual/country_currency.json
+  sha256: 4a1a49afbdc4792fc330196475f456a22bc49dfe0ec9eb966439e4f36081d99b
+- path: external/task_bank/raw/linear_relational_concepts/repo/data/lre/factual/country_language.json
+  sha256: 97542c83ceabb8343fb7a215a76c92de8d7987ccbe9beff5a527c5426b45b97e
+- path: external/task_bank/raw/linear_relational_concepts/repo/data/lre/factual/country_largest_city.json
+  sha256: ffb5e18dc1f26a101786905db84f087370bb191067ff8d9f1294156b1d9bdccc
+- path: external/task_bank/raw/linear_relational_concepts/repo/data/lre/factual/food_from_country.json
+  sha256: 2e308f61974de104eaa29a432bca1232802f9c6e1ea145151f384d96412d4a21
+- path: external/task_bank/raw/linear_relational_concepts/repo/data/lre/factual/landmark_in_country.json
+  sha256: 58d545ec481a0d22be5f8ce1f50410093349daf002f3e7c1f8ad26c2c1fde581
+- path: external/task_bank/raw/linear_relational_concepts/repo/data/lre/factual/landmark_on_continent.json
+  sha256: 64ec992304e0cc91ac4ada2e7d32d13401e171ea9e09fa65525273842b82160b
+- path: external/task_bank/raw/linear_relational_concepts/repo/data/lre/factual/person_band_lead_singer.json
+  sha256: ad4943c8bc14d649577dafce7acb8d81b2a56ea1f39ca806cdba20880dcd6742
+- path: external/task_bank/raw/linear_relational_concepts/repo/data/lre/factual/person_father.json
+  sha256: 796e03665de86d7441b2374fb443c1ddebc77749c01c4bab92c571fda4c8753d
+- path: external/task_bank/raw/linear_relational_concepts/repo/data/lre/factual/person_mother.json
+  sha256: bcf99ade0df1d9d8a03d40149aaf054cc7ecbd7f20ec6afe071d9361d2875d02
+- path: external/task_bank/raw/linear_relational_concepts/repo/data/lre/factual/person_occupation.json
+  sha256: 57e89f94c17ff0fd55d5e3ad3aa24ee5e118a3ff7447fff88457113a0e4ce7a7
+- path: external/task_bank/raw/linear_relational_concepts/repo/data/lre/factual/person_plays_instrument.json
+  sha256: e7c92e6a4d35b6198775a6f6062c948ca95aaedf2cc84a009b07989e4ccac08a
+- path: external/task_bank/raw/linear_relational_concepts/repo/data/lre/factual/person_plays_position_in_sport.json
+  sha256: adfc0605d1f31809329171e9ef348ca354b372934d8197e6e20693b0cb9e1c6f
+- path: external/task_bank/raw/linear_relational_concepts/repo/data/lre/factual/person_plays_pro_sport.json
+  sha256: adfea3a51c0315818a63ec0a421fba45818f3854212f9999910c80eac934165c
+- path: external/task_bank/raw/linear_relational_concepts/repo/data/lre/factual/person_university.json
+  sha256: 739fc4a11861d30a71852243fc6e06e8d34143b8e0ca3dd65cb9bb3bc5a0190c
+- path: external/task_bank/raw/linear_relational_concepts/repo/data/lre/factual/pokemon_evolutions.json
+  sha256: 254e3982935571cfd4311ea774da0d2a4b2a577c6c86e0f74508a9651efc6494
+- path: external/task_bank/raw/linear_relational_concepts/repo/data/lre/factual/presidents_birth_year.json
+  sha256: 4b6e7cf48aff48db010a0aa78ab674f0cebeb2d950203d0723a1e7227cb3ad23
+- path: external/task_bank/raw/linear_relational_concepts/repo/data/lre/factual/presidents_election_year.json
+  sha256: 16a81b72fd253b82d7571d63e0e5ed3906eb62fde565b31ed2cd81967bfc46ee
+- path: external/task_bank/raw/linear_relational_concepts/repo/data/lre/factual/product_by_company.json
+  sha256: 373dac4b5322dc29ca800b8bf38bac78a0d9297e56ee877100733f68e9c3da40
+- path: external/task_bank/raw/linear_relational_concepts/repo/data/lre/factual/star_constellation.json
+  sha256: 328aa42c7960f8ce5a75a1fbe766141e0b22473c6a35d8b2e8165a4050188bde
+- path: external/task_bank/raw/linear_relational_concepts/repo/data/lre/factual/superhero_archnemesis.json
+  sha256: bd335092e081782d7e49a4a3472c0aac54b14999a3b78e68f6d94fe7ed7dcb38
+- path: external/task_bank/raw/linear_relational_concepts/repo/data/lre/factual/superhero_person.json
+  sha256: 3b3a3a03d4b5c0b91343d4e7d562a434a17ae85ef286ed151bafee65c19a7804
+- path: external/task_bank/raw/linear_relational_concepts/repo/data/lre/linguistic/adj_antonym.json
+  sha256: bcfe2e8ed0cabe0650499a1aa64df908aed94898192efc112a0b082dc49b32dd
+- path: external/task_bank/raw/linear_relational_concepts/repo/data/lre/linguistic/adj_comparative.json
+  sha256: 1409f9d0fd887990e016a417ad724dc9714b51ee68638130c7c2897ba7f8bc51
+- path: external/task_bank/raw/linear_relational_concepts/repo/data/lre/linguistic/adj_superlative.json
+  sha256: 8d816383390e894a7f7b2c5880a68905c25a2bf376bd7f372496b3a8d2ab47e0
+- path: external/task_bank/raw/linear_relational_concepts/repo/data/lre/linguistic/verb_past_tense.json
+  sha256: 7a9e9ad41d90e0ea18c03d62813881af66e96e10a8fc6e884404a05b21bfb5fc
+- path: external/task_bank/raw/linear_relational_concepts/repo/data/lre/linguistic/word_first_letter.json
+  sha256: b084acead4479f7305891074f4b53fc8b21f0ad6d31e44c992b5a72d75f9d467
+- path: external/task_bank/raw/linear_relational_concepts/repo/data/lre/linguistic/word_last_letter.json
+  sha256: a9ffb875a35323fe6151ed132186057c5c060e461aa119dc41ef50dc52fe5068
+- path: external/task_bank/raw/linear_relational_concepts/repo/LICENSE
+  sha256: 9e2755282c10002800dd3d2313cce64f0d0bda9006f4fb0e57effb74756767ce
+- path: external/task_bank/raw/linear_relational_concepts/repo/README.md
+  sha256: 99f361adabb22dc0bc715ae3c4b9c22b4571aba2839b19e8a70561ed65a953e4
+- path: external/task_bank/raw/linear_relational_concepts/repo/CITATION.cff
+  sha256: 79aab74e91fc223883f0fcd2f040195708ea822a0725e65596892a564f54c228
+tasks:
+- name: (none)
+  status: not_converted_duplicate_of:lre_relations
+  notes: see source notes

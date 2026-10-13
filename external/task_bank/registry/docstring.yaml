@@ -1,0 +1,80 @@
+source_id: docstring
+title: Docstring task (A circuit for Python docstrings in a 4-layer attention-only transformer); generator from the ACDC repo
+bibkey: heimersheim2023docstring
+bibkey_data:
+- conmy2023automatedcircuitdiscoverymechanistic
+url: https://github.com/ArthurConmy/Automatic-Circuit-Discovery (acdc/docstring/prompts.py); https://www.alignmentforum.org/posts/u6KXXmKFbXfWzoAXn
+download_date: '2026-10-12'
+tier: 1
+revision: bc99ace817974b5584b7ee203d596a8e2bbcd399
+raw_files:
+- path: external/task_bank/raw/docstring/Automatic-Circuit-Discovery/LICENSE
+  sha256: 16c66e455dff5897c2ea5ab783bf49fd7fd63cbefb7bf1dece191d6729c21f87
+- path: external/task_bank/raw/docstring/Automatic-Circuit-Discovery/subnetwork_probing/transformer_lens/LICENSE
+  sha256: 52b805cc952e6830623831cb38031f3e56f49e20ee28fe917b5a3b1d941a98de
+- path: external/task_bank/raw/docstring/Automatic-Circuit-Discovery/acdc/docstring/prompts.py
+  sha256: c7cdac728dc4f7064f62f1ac64afd21195e12a5124c63aebacf61f646c441121
+- path: external/task_bank/raw/docstring/Automatic-Circuit-Discovery/acdc/docstring/utils.py
+  sha256: 9b5aa447056cc8b53ded0476e5934351d91cd43212de50d0b3f327aa7d214d7d
+licence: MIT-style grant text, Copyright 2023 Arthur Conmy, Adria Garriga-Alonso
+licence_source: raw/docstring/Automatic-Circuit-Discovery/LICENSE
+redistribute: yes (generator output; word lists come from the MIT-licensed repo)
+generator:
+  commit: bc99ace817974b5584b7ee203d596a8e2bbcd399
+  seed: 42
+  N: 2000
+  per_item_seeds: random.Random(42).randrange(1e9)
+  params:
+    n_matching_args: 3
+    n_def_prefix_args: 2
+    n_def_suffix_args: 1
+    n_doc_prefix_args: 0
+    met_desc_len: 3
+    arg_desc_len: 2
+  frozen_output_sha256:
+    docstring_rest: 67287d5abfb41532f48c174d56601580bda056731a2f727094e317fe12020d43
+    docstring_goog: e58ecb60182867283de23335244515fd09fb743ff158cb307bed02e047822c9d
+tokenizer:
+  tokenizer_repo: Qwen/Qwen3.5-2B
+  tokenizer_revision: 15852e8c16360a2fea060d615a32b45270f8a8fc
+  note: Qwen3.5-4B tokenizer.json is byte-identical in content to 2B
+converter: scripts/task_bank/convert_docstring.py
+status: converted
+notes: The docstring task has no paper or arXiv id; the reference is the Alignment Forum post (see the bib entry, composed from page metadata). Third-party code only parsed, not executed.
+tasks:
+- name: docstring_rest
+  family: docstring
+  domain: code (induction over argument names)
+  n_items_raw: 2000
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampling_rule: all items kept
+  adaptations:
+  - 'Clean prompts reproduce the ACDC `docstring_induction_prompt_generator("rest", ...)` clean prompt (same RNG call order, per-item seeds from random.Random(42)). The prompt documents the first two of
+    three consecutive def args (`:param a: ...`), and the answer is the third (single-word variable name, leading space).'
+  - 'OUR flipping corruption (the generator''s own corruptions, e.g. random_doc, give no defined answer): the docstring documents the two def args that precede the matching block instead; the correct next
+    argument is then the FIRST matching arg, which is the clean prompt''s clean_incorrect. Same descriptions, so equal length when variable names are single tokens.'
+  - Source designed for a 4-layer attention-only model; the `goog` style adds an "Args:" line and indentation-only param lines.
+  - Variable names / description nouns are single GPT-2 tokens by construction; Qwen tokenisation checked in the diagnostic.
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 1.0
+  equal_answer_token_count_share: 1.0
+- name: docstring_goog
+  family: docstring
+  domain: code (induction over argument names)
+  n_items_raw: 2000
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampling_rule: all items kept
+  adaptations:
+  - 'Clean prompts reproduce the ACDC `docstring_induction_prompt_generator("goog", ...)` clean prompt (same RNG call order, per-item seeds from random.Random(42)). The prompt documents the first two of
+    three consecutive def args (`:param a: ...`), and the answer is the third (single-word variable name, leading space).'
+  - 'OUR flipping corruption (the generator''s own corruptions, e.g. random_doc, give no defined answer): the docstring documents the two def args that precede the matching block instead; the correct next
+    argument is then the FIRST matching arg, which is the clean prompt''s clean_incorrect. Same descriptions, so equal length when variable names are single tokens.'
+  - Source designed for a 4-layer attention-only model; the `goog` style adds an "Args:" line and indentation-only param lines.
+  - Variable names / description nouns are single GPT-2 tokens by construction; Qwen tokenisation checked in the diagnostic.
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 1.0
+  equal_answer_token_count_share: 1.0

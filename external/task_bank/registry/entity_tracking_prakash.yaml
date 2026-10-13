@@ -1,0 +1,49 @@
+source_id: entity_tracking_prakash
+title: 'Entity tracking (boxes) data of "Fine-Tuning Enhances Existing Mechanisms: A Case Study on Entity Tracking"'
+bibkey: prakash2024finetuningenhancesexistingmechanisms
+bibkey_data: kim-schuster-2023-entity (original boxes task; its password-protected data is not used)
+url: https://github.com/Nix07/finetuning
+revision: 6d6c0980bf073d305b915669c33533576a70aa77
+licence: 'none: the repository has no LICENSE file at the pinned commit and the README states none (the README only asks to cite the paper)'
+licence_source: external/task_bank/raw/entity_tracking_prakash/repo (no LICENSE file)
+redistribute: 'no (no licence: keep converted items out of git)'
+tier: 1
+tokenizer:
+  tokenizer_repo: Qwen/Qwen3.5-2B
+  tokenizer_revision: 15852e8c16360a2fea060d615a32b45270f8a8fc
+  note: Qwen3.5-2B tokenizer.json; the 4B tokenizer is the same (checked by the circuits group)
+status: converted
+notes: 'data/dataset.jsonl is byte-identical to model/bi_data/dataset.jsonl of the Dai et al. OI-Subspace bundle (sha256 c2631807e1900a3f66c323bc6df2b3ae88da1a31f4ce9ee6c2424dbe6d3702b9); converted once
+  here. The repo also has data/data_utils.py (the authors desiderata-based counterfactuals for path patching: not used, they do not flip the answer symmetrically).'
+download_date: '2026-10-12'
+raw_files:
+- path: external/task_bank/raw/entity_tracking_prakash/repo/data/dataset.jsonl
+  sha256: c2631807e1900a3f66c323bc6df2b3ae88da1a31f4ce9ee6c2424dbe6d3702b9
+- path: external/task_bank/raw/entity_tracking_prakash/repo/data/objects.csv
+  sha256: 9da542c9286360a8f9ada045a9015f13c027b4704d069741a284a39ec8eca491
+- path: external/task_bank/raw/entity_tracking_prakash/repo/data/data_utils.py
+  sha256: 255cccadb50fc8e58e8b603f5d9fe2f0292176a8a6070d8263fc935f299decd9
+- path: external/task_bank/raw/entity_tracking_prakash/repo/README.md
+  sha256: f0b12dca8b23cf767fa9b61a0c60144e4bf321acc9aaae00dde9fc79eda4ff6f
+tasks:
+- name: boxes_binding
+  family: entity_tracking_boxes
+  domain: entity tracking
+  n_items_raw: 15400
+  n_items_after_validity_and_dedup: 15400
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/entity_tracking_prakash/boxes_binding.ids.txt
+  sampling_rule: proportional stratified sample, seed 42, cap 2000
+  adaptations:
+  - 'query cut before the object: prompt = context + " Box X contains the", answer " <object>" (the source row is the full sentence "Box X contains the <object>.")'
+  - 'flip (our construction): exchange the box labels of the queried box and one other box in the context (partner drawn with random.Random("42:<row>")); the query is unchanged; token permutation, equal
+    length by construction'
+  - only the numops = 0 data of the file exists (no put/move/remove operations)
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 1.0
+  n_single_token_answers: 2000
+  n_contexts: 2200
+  n_boxes: 7
+  n_shots: 0
+  status: converted

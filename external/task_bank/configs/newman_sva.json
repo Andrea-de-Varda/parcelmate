@@ -1,0 +1,122 @@
+{
+  "long_vp_coord": {
+    "path": "long_vp_coord.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "obj_rel_across_anim": {
+    "path": "obj_rel_across_anim.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "obj_rel_across_inanim": {
+    "path": "obj_rel_across_inanim.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "obj_rel_no_comp_across_anim": {
+    "path": "obj_rel_no_comp_across_anim.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "obj_rel_no_comp_across_inanim": {
+    "path": "obj_rel_no_comp_across_inanim.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "obj_rel_no_comp_within_anim": {
+    "path": "obj_rel_no_comp_within_anim.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "obj_rel_no_comp_within_inanim": {
+    "path": "obj_rel_no_comp_within_inanim.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "obj_rel_within_anim": {
+    "path": "obj_rel_within_anim.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "obj_rel_within_inanim": {
+    "path": "obj_rel_within_inanim.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "prep_anim": {
+    "path": "prep_anim.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "prep_inanim": {
+    "path": "prep_inanim.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "sent_comp": {
+    "path": "sent_comp.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "simple_agrmt": {
+    "path": "simple_agrmt.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "subj_rel": {
+    "path": "subj_rel.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "vp_coord": {
+    "path": "vp_coord.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  }
+}

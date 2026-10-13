@@ -1,0 +1,36 @@
+source_id: gradiend_mib_ioi
+title: GRADIEND MIB-IOI cloze data (aieng-lab/gradiend-mib-ioi)
+bibkey: mueller2025mibmechanisticinterpretabilitybenchmark
+bibkey_data:
+- 'GRADIEND dataset card has "Citation: TODO"; no bib available'
+url: https://huggingface.co/datasets/aieng-lab/gradiend-mib-ioi
+revision: 070f111e5782148619b11917024e82807f8d1f8d
+download_date: '2026-10-12'
+raw_files:
+- path: external/task_bank/raw/gradiend_mib_ioi/.gitattributes
+  sha256: 9e75dd981de037ec3769f24f790e126bc5a160b6871f510214e68dc70649aeeb
+- path: external/task_bank/raw/gradiend_mib_ioi/README.md
+  sha256: 444efb0338f8ccf5e8da4ae59d85b1d2e2cd7361c6869f5d99e34919077e44a4
+- path: external/task_bank/raw/gradiend_mib_ioi/dataset_summary.json
+  sha256: 8e4d1265baa5e0f2d93e8970473c6a3eb568864a81552fd220813f10d9390f93
+- path: external/task_bank/raw/gradiend_mib_ioi/default/test.parquet
+  sha256: 2e8a30f586cb4e02578fa310cbf352c33fcfeb965689f1b9e6f2844c272181cb
+- path: external/task_bank/raw/gradiend_mib_ioi/default/train.parquet
+  sha256: 80b0c6e0ca13476776072f56a0f1d81631d55446679583825c35cd23b66aac6a
+- path: external/task_bank/raw/gradiend_mib_ioi/default/validation.parquet
+  sha256: 5e60e1a25948a243bb977f4759105dbb4ca00d1486def38d604af303db0b7215
+licence: MIT
+licence_source: README.md front matter at the pinned revision (raw/gradiend_mib_ioi/README.md)
+redistribute: 'yes'
+tier: 2 (masked cloze) / 1 via cf_masked
+status: duplicate_of_mib
+notes: All 21000 rows (10,000 train / 10,000 validation / 1,000 test) have a masked prompt identical to a mib-bench/ioi prompt (21000 matched); in all 21000 the `cf_masked` text equals MIB s2_io_flip_counterfactual.
+  The data therefore adds nothing beyond mib/ioi_s2_flip and was not converted separately (tier-1 equivalent exists).
+tasks:
+- name: ioi_cloze
+  family: ioi
+  n_items_raw: 21000
+  n_items_converted: 0
+  status: duplicate_of_mib:ioi_s2_flip
+  adaptations:
+  - masked cloze in encoder-style form; for causal LMs identical to MIB prompt + IO name

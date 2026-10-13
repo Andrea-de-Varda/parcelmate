@@ -1,0 +1,331 @@
+source_id: newman_sva
+title: Refining Targeted Syntactic Evaluation of Language Models (code and data of Newman et al.)
+bibkey: newman-etal-2021-refining
+bibkey_data: marvin-linzen-2018-targeted (templates); warstadt-etal-2020-blimp-benchmark (BLiMP files, not converted)
+url: https://github.com/bnewm0609/refining-tse
+revision:
+  github_commit: db423f80246ba2d7c2fc602fc514943949cfaf71
+download_date: '2026-10-12'
+raw_files:
+- path: raw/newman_sva/repo/data/ML/long_vp_coord_all.jsonl
+  sha256: 2d8c8c94734fd725ad3351e5a37691fd58e9ad2e1818787c82095122d7db92bc
+- path: raw/newman_sva/repo/data/ML/obj_rel_across_anim_all.jsonl
+  sha256: 67800fb678c133db1efef9c6bbefc0ae2615ba041df2a82f5d5c455832f52850
+- path: raw/newman_sva/repo/data/ML/obj_rel_across_inanim_all.jsonl
+  sha256: d60028fbf51afaee041359740e34b02cfb9d77eef609fc38e2f6db2d1ce78d55
+- path: raw/newman_sva/repo/data/ML/obj_rel_no_comp_across_anim_all.jsonl
+  sha256: c32b903145da85bc59e23d2ec62a09fc34aca2304d6e792c124458485714a66c
+- path: raw/newman_sva/repo/data/ML/obj_rel_no_comp_across_inanim_all.jsonl
+  sha256: ed112a5369e3280df9f84b7017db0256d86e441cbd6570d0922e6da86115d725
+- path: raw/newman_sva/repo/data/ML/obj_rel_no_comp_within_anim_all.jsonl
+  sha256: 1159eeb710bd8a2ee58fa67e8e71d556430d26baf6f2ab33fee9d5a70be26b62
+- path: raw/newman_sva/repo/data/ML/obj_rel_no_comp_within_inanim_all.jsonl
+  sha256: 1b06fbf8a794ed9521966ac70ea0074d9465b02b83043c40967f1ae31714e859
+- path: raw/newman_sva/repo/data/ML/obj_rel_within_anim_all.jsonl
+  sha256: df87d3560e9ed3390421e8dc0478b8095644a913b596067a0323c3682a935514
+- path: raw/newman_sva/repo/data/ML/obj_rel_within_inanim_all.jsonl
+  sha256: ebd3a863a8d4f42c44cf946cc4fc88514e39eb04e7a47b4a9fb54f1df9be2fcd
+- path: raw/newman_sva/repo/data/ML/prep_anim_all.jsonl
+  sha256: 3e44b6d1d702f98db1610abead58bc2a6bb1cf2db212633dceb6622e67fd82a7
+- path: raw/newman_sva/repo/data/ML/prep_inanim_all.jsonl
+  sha256: dddb24d8a014de804e18fc82c66a83136ab700defe7fa1b1c7af2c0b25744cff
+- path: raw/newman_sva/repo/data/ML/sent_comp_all.jsonl
+  sha256: 4b63943e754bd966f26669846b20512967c75aecf02d48587fce368b26bc4967
+- path: raw/newman_sva/repo/data/ML/simple_agrmt_all.jsonl
+  sha256: 625fd363d13110b98ac28a8f891772a24d1d42b8c784aff85c1d392da1cabf53
+- path: raw/newman_sva/repo/data/ML/subj_rel_all.jsonl
+  sha256: 921303a874c99d18d93192b9983cfe16950af7f21dfef6d49906345004390c87
+- path: raw/newman_sva/repo/data/ML/vp_coord_all.jsonl
+  sha256: 065f623cd2113c9b3ca94c55fd74fb2c2cf47becec3782eb0750393a516f383d
+licence: MIT
+licence_source: external/task_bank/raw/newman_sva/repo/LICENSE (Copyright 2020 kaiang)
+redistribute: yes (MIT for the repo; the templates originate from Marvin and Linzen 2018, whose licence was not checked)
+tier: 1
+tasks:
+- name: long_vp_coord
+  family: sva_long_vp_coord
+  domain: syntax
+  n_items_raw: 400
+  n_items_converted: 200
+  pairing_stats:
+    n_pairs_raw: 400
+    skipped_unparsable: 0
+    n_unique_prefix_answer: 400
+    dropped_no_partner: 0
+    n_items_all_pairs: 200
+  sampled_ids_file: tasks/newman_sva/long_vp_coord.ids.txt
+  sampling_rule: all unordered counterfactual pairs; if > 2000, seed-42 sample stratified on (clean_correct, clean_incorrect)
+  adaptations:
+  - counterfactual built by subject-number swap (partner = other item of the same file with swapped answers and morphologically close prompt words)
+  - answer = words from first to last differing word, leading space; shared tail (and final period) dropped
+  - clean/corrupted orientation of each pair chosen by seed-42 coin
+  len_match_share_qwen35: 1.0
+  single_token_answer_share: 1.0
+- name: obj_rel_across_anim
+  family: sva_across_obj_rc
+  domain: syntax
+  n_items_raw: 11200
+  n_items_converted: 2000
+  pairing_stats:
+    n_pairs_raw: 11200
+    skipped_unparsable: 0
+    n_unique_prefix_answer: 6400
+    dropped_no_partner: 0
+    n_items_all_pairs: 3200
+  sampled_ids_file: tasks/newman_sva/obj_rel_across_anim.ids.txt
+  sampling_rule: all unordered counterfactual pairs; if > 2000, seed-42 sample stratified on (clean_correct, clean_incorrect)
+  adaptations:
+  - counterfactual built by subject-number swap (partner = other item of the same file with swapped answers and morphologically close prompt words)
+  - answer = words from first to last differing word, leading space; shared tail (and final period) dropped
+  - clean/corrupted orientation of each pair chosen by seed-42 coin
+  len_match_share_qwen35: 1.0
+  single_token_answer_share: 1.0
+- name: obj_rel_across_inanim
+  family: sva_across_obj_rc
+  domain: syntax
+  n_items_raw: 10080
+  n_items_converted: 2000
+  pairing_stats:
+    n_pairs_raw: 10080
+    skipped_unparsable: 0
+    n_unique_prefix_answer: 4320
+    dropped_no_partner: 0
+    n_items_all_pairs: 2160
+  sampled_ids_file: tasks/newman_sva/obj_rel_across_inanim.ids.txt
+  sampling_rule: all unordered counterfactual pairs; if > 2000, seed-42 sample stratified on (clean_correct, clean_incorrect)
+  adaptations:
+  - counterfactual built by subject-number swap (partner = other item of the same file with swapped answers and morphologically close prompt words)
+  - answer = words from first to last differing word, leading space; shared tail (and final period) dropped
+  - clean/corrupted orientation of each pair chosen by seed-42 coin
+  len_match_share_qwen35: 1.0
+  single_token_answer_share: 1.0
+- name: obj_rel_no_comp_across_anim
+  family: sva_across_obj_rc_nocomp
+  domain: syntax
+  n_items_raw: 11200
+  n_items_converted: 2000
+  pairing_stats:
+    n_pairs_raw: 11200
+    skipped_unparsable: 0
+    n_unique_prefix_answer: 6400
+    dropped_no_partner: 0
+    n_items_all_pairs: 3200
+  sampled_ids_file: tasks/newman_sva/obj_rel_no_comp_across_anim.ids.txt
+  sampling_rule: all unordered counterfactual pairs; if > 2000, seed-42 sample stratified on (clean_correct, clean_incorrect)
+  adaptations:
+  - counterfactual built by subject-number swap (partner = other item of the same file with swapped answers and morphologically close prompt words)
+  - answer = words from first to last differing word, leading space; shared tail (and final period) dropped
+  - clean/corrupted orientation of each pair chosen by seed-42 coin
+  len_match_share_qwen35: 1.0
+  single_token_answer_share: 1.0
+- name: obj_rel_no_comp_across_inanim
+  family: sva_across_obj_rc_nocomp
+  domain: syntax
+  n_items_raw: 10080
+  n_items_converted: 2000
+  pairing_stats:
+    n_pairs_raw: 10080
+    skipped_unparsable: 0
+    n_unique_prefix_answer: 4320
+    dropped_no_partner: 0
+    n_items_all_pairs: 2160
+  sampled_ids_file: tasks/newman_sva/obj_rel_no_comp_across_inanim.ids.txt
+  sampling_rule: all unordered counterfactual pairs; if > 2000, seed-42 sample stratified on (clean_correct, clean_incorrect)
+  adaptations:
+  - counterfactual built by subject-number swap (partner = other item of the same file with swapped answers and morphologically close prompt words)
+  - answer = words from first to last differing word, leading space; shared tail (and final period) dropped
+  - clean/corrupted orientation of each pair chosen by seed-42 coin
+  len_match_share_qwen35: 1.0
+  single_token_answer_share: 1.0
+- name: obj_rel_no_comp_within_anim
+  family: sva_within_obj_rc_nocomp
+  domain: syntax
+  n_items_raw: 11200
+  n_items_converted: 800
+  pairing_stats:
+    n_pairs_raw: 11200
+    skipped_unparsable: 0
+    n_unique_prefix_answer: 1600
+    dropped_no_partner: 0
+    n_items_all_pairs: 800
+  sampled_ids_file: tasks/newman_sva/obj_rel_no_comp_within_anim.ids.txt
+  sampling_rule: all unordered counterfactual pairs; if > 2000, seed-42 sample stratified on (clean_correct, clean_incorrect)
+  adaptations:
+  - counterfactual built by subject-number swap (partner = other item of the same file with swapped answers and morphologically close prompt words)
+  - answer = words from first to last differing word, leading space; shared tail (and final period) dropped
+  - clean/corrupted orientation of each pair chosen by seed-42 coin
+  len_match_share_qwen35: 1.0
+  single_token_answer_share: 0.75
+- name: obj_rel_no_comp_within_inanim
+  family: sva_within_obj_rc_nocomp
+  domain: syntax
+  n_items_raw: 10080
+  n_items_converted: 720
+  pairing_stats:
+    n_pairs_raw: 10080
+    skipped_unparsable: 0
+    n_unique_prefix_answer: 1440
+    dropped_no_partner: 0
+    n_items_all_pairs: 720
+  sampled_ids_file: tasks/newman_sva/obj_rel_no_comp_within_inanim.ids.txt
+  sampling_rule: all unordered counterfactual pairs; if > 2000, seed-42 sample stratified on (clean_correct, clean_incorrect)
+  adaptations:
+  - counterfactual built by subject-number swap (partner = other item of the same file with swapped answers and morphologically close prompt words)
+  - answer = words from first to last differing word, leading space; shared tail (and final period) dropped
+  - clean/corrupted orientation of each pair chosen by seed-42 coin
+  len_match_share_qwen35: 1.0
+  single_token_answer_share: 0.75
+- name: obj_rel_within_anim
+  family: sva_within_obj_rc
+  domain: syntax
+  n_items_raw: 11200
+  n_items_converted: 800
+  pairing_stats:
+    n_pairs_raw: 11200
+    skipped_unparsable: 0
+    n_unique_prefix_answer: 1600
+    dropped_no_partner: 0
+    n_items_all_pairs: 800
+  sampled_ids_file: tasks/newman_sva/obj_rel_within_anim.ids.txt
+  sampling_rule: all unordered counterfactual pairs; if > 2000, seed-42 sample stratified on (clean_correct, clean_incorrect)
+  adaptations:
+  - counterfactual built by subject-number swap (partner = other item of the same file with swapped answers and morphologically close prompt words)
+  - answer = words from first to last differing word, leading space; shared tail (and final period) dropped
+  - clean/corrupted orientation of each pair chosen by seed-42 coin
+  len_match_share_qwen35: 1.0
+  single_token_answer_share: 0.75
+- name: obj_rel_within_inanim
+  family: sva_within_obj_rc
+  domain: syntax
+  n_items_raw: 10080
+  n_items_converted: 720
+  pairing_stats:
+    n_pairs_raw: 10080
+    skipped_unparsable: 0
+    n_unique_prefix_answer: 1440
+    dropped_no_partner: 0
+    n_items_all_pairs: 720
+  sampled_ids_file: tasks/newman_sva/obj_rel_within_inanim.ids.txt
+  sampling_rule: all unordered counterfactual pairs; if > 2000, seed-42 sample stratified on (clean_correct, clean_incorrect)
+  adaptations:
+  - counterfactual built by subject-number swap (partner = other item of the same file with swapped answers and morphologically close prompt words)
+  - answer = words from first to last differing word, leading space; shared tail (and final period) dropped
+  - clean/corrupted orientation of each pair chosen by seed-42 coin
+  len_match_share_qwen35: 1.0
+  single_token_answer_share: 0.75
+- name: prep_anim
+  family: sva_across_pp
+  domain: syntax
+  n_items_raw: 16800
+  n_items_converted: 2000
+  pairing_stats:
+    n_pairs_raw: 16800
+    skipped_unparsable: 0
+    n_unique_prefix_answer: 9600
+    dropped_no_partner: 0
+    n_items_all_pairs: 4800
+  sampled_ids_file: tasks/newman_sva/prep_anim.ids.txt
+  sampling_rule: all unordered counterfactual pairs; if > 2000, seed-42 sample stratified on (clean_correct, clean_incorrect)
+  adaptations:
+  - counterfactual built by subject-number swap (partner = other item of the same file with swapped answers and morphologically close prompt words)
+  - answer = words from first to last differing word, leading space; shared tail (and final period) dropped
+  - clean/corrupted orientation of each pair chosen by seed-42 coin
+  len_match_share_qwen35: 1.0
+  single_token_answer_share: 1.0
+- name: prep_inanim
+  family: sva_across_pp
+  domain: syntax
+  n_items_raw: 5040
+  n_items_converted: 1080
+  pairing_stats:
+    n_pairs_raw: 5040
+    skipped_unparsable: 0
+    n_unique_prefix_answer: 2160
+    dropped_no_partner: 0
+    n_items_all_pairs: 1080
+  sampled_ids_file: tasks/newman_sva/prep_inanim.ids.txt
+  sampling_rule: all unordered counterfactual pairs; if > 2000, seed-42 sample stratified on (clean_correct, clean_incorrect)
+  adaptations:
+  - counterfactual built by subject-number swap (partner = other item of the same file with swapped answers and morphologically close prompt words)
+  - answer = words from first to last differing word, leading space; shared tail (and final period) dropped
+  - clean/corrupted orientation of each pair chosen by seed-42 coin
+  len_match_share_qwen35: 1.0
+  single_token_answer_share: 1.0
+- name: sent_comp
+  family: sva_sent_comp
+  domain: syntax
+  n_items_raw: 1680
+  n_items_converted: 480
+  pairing_stats:
+    n_pairs_raw: 1680
+    skipped_unparsable: 0
+    n_unique_prefix_answer: 960
+    dropped_no_partner: 0
+    n_items_all_pairs: 480
+  sampled_ids_file: tasks/newman_sva/sent_comp.ids.txt
+  sampling_rule: all unordered counterfactual pairs; if > 2000, seed-42 sample stratified on (clean_correct, clean_incorrect)
+  adaptations:
+  - counterfactual built by subject-number swap (partner = other item of the same file with swapped answers and morphologically close prompt words)
+  - answer = words from first to last differing word, leading space; shared tail (and final period) dropped
+  - clean/corrupted orientation of each pair chosen by seed-42 coin
+  len_match_share_qwen35: 1.0
+  single_token_answer_share: 1.0
+- name: simple_agrmt
+  family: sva_simple
+  domain: syntax
+  n_items_raw: 140
+  n_items_converted: 40
+  pairing_stats:
+    n_pairs_raw: 140
+    skipped_unparsable: 0
+    n_unique_prefix_answer: 80
+    dropped_no_partner: 0
+    n_items_all_pairs: 40
+  sampled_ids_file: tasks/newman_sva/simple_agrmt.ids.txt
+  sampling_rule: all unordered counterfactual pairs; if > 2000, seed-42 sample stratified on (clean_correct, clean_incorrect)
+  adaptations:
+  - counterfactual built by subject-number swap (partner = other item of the same file with swapped answers and morphologically close prompt words)
+  - answer = words from first to last differing word, leading space; shared tail (and final period) dropped
+  - clean/corrupted orientation of each pair chosen by seed-42 coin
+  len_match_share_qwen35: 1.0
+  single_token_answer_share: 1.0
+- name: subj_rel
+  family: sva_across_subj_rc
+  domain: syntax
+  n_items_raw: 11200
+  n_items_converted: 2000
+  pairing_stats:
+    n_pairs_raw: 11200
+    skipped_unparsable: 0
+    n_unique_prefix_answer: 6400
+    dropped_no_partner: 0
+    n_items_all_pairs: 3200
+  sampled_ids_file: tasks/newman_sva/subj_rel.ids.txt
+  sampling_rule: all unordered counterfactual pairs; if > 2000, seed-42 sample stratified on (clean_correct, clean_incorrect)
+  adaptations:
+  - counterfactual built by subject-number swap (partner = other item of the same file with swapped answers and morphologically close prompt words)
+  - answer = words from first to last differing word, leading space; shared tail (and final period) dropped
+  - clean/corrupted orientation of each pair chosen by seed-42 coin
+  len_match_share_qwen35: 0.758
+  single_token_answer_share: 1.0
+- name: vp_coord
+  family: sva_vp_coord
+  domain: syntax
+  n_items_raw: 840
+  n_items_converted: 250
+  pairing_stats:
+    n_pairs_raw: 840
+    skipped_unparsable: 0
+    n_unique_prefix_answer: 500
+    dropped_no_partner: 0
+    n_items_all_pairs: 250
+  sampled_ids_file: tasks/newman_sva/vp_coord.ids.txt
+  sampling_rule: all unordered counterfactual pairs; if > 2000, seed-42 sample stratified on (clean_correct, clean_incorrect)
+  adaptations:
+  - counterfactual built by subject-number swap (partner = other item of the same file with swapped answers and morphologically close prompt words)
+  - answer = words from first to last differing word, leading space; shared tail (and final period) dropped
+  - clean/corrupted orientation of each pair chosen by seed-42 coin
+  len_match_share_qwen35: 1.0
+  single_token_answer_share: 1.0
+status: converted
+notes: 'ML sentence sets are identical to the CLAMS English evalsets (same sentences, case and final period aside). Not converted: data/blimp (4 files) and data/verbs (verb list for the MW/EW metrics).'

@@ -1,0 +1,10 @@
+{
+  "ioi_wang_s2_flip": {
+    "path": "ioi_wang_s2_flip.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  }
+}

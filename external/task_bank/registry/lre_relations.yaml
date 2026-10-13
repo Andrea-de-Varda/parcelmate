@@ -1,0 +1,1068 @@
+source_id: lre_relations
+title: 'LRE relations (Hernandez et al.): 48 relations (factual, commonsense, linguistic, bias) as subject-object fact lists'
+bibkey: hernandez2024linearityrelationdecodingtransformer
+url: https://github.com/evandez/relations
+revision: 1b9ec3cf2b8368e42bde7e80fcef384312a6ec07
+licence: MIT (Copyright 2022 Evan Hernandez)
+licence_source: external/task_bank/raw/lre_relations/repo/LICENSE
+redistribute: yes (MIT; the repository states no separate data licence; facts were scraped/curated by the authors)
+tier: 1
+tokenizer:
+  tokenizer_repo: Qwen/Qwen3.5-2B
+  tokenizer_revision: 15852e8c16360a2fea060d615a32b45270f8a8fc
+  note: Qwen3.5-2B tokenizer.json; the 4B tokenizer is the same (checked by the circuits group)
+status: converted
+notes: Chanin et al. (linear_relational_concepts) ship a copy of this data (data/lre/*, 47 shared files byte-for-byte identical as parsed JSON; person_native_language sits under bias/ there and factual/
+  here). Converted once, here.
+download_date: '2026-10-12'
+raw_files:
+- path: external/task_bank/raw/lre_relations/repo/data/bias/characteristic_gender.json
+  sha256: a89e266418179f86891f580f500dd92ce65918b54112daf2912e80d28ed74d0f
+- path: external/task_bank/raw/lre_relations/repo/data/bias/degree_gender.json
+  sha256: cb4c69f57ff5cddf3466e1dd48b15eaa5209c5935d2a36f1b0cbcb7b422b1cd2
+- path: external/task_bank/raw/lre_relations/repo/data/bias/name_birthplace.json
+  sha256: b796df239a577a6bf09d6ad6f1b537a72a7b1a483352090a1586a91f7712584e
+- path: external/task_bank/raw/lre_relations/repo/data/bias/name_gender.json
+  sha256: cfeded39fc091fb548791cf588e9ab0d1613b2ab5f8e72645929b55a4583fcf2
+- path: external/task_bank/raw/lre_relations/repo/data/bias/name_religion.json
+  sha256: 49552370e79d2ea17ce0c3e5335af42506ac09d6924618de96be20201b300aed
+- path: external/task_bank/raw/lre_relations/repo/data/bias/occupation_age.json
+  sha256: cc06ab94193e2a0c0a4b0a343ae3b234487cb4893e0377078eee90e3d474f276
+- path: external/task_bank/raw/lre_relations/repo/data/bias/occupation_gender.json
+  sha256: 1b5e02c08ebfcd79225f3e89dd43c859c9e7026beaf5cfc1e5135e053eb10a2f
+- path: external/task_bank/raw/lre_relations/repo/data/commonsense/fruit_inside_color.json
+  sha256: 7986138d585ca5abea5b6821f94b749e17adb027db737618fa7ba44ff2b94c61
+- path: external/task_bank/raw/lre_relations/repo/data/commonsense/fruit_outside_color.json
+  sha256: b0c11dbdd220f670e232db0ff2899ef221d2d91746415696d2a2ce0513ac033a
+- path: external/task_bank/raw/lre_relations/repo/data/commonsense/object_superclass.json
+  sha256: e594c3288df3059638ae885d83f2934266bb1968932272c027786bf7b3c02678
+- path: external/task_bank/raw/lre_relations/repo/data/commonsense/substance_phase.json
+  sha256: 8b2fcb4a1d1d5619b8bfa6d229c4fc144eed0fcdc12995853a32e4e925f8c5ab
+- path: external/task_bank/raw/lre_relations/repo/data/commonsense/task_done_by_person.json
+  sha256: 5d60985abf904aa01010171ab0eade79a8050ff9cf38b2b003fd531b7c3e4155
+- path: external/task_bank/raw/lre_relations/repo/data/commonsense/task_done_by_tool.json
+  sha256: 846b190fdb6fa0d58bca47dc7756d81e8104d34ad624428b8fae1662a2a8d9f8
+- path: external/task_bank/raw/lre_relations/repo/data/commonsense/word_sentiment.json
+  sha256: 436546dfbd9f308b6d27748359489e3f3e20a845e8913ab2da62ab2fead80487
+- path: external/task_bank/raw/lre_relations/repo/data/commonsense/work_location.json
+  sha256: 2438376757f35fc80e8925070e855c190f42693f04e6305266cdc2b76e9878c1
+- path: external/task_bank/raw/lre_relations/repo/data/factual/city_in_country.json
+  sha256: 5fd8f9e99e6d8567d05cfb4e7c9324ed03b07ba1ebf827614b7b58a811bc11a5
+- path: external/task_bank/raw/lre_relations/repo/data/factual/company_ceo.json
+  sha256: c75f9b31c872b85601b7163b2c7a8f11c439f2852a876d5a126401d57ea3a81b
+- path: external/task_bank/raw/lre_relations/repo/data/factual/company_hq.json
+  sha256: 22c86cf64b908db86c73b17add31e59fd6022ac74e500840fcad35bd706a8e4e
+- path: external/task_bank/raw/lre_relations/repo/data/factual/country_capital_city.json
+  sha256: 9945d2da1fa1145c1d7e59ac61a25ebee74299c00bd53fc9308167f9e1d44fc0
+- path: external/task_bank/raw/lre_relations/repo/data/factual/country_currency.json
+  sha256: 4a1a49afbdc4792fc330196475f456a22bc49dfe0ec9eb966439e4f36081d99b
+- path: external/task_bank/raw/lre_relations/repo/data/factual/country_language.json
+  sha256: 0996525735107934f0d2e467e6fac7d2c785c42e8300ccb41ae6e9b5dfde2b76
+- path: external/task_bank/raw/lre_relations/repo/data/factual/country_largest_city.json
+  sha256: ffb5e18dc1f26a101786905db84f087370bb191067ff8d9f1294156b1d9bdccc
+- path: external/task_bank/raw/lre_relations/repo/data/factual/food_from_country.json
+  sha256: 2e308f61974de104eaa29a432bca1232802f9c6e1ea145151f384d96412d4a21
+- path: external/task_bank/raw/lre_relations/repo/data/factual/landmark_in_country.json
+  sha256: 58d545ec481a0d22be5f8ce1f50410093349daf002f3e7c1f8ad26c2c1fde581
+- path: external/task_bank/raw/lre_relations/repo/data/factual/landmark_on_continent.json
+  sha256: 64ec992304e0cc91ac4ada2e7d32d13401e171ea9e09fa65525273842b82160b
+- path: external/task_bank/raw/lre_relations/repo/data/factual/person_band_lead_singer.json
+  sha256: ad4943c8bc14d649577dafce7acb8d81b2a56ea1f39ca806cdba20880dcd6742
+- path: external/task_bank/raw/lre_relations/repo/data/factual/person_father.json
+  sha256: 796e03665de86d7441b2374fb443c1ddebc77749c01c4bab92c571fda4c8753d
+- path: external/task_bank/raw/lre_relations/repo/data/factual/person_mother.json
+  sha256: bcf99ade0df1d9d8a03d40149aaf054cc7ecbd7f20ec6afe071d9361d2875d02
+- path: external/task_bank/raw/lre_relations/repo/data/factual/person_native_language.json
+  sha256: ad6f699fbad04cecf45a424713249803921598187c6302dd2a8e20702f4c1928
+- path: external/task_bank/raw/lre_relations/repo/data/factual/person_occupation.json
+  sha256: 57e89f94c17ff0fd55d5e3ad3aa24ee5e118a3ff7447fff88457113a0e4ce7a7
+- path: external/task_bank/raw/lre_relations/repo/data/factual/person_plays_instrument.json
+  sha256: e7c92e6a4d35b6198775a6f6062c948ca95aaedf2cc84a009b07989e4ccac08a
+- path: external/task_bank/raw/lre_relations/repo/data/factual/person_plays_position_in_sport.json
+  sha256: adfc0605d1f31809329171e9ef348ca354b372934d8197e6e20693b0cb9e1c6f
+- path: external/task_bank/raw/lre_relations/repo/data/factual/person_plays_pro_sport.json
+  sha256: adfea3a51c0315818a63ec0a421fba45818f3854212f9999910c80eac934165c
+- path: external/task_bank/raw/lre_relations/repo/data/factual/person_university.json
+  sha256: 739fc4a11861d30a71852243fc6e06e8d34143b8e0ca3dd65cb9bb3bc5a0190c
+- path: external/task_bank/raw/lre_relations/repo/data/factual/pokemon_evolutions.json
+  sha256: 254e3982935571cfd4311ea774da0d2a4b2a577c6c86e0f74508a9651efc6494
+- path: external/task_bank/raw/lre_relations/repo/data/factual/presidents_birth_year.json
+  sha256: 4b6e7cf48aff48db010a0aa78ab674f0cebeb2d950203d0723a1e7227cb3ad23
+- path: external/task_bank/raw/lre_relations/repo/data/factual/presidents_election_year.json
+  sha256: 16a81b72fd253b82d7571d63e0e5ed3906eb62fde565b31ed2cd81967bfc46ee
+- path: external/task_bank/raw/lre_relations/repo/data/factual/product_by_company.json
+  sha256: 373dac4b5322dc29ca800b8bf38bac78a0d9297e56ee877100733f68e9c3da40
+- path: external/task_bank/raw/lre_relations/repo/data/factual/star_constellation.json
+  sha256: 328aa42c7960f8ce5a75a1fbe766141e0b22473c6a35d8b2e8165a4050188bde
+- path: external/task_bank/raw/lre_relations/repo/data/factual/superhero_archnemesis.json
+  sha256: bd335092e081782d7e49a4a3472c0aac54b14999a3b78e68f6d94fe7ed7dcb38
+- path: external/task_bank/raw/lre_relations/repo/data/factual/superhero_person.json
+  sha256: 3b3a3a03d4b5c0b91343d4e7d562a434a17ae85ef286ed151bafee65c19a7804
+- path: external/task_bank/raw/lre_relations/repo/data/linguistic/adj_antonym.json
+  sha256: bcfe2e8ed0cabe0650499a1aa64df908aed94898192efc112a0b082dc49b32dd
+- path: external/task_bank/raw/lre_relations/repo/data/linguistic/adj_comparative.json
+  sha256: 1409f9d0fd887990e016a417ad724dc9714b51ee68638130c7c2897ba7f8bc51
+- path: external/task_bank/raw/lre_relations/repo/data/linguistic/adj_superlative.json
+  sha256: 8d816383390e894a7f7b2c5880a68905c25a2bf376bd7f372496b3a8d2ab47e0
+- path: external/task_bank/raw/lre_relations/repo/data/linguistic/verb_past_tense.json
+  sha256: 7a9e9ad41d90e0ea18c03d62813881af66e96e10a8fc6e884404a05b21bfb5fc
+- path: external/task_bank/raw/lre_relations/repo/data/linguistic/word_first_letter.json
+  sha256: b084acead4479f7305891074f4b53fc8b21f0ad6d31e44c992b5a72d75f9d467
+- path: external/task_bank/raw/lre_relations/repo/data/linguistic/word_last_letter.json
+  sha256: a9ffb875a35323fe6151ed132186057c5c060e461aa119dc41ef50dc52fe5068
+- path: external/task_bank/raw/lre_relations/repo/LICENSE
+  sha256: 45f55e5b125dcdd0bcd8d4f8ed4db7a75ce892901e4ebfcbc485d3915dcd760c
+- path: external/task_bank/raw/lre_relations/repo/README.md
+  sha256: bd8d9362e233d8359b5ebc32c8f312256e80d1919cd01e7a5ac86d28dd2f46aa
+tasks:
+- name: lre_bias_characteristic_gender
+  family: bias_relation_characteristic_gender
+  domain: bias relation (LRE category)
+  n_items_raw: 30
+  n_ambiguous_subject_facts_dropped: 0
+  n_facts_used: 30
+  relation: characteristic gender
+  category: bias
+  templates:
+  - '{} is commonly associated with'
+  identical_copy_in_linear_relational_concepts: true
+  status: not_converted
+  n_items_converted: 0
+  notes: fewer than 75 facts
+- name: lre_bias_degree_gender
+  family: bias_relation_degree_gender
+  domain: bias relation (LRE category)
+  n_items_raw: 38
+  n_ambiguous_subject_facts_dropped: 0
+  n_facts_used: 38
+  relation: univ degree gender
+  category: bias
+  templates:
+  - '{} students are typically'
+  identical_copy_in_linear_relational_concepts: true
+  status: not_converted
+  n_items_converted: 0
+  notes: fewer than 75 facts
+- name: lre_bias_name_birthplace
+  family: bias_relation_name_birthplace
+  domain: bias relation (LRE category)
+  n_items_raw: 31
+  n_ambiguous_subject_facts_dropped: 0
+  n_facts_used: 31
+  relation: name birthplace
+  category: bias
+  templates:
+  - '{} was born in the country of'
+  identical_copy_in_linear_relational_concepts: true
+  status: not_converted
+  n_items_converted: 0
+  notes: fewer than 75 facts
+- name: lre_bias_name_gender
+  family: bias_relation_name_gender
+  domain: bias relation (LRE category)
+  n_items_raw: 19
+  n_ambiguous_subject_facts_dropped: 0
+  n_facts_used: 18
+  relation: name gender
+  category: bias
+  templates:
+  - '{} is usually a name for a'
+  identical_copy_in_linear_relational_concepts: true
+  status: not_converted
+  n_items_converted: 0
+  notes: fewer than 75 facts
+- name: lre_bias_name_religion
+  family: bias_relation_name_religion
+  domain: bias relation (LRE category)
+  n_items_raw: 31
+  n_ambiguous_subject_facts_dropped: 0
+  n_facts_used: 31
+  relation: name religion
+  category: bias
+  templates:
+  - '{} likely follows the religion of'
+  identical_copy_in_linear_relational_concepts: true
+  status: not_converted
+  n_items_converted: 0
+  notes: fewer than 75 facts
+- name: lre_bias_occupation_age
+  family: bias_relation_occupation_age
+  domain: bias relation (LRE category)
+  n_items_raw: 45
+  n_ambiguous_subject_facts_dropped: 0
+  n_facts_used: 45
+  relation: occupation age
+  category: bias
+  templates:
+  - '{} are typically'
+  identical_copy_in_linear_relational_concepts: true
+  status: not_converted
+  n_items_converted: 0
+  notes: fewer than 75 facts
+- name: lre_bias_occupation_gender
+  family: bias_relation_occupation_gender
+  domain: bias relation (LRE category)
+  n_items_raw: 19
+  n_ambiguous_subject_facts_dropped: 0
+  n_facts_used: 19
+  relation: occupation gender
+  category: bias
+  templates:
+  - '{} are typically'
+  identical_copy_in_linear_relational_concepts: true
+  status: not_converted
+  n_items_converted: 0
+  notes: fewer than 75 facts
+- name: lre_commonsense_fruit_inside_color
+  family: commonsense_relation_fruit_inside_color
+  domain: commonsense relation (LRE category)
+  n_items_raw: 36
+  n_ambiguous_subject_facts_dropped: 0
+  n_facts_used: 36
+  relation: fruit inside color
+  category: commonsense
+  templates:
+  - On the inside, {} are
+  identical_copy_in_linear_relational_concepts: true
+  status: not_converted
+  n_items_converted: 0
+  notes: fewer than 75 facts
+- name: lre_commonsense_fruit_outside_color
+  family: commonsense_relation_fruit_outside_color
+  domain: commonsense relation (LRE category)
+  n_items_raw: 30
+  n_ambiguous_subject_facts_dropped: 0
+  n_facts_used: 30
+  relation: fruit outside color
+  category: commonsense
+  templates:
+  - On the outside, {} are
+  identical_copy_in_linear_relational_concepts: true
+  status: not_converted
+  n_items_converted: 0
+  notes: fewer than 75 facts
+- name: lre_commonsense_object_superclass
+  family: commonsense_relation_object_superclass
+  domain: commonsense relation (LRE category)
+  n_items_raw: 76
+  n_ambiguous_subject_facts_dropped: 16
+  n_facts_used: 56
+  relation: object superclass
+  category: commonsense
+  templates:
+  - A {} is in the category of a
+  identical_copy_in_linear_relational_concepts: true
+  status: not_converted
+  n_items_converted: 0
+  notes: fewer than 75 facts
+- name: lre_commonsense_substance_phase
+  family: commonsense_relation_substance_phase
+  domain: commonsense relation (LRE category)
+  n_items_raw: 50
+  n_ambiguous_subject_facts_dropped: 0
+  n_facts_used: 50
+  relation: substance phase of matter
+  category: commonsense
+  templates:
+  - '{}''s phase of matter at room temperature is a'
+  identical_copy_in_linear_relational_concepts: true
+  status: not_converted
+  n_items_converted: 0
+  notes: fewer than 75 facts
+- name: lre_commonsense_task_done_by_person
+  family: commonsense_relation_task_done_by_person
+  domain: commonsense relation (LRE category)
+  n_items_raw: 32
+  n_ambiguous_subject_facts_dropped: 0
+  n_facts_used: 32
+  relation: task person type
+  category: commonsense
+  templates:
+  - '{} is best suited for someone with the role of a'
+  identical_copy_in_linear_relational_concepts: true
+  status: not_converted
+  n_items_converted: 0
+  notes: fewer than 75 facts
+- name: lre_commonsense_task_done_by_tool
+  family: commonsense_relation_task_done_by_tool
+  domain: commonsense relation (LRE category)
+  n_items_raw: 52
+  n_ambiguous_subject_facts_dropped: 0
+  n_facts_used: 52
+  relation: task done by tool
+  category: commonsense
+  templates:
+  - The tool used for {} is called a
+  identical_copy_in_linear_relational_concepts: true
+  status: not_converted
+  n_items_converted: 0
+  notes: fewer than 75 facts
+- name: lre_commonsense_word_sentiment
+  family: commonsense_relation_word_sentiment
+  domain: commonsense relation (LRE category)
+  n_items_raw: 60
+  n_ambiguous_subject_facts_dropped: 0
+  n_facts_used: 59
+  relation: word sentiment
+  category: commonsense
+  templates:
+  - The sentiment of '{}' is
+  identical_copy_in_linear_relational_concepts: true
+  status: not_converted
+  n_items_converted: 0
+  notes: fewer than 75 facts
+- name: lre_commonsense_work_location
+  family: commonsense_relation_work_location
+  domain: commonsense relation (LRE category)
+  n_items_raw: 38
+  n_ambiguous_subject_facts_dropped: 0
+  n_facts_used: 38
+  relation: work location
+  category: commonsense
+  templates:
+  - A {} typically works at a
+  identical_copy_in_linear_relational_concepts: true
+  status: not_converted
+  n_items_converted: 0
+  notes: fewer than 75 facts
+- name: lre_factual_city_in_country
+  family: factual_country
+  domain: factual relation (LRE category)
+  n_items_raw: 27
+  n_ambiguous_subject_facts_dropped: 0
+  n_facts_used: 27
+  relation: city in country
+  category: factual
+  templates:
+  - '{} is part of'
+  - '{} is in the country of'
+  identical_copy_in_linear_relational_concepts: true
+  status: not_converted
+  n_items_converted: 0
+  notes: fewer than 75 facts
+- name: lre_factual_company_ceo
+  family: factual_relation_company_ceo
+  domain: factual relation (LRE category)
+  n_items_raw: 298
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/lre_relations/lre_factual_company_ceo.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'subject swap within one relation and one template: (s1,o1) vs (s2,o2) with o1 != o2, equal Qwen3.5 token length of the query line, answers not prefixes of each other'
+  - 5-shot in-context prompt (demonstrations are other facts of the relation, shared by the clean and corrupted prompt, one per line "<template with subject> <object>"); answer " " + object
+  - only prompt_templates are used (not prompt_templates_zs); double-escaped unicode decoded
+  - facts whose subject has several different objects in the relation (0 here) are dropped; duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 0.0
+  n_single_token_answers: 0
+  n_ambiguous_subject_facts_dropped: 0
+  n_facts_used: 298
+  relation: company CEO
+  category: factual
+  templates:
+  - '{}''s CEO is'
+  - The CEO of {} is
+  identical_copy_in_linear_relational_concepts: true
+  valid_pair_capacity: 19034
+  n_shots: 5
+  n_distinct_subjects_in_items: 291
+  status: converted
+- name: lre_factual_company_hq
+  family: factual_relation_company_hq
+  domain: factual relation (LRE category)
+  n_items_raw: 674
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/lre_relations/lre_factual_company_hq.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'subject swap within one relation and one template: (s1,o1) vs (s2,o2) with o1 != o2, equal Qwen3.5 token length of the query line, answers not prefixes of each other'
+  - 5-shot in-context prompt (demonstrations are other facts of the relation, shared by the clean and corrupted prompt, one per line "<template with subject> <object>"); answer " " + object
+  - only prompt_templates are used (not prompt_templates_zs); double-escaped unicode decoded
+  - facts whose subject has several different objects in the relation (2 here) are dropped; duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 0.995
+  n_single_token_answers: 1990
+  n_ambiguous_subject_facts_dropped: 2
+  n_facts_used: 672
+  relation: company hq
+  category: factual
+  templates:
+  - '{} is headquartered in the city of'
+  - The headquarters of {} are in the city of
+  identical_copy_in_linear_relational_concepts: true
+  valid_pair_capacity: 97884
+  n_shots: 5
+  n_distinct_subjects_in_items: 638
+  status: converted
+- name: lre_factual_country_capital_city
+  family: factual_capital
+  domain: factual relation (LRE category)
+  n_items_raw: 24
+  n_ambiguous_subject_facts_dropped: 0
+  n_facts_used: 24
+  relation: country capital city
+  category: factual
+  templates:
+  - The capital city of {} is
+  - The capital of {} is
+  identical_copy_in_linear_relational_concepts: true
+  status: not_converted
+  n_items_converted: 0
+  notes: fewer than 75 facts
+- name: lre_factual_country_currency
+  family: factual_relation_country_currency
+  domain: factual relation (LRE category)
+  n_items_raw: 30
+  n_ambiguous_subject_facts_dropped: 0
+  n_facts_used: 30
+  relation: country currency
+  category: factual
+  templates:
+  - The official currency of {} is the
+  - '{}''s official currency is the'
+  identical_copy_in_linear_relational_concepts: true
+  status: not_converted
+  n_items_converted: 0
+  notes: fewer than 75 facts
+- name: lre_factual_country_language
+  family: factual_language
+  domain: factual relation (LRE category)
+  n_items_raw: 24
+  n_ambiguous_subject_facts_dropped: 0
+  n_facts_used: 24
+  relation: country language
+  category: factual
+  templates:
+  - People in {} speak
+  - The language used in {} is
+  - In {}, the primary language is
+  identical_copy_in_linear_relational_concepts: true
+  status: not_converted
+  n_items_converted: 0
+  notes: fewer than 75 facts
+- name: lre_factual_country_largest_city
+  family: factual_relation_country_largest_city
+  domain: factual relation (LRE category)
+  n_items_raw: 24
+  n_ambiguous_subject_facts_dropped: 0
+  n_facts_used: 24
+  relation: country largest city
+  category: factual
+  templates:
+  - The largest city in {} is
+  - The biggest city in {} is
+  identical_copy_in_linear_relational_concepts: true
+  status: not_converted
+  n_items_converted: 0
+  notes: fewer than 75 facts
+- name: lre_factual_food_from_country
+  family: factual_relation_food_from_country
+  domain: factual relation (LRE category)
+  n_items_raw: 30
+  n_ambiguous_subject_facts_dropped: 0
+  n_facts_used: 30
+  relation: food from country
+  category: factual
+  templates:
+  - '{} originates from'
+  - '{} is from the country of'
+  identical_copy_in_linear_relational_concepts: true
+  status: not_converted
+  n_items_converted: 0
+  notes: fewer than 75 facts
+- name: lre_factual_landmark_in_country
+  family: factual_country
+  domain: factual relation (LRE category)
+  n_items_raw: 836
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/lre_relations/lre_factual_landmark_in_country.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'subject swap within one relation and one template: (s1,o1) vs (s2,o2) with o1 != o2, equal Qwen3.5 token length of the query line, answers not prefixes of each other'
+  - 5-shot in-context prompt (demonstrations are other facts of the relation, shared by the clean and corrupted prompt, one per line "<template with subject> <object>"); answer " " + object
+  - only prompt_templates are used (not prompt_templates_zs); double-escaped unicode decoded
+  - facts whose subject has several different objects in the relation (2 here) are dropped; duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 1.0
+  n_single_token_answers: 2000
+  n_ambiguous_subject_facts_dropped: 2
+  n_facts_used: 834
+  relation: landmark in country
+  category: factual
+  templates:
+  - '{} is in the country of'
+  identical_copy_in_linear_relational_concepts: true
+  valid_pair_capacity: 66317
+  n_shots: 5
+  n_distinct_subjects_in_items: 764
+  status: converted
+- name: lre_factual_landmark_on_continent
+  family: factual_continent
+  domain: factual relation (LRE category)
+  n_items_raw: 947
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/lre_relations/lre_factual_landmark_on_continent.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'subject swap within one relation and one template: (s1,o1) vs (s2,o2) with o1 != o2, equal Qwen3.5 token length of the query line, answers not prefixes of each other'
+  - 5-shot in-context prompt (demonstrations are other facts of the relation, shared by the clean and corrupted prompt, one per line "<template with subject> <object>"); answer " " + object
+  - only prompt_templates are used (not prompt_templates_zs); double-escaped unicode decoded
+  - facts whose subject has several different objects in the relation (4 here) are dropped; duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 1.0
+  n_single_token_answers: 2000
+  n_ambiguous_subject_facts_dropped: 4
+  n_facts_used: 943
+  relation: landmark on continent
+  category: factual
+  templates:
+  - '{} is on the continent of'
+  identical_copy_in_linear_relational_concepts: true
+  valid_pair_capacity: 40990
+  n_shots: 5
+  n_distinct_subjects_in_items: 827
+  status: converted
+- name: lre_factual_person_band_lead_singer
+  family: factual_relation_person_band_lead_singer
+  domain: factual relation (LRE category)
+  n_items_raw: 21
+  n_ambiguous_subject_facts_dropped: 0
+  n_facts_used: 21
+  relation: person lead singer of band
+  category: factual
+  templates:
+  - '{} is the lead singer of'
+  identical_copy_in_linear_relational_concepts: true
+  status: not_converted
+  n_items_converted: 0
+  notes: fewer than 75 facts
+- name: lre_factual_person_father
+  family: factual_relation_person_father
+  domain: factual relation (LRE category)
+  n_items_raw: 991
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/lre_relations/lre_factual_person_father.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'subject swap within one relation and one template: (s1,o1) vs (s2,o2) with o1 != o2, equal Qwen3.5 token length of the query line, answers not prefixes of each other'
+  - 5-shot in-context prompt (demonstrations are other facts of the relation, shared by the clean and corrupted prompt, one per line "<template with subject> <object>"); answer " " + object
+  - only prompt_templates are used (not prompt_templates_zs); double-escaped unicode decoded
+  - facts whose subject has several different objects in the relation (0 here) are dropped; duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 0.0
+  n_single_token_answers: 0
+  n_ambiguous_subject_facts_dropped: 0
+  n_facts_used: 991
+  relation: person father
+  category: factual
+  templates:
+  - '{}''s father is named'
+  identical_copy_in_linear_relational_concepts: true
+  valid_pair_capacity: 92129
+  n_shots: 5
+  n_distinct_subjects_in_items: 928
+  status: converted
+- name: lre_factual_person_mother
+  family: factual_relation_person_mother
+  domain: factual relation (LRE category)
+  n_items_raw: 994
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/lre_relations/lre_factual_person_mother.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'subject swap within one relation and one template: (s1,o1) vs (s2,o2) with o1 != o2, equal Qwen3.5 token length of the query line, answers not prefixes of each other'
+  - 5-shot in-context prompt (demonstrations are other facts of the relation, shared by the clean and corrupted prompt, one per line "<template with subject> <object>"); answer " " + object
+  - only prompt_templates are used (not prompt_templates_zs); double-escaped unicode decoded
+  - facts whose subject has several different objects in the relation (0 here) are dropped; duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 0.0
+  n_single_token_answers: 0
+  n_ambiguous_subject_facts_dropped: 0
+  n_facts_used: 994
+  relation: person mother
+  category: factual
+  templates:
+  - '{}''s mother is named'
+  identical_copy_in_linear_relational_concepts: true
+  valid_pair_capacity: 91352
+  n_shots: 5
+  n_distinct_subjects_in_items: 924
+  status: converted
+- name: lre_factual_person_native_language
+  family: factual_language
+  domain: factual relation (LRE category)
+  n_items_raw: 919
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/lre_relations/lre_factual_person_native_language.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'subject swap within one relation and one template: (s1,o1) vs (s2,o2) with o1 != o2, equal Qwen3.5 token length of the query line, answers not prefixes of each other'
+  - 5-shot in-context prompt (demonstrations are other facts of the relation, shared by the clean and corrupted prompt, one per line "<template with subject> <object>"); answer " " + object
+  - only prompt_templates are used (not prompt_templates_zs); double-escaped unicode decoded
+  - facts whose subject has several different objects in the relation (2 here) are dropped; duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 1.0
+  n_single_token_answers: 2000
+  n_ambiguous_subject_facts_dropped: 2
+  n_facts_used: 917
+  relation: person native language
+  category: factual
+  templates:
+  - '{} speaks the language of'
+  identical_copy_in_linear_relational_concepts: true
+  valid_pair_capacity: 43143
+  n_shots: 5
+  n_distinct_subjects_in_items: 840
+  status: converted
+- name: lre_factual_person_occupation
+  family: factual_occupation
+  domain: factual relation (LRE category)
+  n_items_raw: 821
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/lre_relations/lre_factual_person_occupation.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'subject swap within one relation and one template: (s1,o1) vs (s2,o2) with o1 != o2, equal Qwen3.5 token length of the query line, answers not prefixes of each other'
+  - 5-shot in-context prompt (demonstrations are other facts of the relation, shared by the clean and corrupted prompt, one per line "<template with subject> <object>"); answer " " + object
+  - only prompt_templates are used (not prompt_templates_zs); double-escaped unicode decoded
+  - facts whose subject has several different objects in the relation (0 here) are dropped; duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 0.908
+  n_single_token_answers: 1816
+  n_ambiguous_subject_facts_dropped: 0
+  n_facts_used: 821
+  relation: person occupation
+  category: factual
+  templates:
+  - '{} works as a'
+  - By profession, {} is a
+  identical_copy_in_linear_relational_concepts: true
+  valid_pair_capacity: 114242
+  n_shots: 5
+  n_distinct_subjects_in_items: 770
+  status: converted
+- name: lre_factual_person_plays_instrument
+  family: factual_instrument
+  domain: factual relation (LRE category)
+  n_items_raw: 513
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/lre_relations/lre_factual_person_plays_instrument.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'subject swap within one relation and one template: (s1,o1) vs (s2,o2) with o1 != o2, equal Qwen3.5 token length of the query line, answers not prefixes of each other'
+  - 5-shot in-context prompt (demonstrations are other facts of the relation, shared by the clean and corrupted prompt, one per line "<template with subject> <object>"); answer " " + object
+  - only prompt_templates are used (not prompt_templates_zs); double-escaped unicode decoded
+  - facts whose subject has several different objects in the relation (12 here) are dropped; duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 1.0
+  n_single_token_answers: 2000
+  n_ambiguous_subject_facts_dropped: 12
+  n_facts_used: 501
+  relation: person plays instrument
+  category: factual
+  templates:
+  - '{} plays the'
+  identical_copy_in_linear_relational_concepts: true
+  valid_pair_capacity: 19910
+  n_shots: 5
+  n_distinct_subjects_in_items: 488
+  status: converted
+- name: lre_factual_person_plays_position_in_sport
+  family: factual_sport_position
+  domain: factual relation (LRE category)
+  n_items_raw: 952
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/lre_relations/lre_factual_person_plays_position_in_sport.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'subject swap within one relation and one template: (s1,o1) vs (s2,o2) with o1 != o2, equal Qwen3.5 token length of the query line, answers not prefixes of each other'
+  - 5-shot in-context prompt (demonstrations are other facts of the relation, shared by the clean and corrupted prompt, one per line "<template with subject> <object>"); answer " " + object
+  - only prompt_templates are used (not prompt_templates_zs); double-escaped unicode decoded
+  - facts whose subject has several different objects in the relation (0 here) are dropped; duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 0.652
+  n_single_token_answers: 1304
+  n_ambiguous_subject_facts_dropped: 0
+  n_facts_used: 952
+  relation: person sport position
+  category: factual
+  templates:
+  - '{} plays in the position of a'
+  - In their sport, {} plays as a
+  identical_copy_in_linear_relational_concepts: true
+  valid_pair_capacity: 173441
+  n_shots: 5
+  n_distinct_subjects_in_items: 852
+  status: converted
+- name: lre_factual_person_plays_pro_sport
+  family: factual_sport
+  domain: factual relation (LRE category)
+  n_items_raw: 318
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/lre_relations/lre_factual_person_plays_pro_sport.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'subject swap within one relation and one template: (s1,o1) vs (s2,o2) with o1 != o2, equal Qwen3.5 token length of the query line, answers not prefixes of each other'
+  - 5-shot in-context prompt (demonstrations are other facts of the relation, shared by the clean and corrupted prompt, one per line "<template with subject> <object>"); answer " " + object
+  - only prompt_templates are used (not prompt_templates_zs); double-escaped unicode decoded
+  - facts whose subject has several different objects in the relation (0 here) are dropped; duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 1.0
+  n_single_token_answers: 2000
+  n_ambiguous_subject_facts_dropped: 0
+  n_facts_used: 318
+  relation: plays pro sport
+  category: factual
+  templates:
+  - '{} plays the sport of'
+  identical_copy_in_linear_relational_concepts: true
+  valid_pair_capacity: 9043
+  n_shots: 5
+  n_distinct_subjects_in_items: 313
+  status: converted
+- name: lre_factual_person_university
+  family: factual_relation_person_university
+  domain: factual relation (LRE category)
+  n_items_raw: 91
+  n_items_after_validity_and_dedup: 1967
+  n_items_converted: 1967
+  sampled_ids_file: external/task_bank/tasks/lre_relations/lre_factual_person_university.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'subject swap within one relation and one template: (s1,o1) vs (s2,o2) with o1 != o2, equal Qwen3.5 token length of the query line, answers not prefixes of each other'
+  - 5-shot in-context prompt (demonstrations are other facts of the relation, shared by the clean and corrupted prompt, one per line "<template with subject> <object>"); answer " " + object
+  - only prompt_templates are used (not prompt_templates_zs); double-escaped unicode decoded
+  - facts whose subject has several different objects in the relation (0 here) are dropped; duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 1967
+  single_token_answers_share: 0.0
+  n_single_token_answers: 0
+  n_ambiguous_subject_facts_dropped: 0
+  n_facts_used: 91
+  relation: person university
+  category: factual
+  templates:
+  - For university, {} attended
+  - '{} went to university at'
+  identical_copy_in_linear_relational_concepts: true
+  valid_pair_capacity: 1967
+  n_shots: 5
+  n_distinct_subjects_in_items: 91
+  status: converted
+- name: lre_factual_pokemon_evolutions
+  family: factual_relation_pokemon_evolutions
+  domain: factual relation (LRE category)
+  n_items_raw: 44
+  n_ambiguous_subject_facts_dropped: 0
+  n_facts_used: 44
+  relation: pokemon evolution
+  category: factual
+  templates:
+  - '{} evolves into a'
+  identical_copy_in_linear_relational_concepts: true
+  status: not_converted
+  n_items_converted: 0
+  notes: fewer than 75 facts
+- name: lre_factual_presidents_birth_year
+  family: factual_relation_presidents_birth_year
+  domain: factual relation (LRE category)
+  n_items_raw: 19
+  n_ambiguous_subject_facts_dropped: 0
+  n_facts_used: 18
+  relation: president birth year
+  category: factual
+  templates:
+  - '{} was born in'
+  identical_copy_in_linear_relational_concepts: true
+  status: not_converted
+  n_items_converted: 0
+  notes: fewer than 75 facts
+- name: lre_factual_presidents_election_year
+  family: factual_relation_presidents_election_year
+  domain: factual relation (LRE category)
+  n_items_raw: 19
+  n_ambiguous_subject_facts_dropped: 0
+  n_facts_used: 19
+  relation: president election year
+  category: factual
+  templates:
+  - '{} was elected in'
+  identical_copy_in_linear_relational_concepts: true
+  status: not_converted
+  n_items_converted: 0
+  notes: fewer than 75 facts
+- name: lre_factual_product_by_company
+  family: factual_product_company
+  domain: factual relation (LRE category)
+  n_items_raw: 522
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/lre_relations/lre_factual_product_by_company.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'subject swap within one relation and one template: (s1,o1) vs (s2,o2) with o1 != o2, equal Qwen3.5 token length of the query line, answers not prefixes of each other'
+  - 5-shot in-context prompt (demonstrations are other facts of the relation, shared by the clean and corrupted prompt, one per line "<template with subject> <object>"); answer " " + object
+  - only prompt_templates are used (not prompt_templates_zs); double-escaped unicode decoded
+  - facts whose subject has several different objects in the relation (14 here) are dropped; duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 1.0
+  n_single_token_answers: 2000
+  n_ambiguous_subject_facts_dropped: 14
+  n_facts_used: 488
+  relation: product by company
+  category: factual
+  templates:
+  - '{} was created by'
+  - '{} is a product of'
+  identical_copy_in_linear_relational_concepts: true
+  valid_pair_capacity: 44372
+  n_shots: 5
+  n_distinct_subjects_in_items: 467
+  status: converted
+- name: lre_factual_star_constellation
+  family: factual_relation_star_constellation
+  domain: factual relation (LRE category)
+  n_items_raw: 362
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/lre_relations/lre_factual_star_constellation.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'subject swap within one relation and one template: (s1,o1) vs (s2,o2) with o1 != o2, equal Qwen3.5 token length of the query line, answers not prefixes of each other'
+  - 5-shot in-context prompt (demonstrations are other facts of the relation, shared by the clean and corrupted prompt, one per line "<template with subject> <object>"); answer " " + object
+  - only prompt_templates are used (not prompt_templates_zs); double-escaped unicode decoded
+  - facts whose subject has several different objects in the relation (0 here) are dropped; duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 0.1865
+  n_single_token_answers: 373
+  n_ambiguous_subject_facts_dropped: 0
+  n_facts_used: 362
+  relation: star constellation name
+  category: factual
+  templates:
+  - '{} is part of the constellation named'
+  identical_copy_in_linear_relational_concepts: true
+  valid_pair_capacity: 12497
+  n_shots: 5
+  n_distinct_subjects_in_items: 350
+  status: converted
+- name: lre_factual_superhero_archnemesis
+  family: factual_relation_superhero_archnemesis
+  domain: factual relation (LRE category)
+  n_items_raw: 96
+  n_items_after_validity_and_dedup: 1827
+  n_items_converted: 1827
+  sampled_ids_file: external/task_bank/tasks/lre_relations/lre_factual_superhero_archnemesis.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'subject swap within one relation and one template: (s1,o1) vs (s2,o2) with o1 != o2, equal Qwen3.5 token length of the query line, answers not prefixes of each other'
+  - 5-shot in-context prompt (demonstrations are other facts of the relation, shared by the clean and corrupted prompt, one per line "<template with subject> <object>"); answer " " + object
+  - only prompt_templates are used (not prompt_templates_zs); double-escaped unicode decoded
+  - facts whose subject has several different objects in the relation (0 here) are dropped; duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 1827
+  single_token_answers_share: 0.0005
+  n_single_token_answers: 1
+  n_ambiguous_subject_facts_dropped: 0
+  n_facts_used: 96
+  relation: superhero archnemesis
+  category: factual
+  templates:
+  - The superhero archnemesis of {} is
+  identical_copy_in_linear_relational_concepts: true
+  valid_pair_capacity: 1827
+  n_shots: 5
+  n_distinct_subjects_in_items: 94
+  status: converted
+- name: lre_factual_superhero_person
+  family: factual_relation_superhero_person
+  domain: factual relation (LRE category)
+  n_items_raw: 100
+  n_items_after_validity_and_dedup: 1342
+  n_items_converted: 1342
+  sampled_ids_file: external/task_bank/tasks/lre_relations/lre_factual_superhero_person.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'subject swap within one relation and one template: (s1,o1) vs (s2,o2) with o1 != o2, equal Qwen3.5 token length of the query line, answers not prefixes of each other'
+  - 5-shot in-context prompt (demonstrations are other facts of the relation, shared by the clean and corrupted prompt, one per line "<template with subject> <object>"); answer " " + object
+  - only prompt_templates are used (not prompt_templates_zs); double-escaped unicode decoded
+  - facts whose subject has several different objects in the relation (17 here) are dropped; duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 1342
+  single_token_answers_share: 0.0
+  n_single_token_answers: 0
+  n_ambiguous_subject_facts_dropped: 17
+  n_facts_used: 83
+  relation: superhero person
+  category: factual
+  templates:
+  - '{}''s secret identity is'
+  identical_copy_in_linear_relational_concepts: true
+  valid_pair_capacity: 1342
+  n_shots: 5
+  n_distinct_subjects_in_items: 82
+  status: converted
+- name: lre_linguistic_adj_antonym
+  family: lexical_antonym
+  domain: linguistic relation (LRE category)
+  n_items_raw: 100
+  n_ambiguous_subject_facts_dropped: 27
+  n_facts_used: 72
+  relation: adjective antonym
+  category: linguistic
+  templates:
+  - The opposite of {} is
+  identical_copy_in_linear_relational_concepts: true
+  status: not_converted
+  n_items_converted: 0
+  notes: fewer than 75 facts
+- name: lre_linguistic_adj_comparative
+  family: linguistic_relation_adj_comparative
+  domain: linguistic relation (LRE category)
+  n_items_raw: 68
+  n_ambiguous_subject_facts_dropped: 0
+  n_facts_used: 57
+  relation: adjective comparative
+  category: linguistic
+  templates:
+  - The comparative form of {} is
+  identical_copy_in_linear_relational_concepts: true
+  status: not_converted
+  n_items_converted: 0
+  notes: fewer than 75 facts
+- name: lre_linguistic_adj_superlative
+  family: linguistic_relation_adj_superlative
+  domain: linguistic relation (LRE category)
+  n_items_raw: 80
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/lre_relations/lre_linguistic_adj_superlative.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'subject swap within one relation and one template: (s1,o1) vs (s2,o2) with o1 != o2, equal Qwen3.5 token length of the query line, answers not prefixes of each other'
+  - 5-shot in-context prompt (demonstrations are other facts of the relation, shared by the clean and corrupted prompt, one per line "<template with subject> <object>"); answer " " + object
+  - only prompt_templates are used (not prompt_templates_zs); double-escaped unicode decoded
+  - facts whose subject has several different objects in the relation (0 here) are dropped; duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 0.2015
+  n_single_token_answers: 403
+  n_ambiguous_subject_facts_dropped: 0
+  n_facts_used: 80
+  relation: adjective superlative
+  category: linguistic
+  templates:
+  - The superlative form of {} is
+  identical_copy_in_linear_relational_concepts: true
+  valid_pair_capacity: 3080
+  n_shots: 5
+  n_distinct_subjects_in_items: 79
+  status: converted
+- name: lre_linguistic_verb_past_tense
+  family: morphology_past_tense
+  domain: linguistic relation (LRE category)
+  n_items_raw: 76
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/lre_relations/lre_linguistic_verb_past_tense.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'subject swap within one relation and one template: (s1,o1) vs (s2,o2) with o1 != o2, equal Qwen3.5 token length of the query line, answers not prefixes of each other'
+  - 5-shot in-context prompt (demonstrations are other facts of the relation, shared by the clean and corrupted prompt, one per line "<template with subject> <object>"); answer " " + object
+  - only prompt_templates are used (not prompt_templates_zs); double-escaped unicode decoded
+  - facts whose subject has several different objects in the relation (0 here) are dropped; duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 0.9765
+  n_single_token_answers: 1953
+  n_ambiguous_subject_facts_dropped: 0
+  n_facts_used: 76
+  relation: verb past tense
+  category: linguistic
+  templates:
+  - The past tense of {} is
+  identical_copy_in_linear_relational_concepts: true
+  valid_pair_capacity: 2775
+  n_shots: 5
+  n_distinct_subjects_in_items: 75
+  status: converted
+- name: lre_linguistic_word_first_letter
+  family: linguistic_relation_word_first_letter
+  domain: linguistic relation (LRE category)
+  n_items_raw: 241
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/lre_relations/lre_linguistic_word_first_letter.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'subject swap within one relation and one template: (s1,o1) vs (s2,o2) with o1 != o2, equal Qwen3.5 token length of the query line, answers not prefixes of each other'
+  - 5-shot in-context prompt (demonstrations are other facts of the relation, shared by the clean and corrupted prompt, one per line "<template with subject> <object>"); answer " " + object
+  - only prompt_templates are used (not prompt_templates_zs); double-escaped unicode decoded
+  - facts whose subject has several different objects in the relation (0 here) are dropped; duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 1.0
+  n_single_token_answers: 2000
+  n_ambiguous_subject_facts_dropped: 0
+  n_facts_used: 241
+  relation: word first letter
+  category: linguistic
+  templates:
+  - '{} starts with the letter'
+  identical_copy_in_linear_relational_concepts: true
+  valid_pair_capacity: 10992
+  n_shots: 5
+  n_distinct_subjects_in_items: 239
+  status: converted
+- name: lre_linguistic_word_last_letter
+  family: linguistic_relation_word_last_letter
+  domain: linguistic relation (LRE category)
+  n_items_raw: 241
+  n_items_after_validity_and_dedup: 2000
+  n_items_converted: 2000
+  sampled_ids_file: external/task_bank/tasks/lre_relations/lre_linguistic_word_last_letter.ids.txt
+  sampling_rule: all items kept
+  adaptations:
+  - 'subject swap within one relation and one template: (s1,o1) vs (s2,o2) with o1 != o2, equal Qwen3.5 token length of the query line, answers not prefixes of each other'
+  - 5-shot in-context prompt (demonstrations are other facts of the relation, shared by the clean and corrupted prompt, one per line "<template with subject> <object>"); answer " " + object
+  - only prompt_templates are used (not prompt_templates_zs); double-escaped unicode decoded
+  - facts whose subject has several different objects in the relation (0 here) are dropped; duplicates kept once
+  len_match_share_qwen35: 1.0
+  n_len_match: 2000
+  single_token_answers_share: 1.0
+  n_single_token_answers: 2000
+  n_ambiguous_subject_facts_dropped: 0
+  n_facts_used: 241
+  relation: word last letter
+  category: linguistic
+  templates:
+  - '{} ends with the letter'
+  identical_copy_in_linear_relational_concepts: true
+  valid_pair_capacity: 10506
+  n_shots: 5
+  n_distinct_subjects_in_items: 238
+  status: converted

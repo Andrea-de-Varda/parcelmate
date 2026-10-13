@@ -57,6 +57,33 @@ def load_task(domain, task_config, root=DATA_ROOT):
         return json.load(f)
 
 
+# Task bank (info/TASK_BANK.md): the same item and config format, laid out per source as
+# configs/<source>.json and tasks/<source>/<task>.json; a source plays the role of a domain.
+BANK_ROOT = os.path.join(os.path.dirname(DATA_ROOT), 'task_bank')
+
+
+def load_bank_config(source, root=BANK_ROOT):
+    with open(os.path.join(root, 'configs', source + '.json')) as f:
+        return json.load(f)
+
+
+def load_bank_task(source, task_config, root=BANK_ROOT):
+    with open(os.path.join(root, 'tasks', source, task_config['path'])) as f:
+        return json.load(f)
+
+
+def bank_eval_list(path=os.path.join(BANK_ROOT, 'eval_tasks.txt')):
+    """(source, task) pairs to evaluate, in file order; '#' starts a comment."""
+    pairs = []
+    with open(path) as f:
+        for line in f:
+            line = line.split('#')[0].strip()
+            if line:
+                source, task = line.split('/')
+                pairs.append((source, task))
+    return pairs
+
+
 def chat_prompt(tokenizer, message):
     """The original's template: an empty system turn, the user turn, a generation prompt.
 

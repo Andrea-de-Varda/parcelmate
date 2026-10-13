@@ -1,0 +1,50 @@
+{
+ "numeric": {
+  "path": "numeric.json",
+  "prefix": "7 + 5 = 12\n",
+  "suffix": null,
+  "concatenation": null,
+  "merging_sign": "",
+  "force_base_evaluation": true
+ },
+ "english": {
+  "path": "english.json",
+  "prefix": "seven plus five equals twelve\n",
+  "suffix": null,
+  "concatenation": null,
+  "merging_sign": "",
+  "force_base_evaluation": true
+ },
+ "spanish": {
+  "path": "spanish.json",
+  "prefix": "siete más cinco es igual a doce\n",
+  "suffix": null,
+  "concatenation": null,
+  "merging_sign": "",
+  "force_base_evaluation": true
+ },
+ "italian": {
+  "path": "italian.json",
+  "prefix": "sette più cinque fa dodici\n",
+  "suffix": null,
+  "concatenation": null,
+  "merging_sign": "",
+  "force_base_evaluation": true
+ },
+ "embedded": {
+  "path": "embedded.json",
+  "prefix": "Question: Alice has 3 marbles and finds 2 more. How many does she have now?\nAnswer: 5\n",
+  "suffix": null,
+  "concatenation": " The answer is",
+  "merging_sign": "",
+  "force_base_evaluation": true
+ },
+ "embedded_verbal": {
+  "path": "embedded_verbal.json",
+  "prefix": "Question: Alice has three marbles and finds two more. How many does she have now?\nAnswer: five\n",
+  "suffix": null,
+  "concatenation": " The answer is",
+  "merging_sign": "",
+  "force_base_evaluation": true
+ }
+}

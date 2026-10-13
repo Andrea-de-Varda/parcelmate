@@ -1,0 +1,34 @@
+{
+ "numeric": {
+  "path": "numeric.json",
+  "prefix": "7 + 5 = 12\n",
+  "suffix": null,
+  "concatenation": null,
+  "merging_sign": "",
+  "force_base_evaluation": true
+ },
+ "english": {
+  "path": "english.json",
+  "prefix": "seven plus five equals twelve\n",
+  "suffix": null,
+  "concatenation": null,
+  "merging_sign": "",
+  "force_base_evaluation": true
+ },
+ "spanish": {
+  "path": "spanish.json",
+  "prefix": "siete más cinco es igual a doce\n",
+  "suffix": null,
+  "concatenation": null,
+  "merging_sign": "",
+  "force_base_evaluation": true
+ },
+ "italian": {
+  "path": "italian.json",
+  "prefix": "sette più cinque fa dodici\n",
+  "suffix": null,
+  "concatenation": null,
+  "merging_sign": "",
+  "force_base_evaluation": true
+ }
+}

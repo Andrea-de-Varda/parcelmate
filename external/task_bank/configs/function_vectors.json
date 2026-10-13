@@ -1,0 +1,314 @@
+{
+  "fv_antonym": {
+    "path": "fv_antonym.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "fv_synonym": {
+    "path": "fv_synonym.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "fv_capitalize": {
+    "path": "fv_capitalize.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "fv_capitalize_first_letter": {
+    "path": "fv_capitalize_first_letter.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "fv_capitalize_last_letter": {
+    "path": "fv_capitalize_last_letter.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "fv_capitalize_second_letter": {
+    "path": "fv_capitalize_second_letter.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "fv_lowercase_first_letter": {
+    "path": "fv_lowercase_first_letter.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "fv_lowercase_last_letter": {
+    "path": "fv_lowercase_last_letter.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "fv_next_capital_letter": {
+    "path": "fv_next_capital_letter.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "fv_word_length": {
+    "path": "fv_word_length.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "fv_next_item": {
+    "path": "fv_next_item.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "fv_prev_item": {
+    "path": "fv_prev_item.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "fv_country_capital": {
+    "path": "fv_country_capital.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "fv_country_currency": {
+    "path": "fv_country_currency.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "fv_landmark_country": {
+    "path": "fv_landmark_country.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "fv_park_country": {
+    "path": "fv_park_country.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "fv_national_parks_state": {
+    "path": "fv_national_parks_state.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "fv_person_instrument": {
+    "path": "fv_person_instrument.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "fv_person_occupation": {
+    "path": "fv_person_occupation.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "fv_person_sport": {
+    "path": "fv_person_sport.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "fv_product_company": {
+    "path": "fv_product_company.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "fv_english_french": {
+    "path": "fv_english_french.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "fv_english_german": {
+    "path": "fv_english_german.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "fv_english_spanish": {
+    "path": "fv_english_spanish.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "fv_present_past": {
+    "path": "fv_present_past.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "fv_singular_plural": {
+    "path": "fv_singular_plural.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "fv_sentiment": {
+    "path": "fv_sentiment.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "fv_extractive_adjective_v_verb_5": {
+    "path": "fv_extractive_adjective_v_verb_5.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "fv_extractive_alphabetically_first_5": {
+    "path": "fv_extractive_alphabetically_first_5.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "fv_extractive_alphabetically_last_5": {
+    "path": "fv_extractive_alphabetically_last_5.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "fv_extractive_animal_v_object_5": {
+    "path": "fv_extractive_animal_v_object_5.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "fv_extractive_choose_first_of_5": {
+    "path": "fv_extractive_choose_first_of_5.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "fv_extractive_choose_last_of_5": {
+    "path": "fv_extractive_choose_last_of_5.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "fv_extractive_choose_middle_of_5": {
+    "path": "fv_extractive_choose_middle_of_5.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "fv_extractive_color_v_animal_5": {
+    "path": "fv_extractive_color_v_animal_5.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "fv_extractive_concept_v_object_5": {
+    "path": "fv_extractive_concept_v_object_5.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "fv_extractive_fruit_v_animal_5": {
+    "path": "fv_extractive_fruit_v_animal_5.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "fv_extractive_object_v_concept_5": {
+    "path": "fv_extractive_object_v_concept_5.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  },
+  "fv_extractive_verb_v_adjective_5": {
+    "path": "fv_extractive_verb_v_adjective_5.json",
+    "prefix": null,
+    "suffix": null,
+    "concatenation": null,
+    "merging_sign": "",
+    "force_base_evaluation": true
+  }
+}
