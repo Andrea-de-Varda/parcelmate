@@ -124,6 +124,7 @@ def strip(ax, data, lab, domains, ylim, xmax_all):
         t_name = mtransforms.offset_copy(base, fig=ax.figure, x=-L * np.cos(th), y=-3.5 - L * np.sin(th), units='points')
         ax.text(x, 0, short_name(r['name']), transform=t_name, rotation=ROT, ha='right', va='center',
                 rotation_mode='anchor', fontsize=NAME_PT)
+    ax.set_xlim(-0.8, xmax_all - 0.2)
     # domain brackets above the data
     for d, x0, x1 in spans:
         c = COLORS[d]
@@ -132,10 +133,19 @@ def strip(ax, data, lab, domains, ylim, xmax_all):
         ax.plot([x0 - 0.4, x0 - 0.4, x1 + 0.4, x1 + 0.4], [y - 0.03, y, y, y - 0.03], color=c, lw=1.1,
                 transform=tr, clip_on=False, solid_capstyle='butt')
         title = '%s (%d)' % (d, int(x1 - x0 + 1))
-        if (x1 - x0 + 1) < 10 or (len(title) > 22 and (x1 - x0 + 1) < 16):   # narrow span: two lines
-            words = d.split(' ')
-            k = (len(words) + 1) // 2
-            title = '%s\n%s (%d)' % (' '.join(words[:k]), ' '.join(words[k:]), int(x1 - x0 + 1))
+        bb = ax.get_position()
+        pt_per_col = bb.width * ax.figure.get_figwidth() * 72 / (ax.get_xlim()[1] - ax.get_xlim()[0])
+        avail = (x1 - x0 + 1.6) * pt_per_col
+        if text_len_pt(title, 7) > avail:   # wider than its span: break greedily into lines that fit
+            lines, cur = [], ''
+            for w in title.split(' '):
+                trial = (cur + ' ' + w).strip()
+                if cur and text_len_pt(trial, 7) > avail:
+                    lines.append(cur)
+                    cur = w
+                else:
+                    cur = trial
+            title = '\n'.join(lines + [cur])
         ax.text((x0 + x1) / 2, y + 0.02, title, transform=tr, ha='center', va='bottom',
                 fontsize=7, color=c, weight='bold', linespacing=1.0)
     ax.set_xlim(-0.8, xmax_all - 0.2)
@@ -145,6 +155,7 @@ def strip(ax, data, lab, domains, ylim, xmax_all):
     for s_ in ('left', 'bottom'):
         ax.spines[s_].set_linewidth(1.5)
     ax.tick_params(axis='y', labelsize=7, width=1.2, length=3)
+    ax.set_ylabel('Effective number of networks', fontsize=8)
     return n_sig, len(cols)
 
 
@@ -154,19 +165,26 @@ def main():
     ap.add_argument('--labels', default=os.path.join(HERE, 'bank_task_labels.csv'))
     ap.add_argument('--stem', required=True)
     ap.add_argument('--outdir', default=os.path.join(ROOT, 'plots', 'circuits_vs_networks'))
+    ap.add_argument('--rows', type=int, choices=(2, 4), default=2)
+    ap.add_argument('--width', type=float, default=10.0, help='inches (7.2 for the four-row version)')
+    ap.add_argument('--rot', type=float, default=72)
     args = ap.parse_args()
+    global ROT
+    ROT = args.rot
     data = summarise(args.scores, args.labels)
     lab = data.drop_duplicates(['group', 'task'])
     vals = np.r_[data.circuit, data.random]
     ylim = (max(0, 10 * np.floor(vals.min() / 10)), 10 * np.ceil(vals.max() / 10))
-    widths = [columns(lab, d)[2] for d in PAGES]
-    fig, axes = plt.subplots(len(PAGES), 1, figsize=(7.2, 12.0), dpi=300)
-    fig.subplots_adjust(left=0.07, right=0.995, top=0.955, bottom=0.1, hspace=1.45)
+    # two rows: the first two page groups, then the last two
+    rows = [PAGES[0] + PAGES[1], PAGES[2] + PAGES[3]] if args.rows == 2 else PAGES
+    widths = [columns(lab, d)[2] for d in rows]
+    fig, axes = plt.subplots(len(rows), 1, figsize=(args.width, 3.45 * len(rows)), dpi=300)
+    fig.subplots_adjust(left=0.05, right=0.997, top=0.93 if args.rows == 2 else 0.955,
+                        bottom=0.17 if args.rows == 2 else 0.1, hspace=1.75)
     tot = 0
-    for ax, domains in zip(axes, PAGES):
+    for ax, domains in zip(axes, rows):
         n_sig, n = strip(ax, data, lab, domains, ylim, max(widths) + 1)
         tot += n_sig
-    fig.text(0.012, 0.5, 'Effective number of networks', rotation=90, ha='left', va='center', fontsize=9)
     handles = [
         Line2D([0], [0], marker='o', color='none', markerfacecolor='#555555', markeredgecolor='black', markersize=4.5,
                label='circuit, real networks (target)'),
@@ -177,10 +195,10 @@ def main():
         Line2D([0], [0], marker='D', color='none', markerfacecolor='white', markeredgecolor=RAND, markersize=3.6,
                label='random units, null partition'),
         Line2D([0], [0], marker='o', color='none', markerfacecolor=GRAY_FILL, markeredgecolor=GRAY_EDGE, markersize=4.5,
-               label='target not below all three'),
+               label='target not below random at p < .05 on both halves'),
     ]
-    fig.legend(handles=handles, loc='upper center', ncol=5, frameon=False, fontsize=6.3,
-               bbox_to_anchor=(0.53, 1.0), handletextpad=0.25, columnspacing=1.0)
+    fig.legend(handles=handles, loc='upper center', ncol=5, frameon=False, fontsize=6.8,
+               bbox_to_anchor=(0.52, 1.0), handletextpad=0.25, columnspacing=1.0)
     path = os.path.join(args.outdir, args.stem)
     fig.savefig(path + '.svg', format='svg', bbox_inches='tight')
     fig.savefig(path + '.png', dpi=300, bbox_inches='tight')
