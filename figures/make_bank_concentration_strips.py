@@ -43,7 +43,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 GRAY_FILL, GRAY_EDGE, RAND, CITE_GRAY = '#cccccc', '#999999', '#7a7a7a', '#8c8c8c'
 GAP = 1.4            # columns of space between domains
-ROT = 65             # label tilt (degrees)
+ROT = 80             # label tilt (degrees)
 NAME_PT, CITE_PT = 5.2, 4.5
 # Abbreviations for this dense layout only (spelled out in the caption).
 SHORT = [(r'^Subject-verb number', 'SV number'), (r'^Subject-verb agreement$', 'SV agreement'),
@@ -55,10 +55,47 @@ SHORT = [(r'^Subject-verb number', 'SV number'), (r'^Subject-verb agreement$', '
          (r'Located in \(admin. territory\)', 'Located in'), (r'Capitalized', 'Cap.'), (r'Lowercase', 'Lower.')]
 
 
+# Exact replacements first (the longest names), then the patterns in SHORT.
+EXACT = {
+    'Filler-gap, PP gap': 'Filler-gap (PP)', 'Filler-gap, subject gap': 'Filler-gap (subject)',
+    'Garden path, NP/Z (transitive)': 'Garden path NP/Z', 'Wug test (novel plurals)': 'Wug test',
+    'Hypernym (", X and other")': 'Hypernym (and other)', 'Hypernym ("is a type of")': 'Hypernym (type of)',
+    'Addition/subtraction, digits': 'Add/sub', 'Word problems (+, -)': 'Word problems',
+    'Docstring argument (Google style)': 'Docstring (Google)', 'Docstring argument (reST)': 'Docstring (reST)',
+    'ARC-Challenge, answer position': 'ARC-Challenge', 'ARC-Easy, answer position': 'ARC-Easy',
+    'Copy colors, answer position': 'Copy colors', 'Copy colors, position and color': 'Copy colors (+color)',
+    'Boxes after one move': 'Boxes, 1 move', 'Boxes after one removal': 'Boxes, 1 removal',
+    'Boxes, no operation': 'Boxes, no op.', 'Alphabetically first word': 'Alphabetic first',
+    'Alphabetically last word': 'Alphabetic last', 'Next item in sequence': 'Next item',
+    'Previous item in sequence': 'Previous item', 'Object affordances (PROST)': 'Affordances (PROST)',
+    'Packing order (Newton)': 'Packing (Newton)', 'Emotion inference (few-shot)': 'Emotion (few-shot)',
+    'Gendered pronoun (stereotype)': 'Gender stereotype', 'Superhero to alter ego': 'Superhero → alter ego',
+    'City attributes (attribute CF)': 'City attr. (attr. CF)', 'City attributes (entity swap)': 'City attr. (entity)',
+    'City attributes (template CF)': 'City attr. (template)', 'Headquarters location': 'HQ location',
+    'Country of citizenship': 'Citizenship', 'Original language of film': 'Film language',
+    'Twinned administrative body': 'Twin city', 'Location of formation': 'Place of formation',
+}
+SHORT = [(r' \(P\d+\)$', ''), (r'^NPI "(any|ever)"', r'NPI \1'), (r'^Subject-verb number', 'SV'),
+         (r'^Reflexive number', 'Reflexive'), (r'^Subject-verb agreement$', 'SV agreement'),
+         (r'^(German|French|Hebrew|Russian) subject-verb',
+          lambda m: {'German': 'De', 'French': 'Fr', 'Hebrew': 'He', 'Russian': 'Ru'}[m.group(1)] + ' SV'),
+         (r'^Subject-verb', 'SV'), (r'across ', ''), (r'within ', 'in '), (r'object RC', 'obj. RC'),
+         (r'subject RC', 'subj. RC'), (r'long VP coordination', 'long VP coord.'), (r'VP coordination', 'VP coord.'),
+         (r'Det-noun agreement', 'Det-noun'), (r'agreement', 'agr.'), (r', with adjective', ', with adj.'),
+         (r'Nobel laureate', 'Nobel'), (r'Code output: ', 'Code: '), (r'Add/subtract', 'Add/sub'),
+         (r'Multiply/divide', 'Mul/div'), (r', (\d) operands, digits', r', \1 op.'), (r', (\d) operands, words', r', \1 op., words'),
+         (r'Addition, ', 'Add., '), (r'Subtraction, ', 'Sub., '), (r'one digit changed', '1 digit'),
+         (r'random operands', 'random'), (r'Located in \(admin. territory\)', 'Located in'),
+         (r'Capitalized', 'Cap.'), (r'Lowercase', 'Lower.'), (r'native language', 'native lang.'),
+         (r' to ', ' → '), (r'Ordering ID: ', 'OI: '), (r', inanimate', ', inanim.')]
+
+
 def short_name(name):
+    if name in EXACT:
+        return EXACT[name]
     for pat, rep in SHORT:
         name = re.sub(pat, rep, name)
-    return name
+    return EXACT.get(name, name)
 
 
 def short_cite(cite):
@@ -73,7 +110,7 @@ _T2P = TextToPath()
 def text_len_pt(s, size):
     w, _, _ = _T2P.get_text_width_height_descent(s, FontProperties(family='DejaVu Sans', size=size), ismath=False)
     return w
-DX = 0.17            # horizontal offset: circuit values left of the column, random right
+DX = 0.0             # horizontal offset of circuit (left) and random (right) values; 0 = one column
 
 
 def columns(lab, domains):
@@ -167,7 +204,7 @@ def main():
     ap.add_argument('--outdir', default=os.path.join(ROOT, 'plots', 'circuits_vs_networks'))
     ap.add_argument('--rows', type=int, choices=(2, 4), default=2)
     ap.add_argument('--width', type=float, default=10.0, help='inches (7.2 for the four-row version)')
-    ap.add_argument('--rot', type=float, default=72)
+    ap.add_argument('--rot', type=float, default=80)
     args = ap.parse_args()
     global ROT
     ROT = args.rot
@@ -178,9 +215,9 @@ def main():
     # two rows: the first two page groups, then the last two
     rows = [PAGES[0] + PAGES[1], PAGES[2] + PAGES[3]] if args.rows == 2 else PAGES
     widths = [columns(lab, d)[2] for d in rows]
-    fig, axes = plt.subplots(len(rows), 1, figsize=(args.width, 3.45 * len(rows)), dpi=300)
-    fig.subplots_adjust(left=0.05, right=0.997, top=0.93 if args.rows == 2 else 0.955,
-                        bottom=0.17 if args.rows == 2 else 0.1, hspace=1.75)
+    fig, axes = plt.subplots(len(rows), 1, figsize=(args.width, 3.0 * len(rows)), dpi=300)
+    fig.subplots_adjust(left=0.05, right=0.997, top=0.895 if args.rows == 2 else 0.955,
+                        bottom=0.14 if args.rows == 2 else 0.1, hspace=1.25)
     tot = 0
     for ax, domains in zip(axes, rows):
         n_sig, n = strip(ax, data, lab, domains, ylim, max(widths) + 1)
