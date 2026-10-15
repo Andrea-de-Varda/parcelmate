@@ -204,7 +204,7 @@ def main():
     ap.add_argument('--outdir', default=os.path.join(ROOT, 'plots', 'circuits_vs_networks'))
     ap.add_argument('--rows', type=int, choices=(2, 4), default=2)
     ap.add_argument('--width', type=float, default=10.0, help='inches (7.2 for the four-row version)')
-    ap.add_argument('--rot', type=float, default=80)
+    ap.add_argument('--rot', type=float, default=55)
     args = ap.parse_args()
     global ROT
     ROT = args.rot
