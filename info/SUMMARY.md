@@ -12,7 +12,7 @@ parcelmate applies resting-state fMRI methods to the neurons of a language model
 3. Each unit's profile is Fisher-transformed and z-scored, then sparsified to its top 10% of partners.
 4. The profiles are reduced with PCA to 100 components.
 5. k-means is run with 200 restarts, the restarts are aligned with Hungarian matching, and k = 100.
-6. Every partition is fitted within one dataset: wikitext, bookcorpus, agnews, tldr17 (Reddit) or codeparrot (Python).
+6. Every partition is fitted within one dataset: wikitext, bookcorpus, agnews or tldr17 (Reddit). These four prose datasets are the project's datasets. Codeparrot (Python) was run earlier but is excluded because its networks are not reliable (2B within-dataset ARI 0.07); results that include it are historical.
 
 **How the networks are validated.**
 - *Reliability:* agreement (ARI) between the partitions of two independent halves of the text.
