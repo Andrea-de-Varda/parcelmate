@@ -139,3 +139,7 @@ Choices made in implementation (to confirm):
 - **Selection-bias test corrected:** the plan expected pure iid noise to show the bias; it does not (ρ in-sample 0.975 at n = 20, within sampling noise). The test now plants variance shared within one half, which gives in-sample ρ = 3.9 and cross-half ρ = 1.000.
 
 Tiles live in `results/richclub/<model>-resid-pool4-tiles{,_null}/connectivity/`. For Qwen the stored Iteration 43 partitions are copied into the new trees and re-scored; the rich-club job runs only if every stored score is reproduced within 2e-3.
+
+**Added after the pilot (Andrea, 2026-10-20).**
+- Participation on thresholded binary graphs (top 1% of edges primary; 2% and 10% for robustness), because on the dense weighted graph every unit's participation is 0.97-0.98.
+- The hub coupling split into same-layer and other-layer parts, because the Pythia club sits mostly in one layer (28 of the top 50 in layer 4). The criterion is also applied to the other-layer part (exploratory). A within-layer-only club gives other-layer rho below 1, so other-layer rho above 1 and above the null is evidence for a club beyond layer-locality.
