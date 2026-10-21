@@ -1668,6 +1668,8 @@ Every code change to the repo, newest last. Format: date — files — what and 
 
 - 2026-10-20 -- Iteration 45 additions: [parcelmate/richclub.py](../parcelmate/richclub.py) (`PART_DENSITIES`, per-network edge counts in `degree_pass`, layer split in `eval_pass` and `club_stats`), [parcelmate/bin/richclub.py](../parcelmate/bin/richclub.py) (thresholded participation, other-layer criterion), [tests/verify_iter45_richclub.py](../tests/verify_iter45_richclub.py) (28 checks).
 
+- 2026-10-21 -- [plots/rich_club/README.md](../plots/rich_club/README.md) (new): approach and results of the rich-club stage (Pythia-70m, Qwen3.5-2B; 4B placeholders); [figures/make_richclub_figures.py](../figures/make_richclub_figures.py) (new) writes `plots/rich_club/{concept,method,rho_curves,layer_split,hub_level,composition,participation}.{svg,png}`, filling 4B in automatically once its results exist.
+
 ## Cluster
 
 Compute for this project runs on the Stanford SC cluster (NLP group, CLiMB lab). Connection, storage layout, SLURM conventions, cluster profiles and job-launching instructions are in [CLUSTER.md](CLUSTER.md).
