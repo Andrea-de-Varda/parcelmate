@@ -1,14 +1,14 @@
 # Rich club in the functional connectome of language models
 
-This page reports the first stage of the network-neuroscience analyses (LOG.md Iteration 45; plan in [info/RICH_CLUB_PLAN.md](../../info/RICH_CLUB_PLAN.md)). It asks whether the most strongly coupled MLP neurons of a language model are coupled mainly to each other. Pythia-70m is the pilot; Qwen3.5-2B and Qwen3.5-4B are the main models. The 4B results are still running and appear below as placeholders.
+This page reports the first stage of the network-neuroscience analyses (LOG.md Iteration 45; plan in [info/RICH_CLUB_PLAN.md](../../info/RICH_CLUB_PLAN.md)). It asks whether the most strongly coupled MLP neurons of a language model are coupled mainly to each other. Pythia-70m is the pilot; Qwen3.5-2B and Qwen3.5-4B are the main models.
 
 ## In short
 
-All the models analysed so far have a rich club: their most strongly coupled neurons are more coupled to each other than their overall coupling predicts. This replicates across two independent halves of the data. It also survives a null in which every neuron keeps its own statistics but co-activation is destroyed. That null has a sizeable club of its own, so the real excess over it is large in Pythia-70m and modest in Qwen3.5-2B (1-12%, depending on the club's size).
+All three models have a rich club: their most strongly coupled neurons are more coupled to each other than their overall coupling predicts. This replicates across two independent halves of the data. It also survives a null in which every neuron keeps its own statistics but co-activation is destroyed. That null has a sizeable club of its own, so the real excess over it is what counts. The excess is large in Pythia-70m, modest in Qwen3.5-2B (1-12%, depending on the club's size) and somewhat larger in Qwen3.5-4B (1-17%).
 
-The two models build their club differently. In Pythia-70m the extra coupling is between hubs in the same layer: across layers, the real hubs couple no more than the null's. In Qwen3.5-2B the club also holds across layers and spreads over most of the networks.
+The models build their club differently. In Pythia-70m the extra coupling is between hubs in the same layer: across layers, the real hubs couple no more than the null's. In both Qwen models the club also holds across layers, and it spreads over most of the networks.
 
-In neither model are club members special bridges between networks. They spread their links across networks about as much as neurons of similar coupling strength do.
+In no model are club members special bridges between networks. They spread their links across networks about as much as neurons of similar coupling strength do.
 
 ## 1. The question
 
@@ -35,7 +35,7 @@ Every MLP neuron (post-nonlinearity) is a node, called a *unit* below. Units who
 |---|---|---|---|
 | Pythia-70m (final checkpoint) | 6 × 2,048 | 12,288 | 10,264 |
 | Qwen3.5-2B | 24 × 6,144 | 147,456 | 147,456 |
-| Qwen3.5-4B | 32 × 9,216 | 294,912 | *pending* |
+| Qwen3.5-4B | 32 × 9,216 | 294,912 | 294,912 |
 
 The links come from the **pooled residual connectome** (LOG.md Iteration 43), the same connectome the networks compared with patching circuits were fitted on. Each unit's activation is recorded over text from four prose datasets: wikitext, bookcorpus, agnews and tldr17 (Reddit).
 
@@ -138,7 +138,7 @@ P is computed on a thresholded graph, keeping the strongest 1% of all links (wit
 - a single-factor matrix and random weights give ρ ≈ 1;
 - the cross-half case of section 3.4 and the layer case of section 4.2 behave as described.
 
-For Qwen the connectome was recomputed for this analysis, because the original tiles had been deleted after scoring. The stored partitions, re-scored on the new tiles, reproduce all 36 stored scores (2B: maximum difference 3.9 × 10⁻¹⁰). So the new connectome is identical to the one the networks were fitted on.
+For Qwen the connectome was recomputed for this analysis, because the original tiles had been deleted after scoring. The stored partitions, re-scored on the new tiles, reproduce all 36 stored scores (maximum difference 3.9 × 10⁻¹⁰ at 2B and 2.3 × 10⁻¹⁰ at 4B). So the new connectome is identical to the one the networks were fitted on.
 
 ## 4. Results
 
@@ -150,21 +150,21 @@ For Qwen the connectome was recomputed for this analysis, because the original t
 
 | | Pythia-70m | Qwen3.5-2B | Qwen3.5-4B |
 |---|---|---|---|
-| H1 criterion holds for club sizes | 50 to 939 (16 of 20) | 70 to 29,491 (19 of 20) | *pending* |
-| ρ, club of 1% of live units (real / null) | 2.10 / 1.58 ($n$ = 109) | 1.37 / 1.26 ($n$ = 1,436) | *pending* |
-| median $c_i$ at 1% (real / null) | 2.18 / 1.56 | 1.35 / 1.25 | *pending* |
-| Mann-Whitney p at 1% (A→B, B→A) | 4 × 10⁻²⁰, 3 × 10⁻²³ | 1 × 10⁻¹⁰², 7 × 10⁻¹²⁰ | *pending* |
-| criterion with hubs ranked by degree | holds at all sizes | holds at all sizes | *pending* |
+| H1 criterion holds for club sizes | 50 to 939 (16 of 20) | 70 to 29,491 (19 of 20) | 50 to 58,982 (20 of 20) |
+| ρ, club of 1% of live units (real / null) | 2.10 / 1.58 ($n$ = 109) | 1.37 / 1.26 ($n$ = 1,436) | 1.42 / 1.23 ($n$ = 3,002) |
+| median $c_i$ at 1% (real / null) | 2.18 / 1.56 | 1.35 / 1.25 | 1.39 / 1.22 |
+| Mann-Whitney p at 1% (A→B, B→A) | 4 × 10⁻²⁰, 3 × 10⁻²³ | 1 × 10⁻¹⁰², 7 × 10⁻¹²⁰ | 3 × 10⁻²⁴³, 2 × 10⁻²⁶⁴ |
+| criterion with hubs ranked by degree | holds at all sizes | holds at all sizes | holds at all sizes (at 5% density from 73 units) |
 
-Both models meet the criterion. The two directions agree almost exactly, and ranking hubs by degree instead of strength gives the same answer.
+All three models meet the criterion. The two directions agree almost exactly, and ranking hubs by degree instead of strength gives the same answer.
 
-The circular-shift null is far from ρ = 1. For the smallest clubs its ρ is about 1.6 in both models, and its hubs are different units: 0 of the top 50 are shared with the real hubs in Pythia-70m, and 2 in Qwen3.5-2B. This is the club of slow units anticipated in section 3.5. Against the strength baseline alone, the real club would therefore look much larger than it is.
+The circular-shift null is far from ρ = 1. For the smallest clubs its ρ is 1.6 to 1.7 in every model, and its hubs are different units: of the top 50, none are shared with the real hubs in Pythia-70m or Qwen3.5-4B, and 2 in Qwen3.5-2B. This is the club of slow units anticipated in section 3.5. Against the strength baseline alone, the real club would therefore look much larger than it is.
 
-The real excess over the null is largest for small clubs and shrinks as the club grows. In Pythia-70m it disappears at about 1,100 units (11% of live units). In Qwen3.5-2B it narrows to about 1% but persists up to the largest size tested.
+The real excess over the null is largest for small clubs and shrinks as the club grows. In Pythia-70m it disappears at about 1,100 units (11% of live units). In both Qwen models it persists up to the largest size tested (one fifth of the live units), where it has narrowed to about 1%. In Qwen3.5-4B it is largest for clubs of 150 to 3,000 units, at 15 to 17% above the null.
 
 ### 4.2 Is the club just a layer effect?
 
-Units in the same layer correlate more than units in different layers: they read the same point of the residual stream. The networks the pipeline finds are partly layer-local. In Qwen3.5-2B the networks share 0.26 adjusted mutual information with layer membership, against 0.13 for the null's networks.
+Units in the same layer correlate more than units in different layers: they read the same point of the residual stream. The networks the pipeline finds are partly layer-local. The networks share 0.26 (Qwen3.5-2B) and 0.30 (Qwen3.5-4B) adjusted mutual information with layer membership, against 0.13 for the null's networks.
 
 The hubs are also unevenly spread over layers. In Pythia-70m, 55% of the 500 strongest units sit in layer 4. A club whose members share a layer could therefore arise simply because units of the same layer correlate, not because hubs as such couple to each other. To tell these apart, each hub's coupling to the other hubs is split in two: coupling to hubs in its own layer, and coupling to hubs in other layers. The ratio to the strength baseline is computed separately for each ($\rho_\text{same}$ and $\rho_\text{other}$), and the H1 criterion is applied to the other-layer part.
 
@@ -174,17 +174,17 @@ A club built only of within-layer coupling gives $\rho_\text{other}$ *below* 1. 
 
 **Figure 5.** ρ computed separately on hub pairs in the same layer (filled circles) and in different layers (open squares), real (colour) and null (gray), averaged over the two directions. Shading: club sizes where the H1 criterion holds on other-layer pairs.
 
-| club of 1% of live units | Pythia-70m | Qwen3.5-2B |
-|---|---|---|
-| $\rho_\text{same}$, real / null | 2.76 / 1.58 | 1.62 / 1.26 |
-| $\rho_\text{other}$, real / null | 1.68 / 1.58 | 1.34 / 1.26 |
-| Mann-Whitney p on other-layer $c_i$ (A→B, B→A) | 0.92, 0.96 | 2 × 10⁻⁶⁸, 2 × 10⁻⁸⁴ |
-| share of hub pairs in the same layer, real / null | 0.39 / 0.68 | 0.09 / 0.11 |
-| H1 criterion on other-layer pairs holds for | no club size | 70 to 10,770 |
+| club of 1% of live units | Pythia-70m | Qwen3.5-2B | Qwen3.5-4B |
+|---|---|---|---|
+| $\rho_\text{same}$, real / null | 2.76 / 1.58 | 1.62 / 1.26 | 1.94 / 1.23 |
+| $\rho_\text{other}$, real / null | 1.68 / 1.58 | 1.34 / 1.26 | 1.36 / 1.23 |
+| Mann-Whitney p on other-layer $c_i$ (A→B, B→A) | 0.92, 0.96 | 2 × 10⁻⁶⁸, 2 × 10⁻⁸⁴ | 2 × 10⁻¹⁸⁹, 5 × 10⁻²⁰⁹ |
+| share of hub pairs in the same layer, real / null | 0.39 / 0.68 | 0.09 / 0.11 | 0.10 / 0.09 |
+| H1 criterion on other-layer pairs holds for | no club size | 70 to 10,770 | 50 to 19,307 |
 
-The two models answer differently. In Pythia-70m the excess over the null is a within-layer effect. Same-layer hub pairs are coupled 2.76 times the baseline. Across layers, real hubs couple about as strongly as the null's hubs, and slightly less for clubs above about 350 units. When hubs are ranked by degree at 0.1% or 1% density, the other-layer criterion is met for the smallest clubs only (50 to 109 units).
+The models answer differently. In Pythia-70m the excess over the null is a within-layer effect. Same-layer hub pairs are coupled 2.76 times the baseline. Across layers, real hubs couple about as strongly as the null's hubs, and slightly less for clubs above about 350 units. When hubs are ranked by degree at 0.1% or 1% density, the other-layer criterion is met for the smallest clubs only (50 to 109 units).
 
-In Qwen3.5-2B, 91% of hub pairs are in different layers. These cross-layer pairs exceed both the baseline and the null for clubs from 70 to 10,770 units. Same-layer pairs remain the most strongly coupled, but the club is not a layer artefact.
+In the Qwen models about 90% of hub pairs are in different layers. These cross-layer pairs exceed both the baseline and the null, for clubs from 70 to 10,770 units in 2B and from 50 to 19,307 in 4B. Same-layer pairs remain the most strongly coupled (in 4B, 1.94 times the baseline at 1%), but the club is not a layer artefact. With hubs ranked by degree at 0.1% or 1% density, the 4B cross-layer criterion holds at every club size.
 
 Figure 6 shows the same comparison hub by hub, for a club of 1% of the live units.
 
@@ -192,7 +192,7 @@ Figure 6 shows the same comparison hub by hub, for a club of 1% of the live unit
 
 **Figure 6.** Each dot is one hub's $\log_2 c_i$ (0 = the strength baseline), real (colour) against null (gray), both directions pooled. Left pair: coupling to all other hubs. Right pair: coupling to hubs in other layers only. Boxes show all hubs; at most 300 dots are drawn per box.
 
-Almost every hub, real or null, lies above the baseline, which is the null's own club again. Only in Qwen3.5-2B do the real hubs lie above the null hubs on both measures. In Pythia-70m they do so only when same-layer pairs are included.
+Almost every hub, real or null, lies above the baseline, which is the null's own club again. In both Qwen models the real hubs lie above the null hubs on both measures. In Pythia-70m they do so only when same-layer pairs are included.
 
 ### 4.3 Where are the hubs, and are they the same in both halves?
 
@@ -200,11 +200,11 @@ Almost every hub, real or null, lies above the baseline, which is the null's own
 
 **Figure 7.** **A.** Layer distribution of the 500 strongest units, real (colour, black edge) and null (gray). **B.** How many of the k = 100 networks the club spans, as an effective number (the exponential of the entropy of its members' network labels: 1 if all members are in one network, 100 if they are spread evenly over all of them). **C.** Overlap (Jaccard index, shared members over total members) between the club chosen on half A and the club chosen on half B, against random sets of the same size (dotted).
 
-In Pythia-70m the hubs sit in layers 3 and 4 (82% of the top 500); the null's hubs sit mostly in layer 5. In Qwen3.5-2B the hubs occupy the upper two thirds of the model. None of the top 500 are below layer 6, and their share rises to 21% in the last layer.
+In Pythia-70m the hubs sit in layers 3 and 4 (82% of the top 500); the null's hubs sit mostly in layer 5. In Qwen3.5-2B the hubs occupy the upper two thirds of the model. None of the top 500 are below layer 6, and their share rises to 21% in the last layer. Qwen3.5-4B is similar: 93% of the top 500 are in the upper half (layers 16 to 31) and 28% in the last layer. Its null's hubs are also concentrated there (23% in the last layer), but they are different units (43 of the top 500 shared).
 
-The two clubs also differ in how many networks they reach. Qwen3.5-2B's top 50 hubs fall in 29 networks (effective number 25), and the top 1% in an effective 55. The null's hubs crowd into 2 to 4. Pythia-70m's club stays in few networks (effective number 6.4 at 1%), barely more than its null.
+The clubs also differ in how many networks they reach. Qwen3.5-2B's top 50 hubs fall in 29 networks (effective number 25), and the top 1% in an effective 55. Qwen3.5-4B's top 50 fall in 22 to 23 networks (effective 17), and the top 1% in an effective 51. In both Qwen models the null's hubs crowd into 2 to 4 networks. Pythia-70m's club stays in few networks (effective number 6.4 at 1%), barely more than its null.
 
-In both models the same units are hubs in both halves: Jaccard 0.90 to 0.97 in Pythia-70m and 0.85 to 0.93 in Qwen3.5-2B, against at most 0.11 for random sets. Unit strengths correlate at r = 0.999 and 0.997 across halves.
+In every model the same units are hubs in both halves: Jaccard 0.90 to 0.97 in Pythia-70m, 0.85 to 0.93 in Qwen3.5-2B and 0.88 to 0.96 in Qwen3.5-4B, against at most 0.11 for random sets. Unit strengths correlate at r = 0.999, 0.997 and 0.996 across halves.
 
 ### 4.4 Do hubs bridge networks?
 
@@ -216,23 +216,20 @@ In both models the same units are hubs in both halves: Jaccard 0.90 to 0.97 in P
 |---|---|---|---|
 | Pythia-70m | 0.890 | 0.881 | 0.864 |
 | Qwen3.5-2B | 0.977 | 0.975 | 0.956 |
+| Qwen3.5-4B | 0.976 | 0.973 | 0.958 |
 
 Club members spread their links over networks slightly more widely than the median unit, and almost exactly as widely as the units just below them in strength. They are neither provincial hubs nor distinctive connector hubs: they spread their links like other strongly coupled units. The 2% and 10% graphs agree. On the full weighted graph, as expected, every unit is close to the maximum. In the null, every unit has P ≈ 0.98, as random links imply.
 
-### 4.5 Qwen3.5-4B
-
-*Pending.* The connectome is computed (job 18002892), and the reproduction scoring (18002894) and the rich-club analysis (18002895) are running. Rerunning the figure script fills in the 4B panels; the tables and text above then need updating.
-
 ## 5. What this shows, and what it does not
 
-Both models have a rich club that cannot be explained by three things:
+All three models have a rich club that cannot be explained by three things:
 - the units' strengths (the strength baseline);
 - their individual statistics, autocorrelation in particular (the circular-shift null);
 - noise in choosing the hubs (choosing on one half, measuring on the other).
 
-The club differs in character between the two models. Pythia-70m's is a set of strongly coupled units within layers 3 and 4, confined to a few networks. Qwen3.5-2B's spans layers and most networks, closer to the integrative core described for the brain's anatomical wiring than to the provincial functional club of Grayson et al. (2014). Two models are not a scaling result; 4B will show whether the cross-layer character holds at larger size.
+The club differs in character between Pythia-70m and the Qwen models. Pythia-70m's is a set of strongly coupled units within layers 3 and 4, confined to a few networks. In Qwen3.5-2B and 4B the club spans layers and most networks, sits mostly in the upper half of the model, and is slightly stronger relative to the null at 4B. That is closer to the integrative core described for the brain's anatomical wiring than to the provincial functional club of Grayson et al. (2014). Pythia-70m differs from the Qwen models in size, depth, architecture and training data, so the contrast cannot be attributed to scale alone. Within the Qwen family, the two sizes agree.
 
-The effect in Qwen3.5-2B is modest relative to the null: 1 to 12% above it, largest for clubs of a few hundred units. The null's own club is large. A graph measure that compares only against the strength baseline would therefore attribute to co-activation what is in part a property of single units. Any further graph analysis on these connectomes needs the circular-shift comparison.
+The effect in the Qwen models is modest relative to the null: 1 to 12% above it at 2B and 1 to 17% at 4B, largest for clubs of a few hundred to a few thousand units. The null's own club is large. A graph measure that compares only against the strength baseline would therefore attribute to co-activation what is in part a property of single units. Any further graph analysis on these connectomes needs the circular-shift comparison.
 
 Two limits apply to the inference. The p-values are descriptive because hubs are not independent; the replication across halves carries the evidence. And the layer analysis was added after the pilot, so it is exploratory.
 

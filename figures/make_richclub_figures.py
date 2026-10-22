@@ -393,7 +393,7 @@ def fig_layer_split(results):
 
 
 def fig_hub_level(results):
-    fig, axes = plt.subplots(1, 3, figsize=(8.4 * .8, 3.0 * .8), sharey=True)
+    fig, axes = plt.subplots(1, 3, figsize=(9.6 * .8, 3.0 * .8), sharey=True)
     rng = np.random.RandomState(0)
     for ax, (m, lab) in zip(axes, MODELS):
         r = results[m]
@@ -456,7 +456,7 @@ def fig_composition(results):
                    lw=0.5, zorder=3)
         ax.set_xlabel('Layer', fontsize=10)
         ax.set_title(lab, fontsize=10.5, weight='bold')
-        ax.set_xticks(np.arange(0, L, 4 if L > 12 else 1))
+        ax.set_xticks(np.arange(0, L, 8 if L > 24 else 4 if L > 12 else 1))
     fig.axes[0].set_ylabel('Share of top 500', fontsize=11)
 
     ax = fig.add_subplot(gs[1, 0:2])

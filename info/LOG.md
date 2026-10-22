@@ -1310,6 +1310,13 @@ Andrea's go (2026-10-09). **Rule:** a unit whose reference variance token type a
 - **Participation does not single out the club** (top-1% graph: club 0.981, units ranked just below 0.980, live median 0.956; 2% and 10% agree).
 - Footprint after 2B and 4B connectivity: 1,013 GB under devarda, share 25 TB free. 4B score 18002894 running (3 h 52 at the check); richclub 18002895 pending.
 
+**Qwen3.5-4B result (2026-10-22; score 18002894 14 h 33, richclub 18002895 14 h 18).** Reproduction check passed: all 36 stored scores reproduced, max |difference| 2.3e-10. 294,912 live units; strengths replicate across halves (r = 0.996; hub-set Jaccard 0.88-0.96 against at most 0.11 for random sets).
+- **H1 holds** for the strength ranking over the whole grid (n = 50-58,982, 20 of 20), and for every degree ranking (5% density from n = 73).
+- **It also holds on other-layer coupling** (strength ranking n = 50-19,307; 0.1% and 1% degree rankings over the whole grid). At n = 3,002 (1%): rho 1.42 against null 1.23; rho_same 1.94, rho_other 1.36 against null 1.23; Mann-Whitney p 3e-243 / 2e-264 (all pairs), 2e-189 / 5e-209 (other-layer). Real/null rho ratio 1.10-1.17 for n = 50-4,355, falling to 1.01 at n = 58,982.
+- **Composition.** Top 500: 93% in layers 16-31, 28% in the last layer (null 23%, different units: 0 of the top 50 shared, 43 of the top 500). Top 50 in 22-23 networks (effective 17; null 3, effective 1.8); top 1% effective 51.
+- **Participation** (top-1% graph): club 0.976, ranked just below 0.973, live median 0.958 (null 0.986).
+- Footprint: 1,013 GB under devarda (all three connectomes kept), share 22 TB free. [plots/rich_club/README.md](../plots/rich_club/README.md) updated with 4B.
+
 ## Iteration 46 -- cohesion of the networks a circuit spans (2026-10-21)
 
 **Question (Andrea, 2026-10-20).** A language circuit spans about 10 effective networks. Are those networks several distinct systems the task needs together, or pieces of one larger network that k = 100 cuts apart? Test: are the networks a circuit spans more coupled to each other than other networks would be?
@@ -1688,6 +1695,8 @@ Every code change to the repo, newest last. Format: date — files — what and 
 - 2026-10-21 -- 2B coupling job submitted at `30ffd44`: `coupling.qwen3.5-2b` 18015769 (john, 4 CPUs, 16 GB, 8 h). Footprint: 3 jobs (12 CPUs, 112 GB, no GPUs), 4B rich-club score and richclub still running/queued.
 
 - 2026-10-21 -- [plots/rich_club/README.md](../plots/rich_club/README.md) rewritten after Andrea's review (question first; hub, club, strength, degree, baselines and participation defined before use; formulas explained; layer analysis motivated); new figure `plots/rich_club/definitions.{svg,png}` (strength against degree, participation worked example); figure labels say 'strength baseline' and 'circular-shift null' instead of N1/N3.
+
+- 2026-10-22 -- Qwen3.5-4B rich-club results pulled; [figures/make_richclub_figures.py](../figures/make_richclub_figures.py) (layer ticks every 8 for 32 layers, wider hub-level figure), figures regenerated with 4B; [plots/rich_club/README.md](../plots/rich_club/README.md) placeholders replaced with 4B results.
 
 ## Cluster
 
