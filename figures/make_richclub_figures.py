@@ -7,7 +7,8 @@ and Qwen3.5-4B; a model whose results are absent gets a "pending" placeholder pa
 script can be rerun unchanged once 4B is done. Writes plots/rich_club/*.{svg,png}:
 
   concept        H2 (hubs anchor separate modules) against H1 (hubs form a club)
-  method         cross-half selection, the N1 expectation, rho and c_i, the circular-shift null
+  definitions    strength against degree; participation on two worked units
+  method         cross-half selection, the strength baseline, rho and c_i, the circular-shift null
   rho_curves     rho(n) for real and null trees, both directions, criterion range shaded
   layer_split    rho on same-layer and on other-layer hub pairs, real against null
   hub_level      every hub's c_i (all pairs, other-layer pairs) at n = 1% of live units
@@ -162,6 +163,62 @@ def fig_concept():
     save(fig, 'concept')
 
 
+def fig_definitions():
+    """A: one unit's weighted edges, its strength and its degree. B: participation, two units
+    with the same eight links, confined to one network or spread over four."""
+    fig = plt.figure(figsize=(9.6 * .8, 3.6 * .8))
+    net_cols = ['#d4b9da', '#c6dbef', '#c7e9c0', '#fdd0a2']
+
+    # A. strength and degree
+    ax = fig.add_axes([0.0, 0.05, 0.36, 0.8])
+    w = np.array([0.42, 0.35, 0.28, 0.12, 0.09, 0.07, 0.05, 0.04])
+    ang = np.linspace(0.15 * np.pi, 1.85 * np.pi, len(w))
+    thr = 0.2
+    for wi, a in zip(w, ang):
+        x, y = np.cos(a), np.sin(a)
+        strong = wi >= thr
+        ax.plot([0, x], [0, y], color='#333333' if strong else '#bdbdbd', lw=1 + 9 * wi, zorder=1,
+                solid_capstyle='round')
+        ax.scatter([x], [y], s=60, color='#c6dbef', edgecolor='#666666', lw=0.7, zorder=3)
+        ax.text(1.22 * x, 1.22 * y, '%.2f' % wi, ha='center', va='center', fontsize=8,
+                color='#333333' if strong else '#999999')
+    ax.scatter([0], [0], s=230, color='#333333', edgecolor='white', lw=1.2, zorder=4)
+    ax.text(0, 0, '$i$', color='white', ha='center', va='center', fontsize=10, zorder=5)
+    ax.set_xlim(-1.5, 1.5)
+    ax.set_ylim(-1.45, 1.45)
+    ax.set_aspect('equal')
+    ax.axis('off')
+    fig.text(0.37, 0.7, 'strength', fontsize=10, weight='bold')
+    fig.text(0.37, 0.62, r'$s_i=\Sigma_j\,w_{ij}=%.2f$' % w.sum(), fontsize=10)
+    fig.text(0.37, 0.53, 'sum of all edge weights', fontsize=8.5, color='#555555')
+    fig.text(0.37, 0.36, 'degree', fontsize=10, weight='bold')
+    fig.text(0.37, 0.28, r'$k_i=\#\{j: w_{ij}\geq t\}=%d$' % (w >= thr).sum(), fontsize=10)
+    fig.text(0.37, 0.19, 'edges with $w\\geq t$ ($t$ = %.1f)' % thr, fontsize=8.5, color='#555555')
+    fig.text(0.0, 0.9, 'A', fontsize=16, weight='bold')
+
+    # B. participation
+    def unit(axp, nets, title, P):
+        ang = np.linspace(0, 2 * np.pi, len(nets), endpoint=False) + np.pi / 8
+        for k, a in zip(nets, ang):
+            x, y = np.cos(a), np.sin(a)
+            axp.plot([0, x], [0, y], color='#888888', lw=1.4, zorder=1)
+            axp.scatter([x], [y], s=70, color=net_cols[k], edgecolor='#666666', lw=0.7, zorder=3)
+        axp.scatter([0], [0], s=200, color='#333333', edgecolor='white', lw=1.2, zorder=4)
+        axp.set_xlim(-1.4, 1.4)
+        axp.set_ylim(-1.7, 1.5)
+        axp.set_aspect('equal')
+        axp.axis('off')
+        axp.text(0, 1.45, title, ha='center', va='bottom', fontsize=9.5, weight='bold')
+        axp.text(0, -1.4, P, ha='center', va='top', fontsize=9.5)
+    unit(fig.add_axes([0.64, 0.12, 0.17, 0.66]), [0] * 8, 'provincial', '$P=1-1^2=0$')
+    unit(fig.add_axes([0.83, 0.12, 0.17, 0.66]), [0, 1, 2, 3, 0, 1, 2, 3], 'connector',
+         '$P=1-4\\cdot(\\frac{2}{8})^2=0.75$')
+    fig.text(0.63, 0.9, 'B', fontsize=16, weight='bold')
+    fig.text(0.815, 0.03, 'eight links each; colour = network of the partner', ha='center', fontsize=8.5,
+             color='#555555')
+    save(fig, 'definitions')
+
+
 def club_matrix(seed, n=40, hubs=8, strength=0.35):
     rng = np.random.RandomState(seed)
     W = np.abs(rng.randn(n, n)) * 0.12
@@ -212,7 +269,7 @@ def fig_method():
     axE = fig.add_axes([0.79, 0.56, 0.2, 0.31])
     axE.imshow(E[np.ix_(hub, hub)], cmap=cm, vmin=0, vmax=0.5)
     axE.set_xticks([]); axE.set_yticks([])
-    axE.set_title('N1 expectation', fontsize=10, weight='bold')
+    axE.set_title('Strength baseline', fontsize=10, weight='bold')
     axE.text(0.5, -0.06, '$s_i s_j / 2W$  (same strengths,\npartners at random)', transform=axE.transAxes,
              ha='center', va='top', fontsize=8.5)
     arrow(fig, (0.225, 0.715), (0.295, 0.715))
@@ -249,7 +306,7 @@ def fig_method():
     axN.set_xlim(0, 300)
     axN.set_ylim(-3.6, 5)
     axN.axis('off')
-    fig.text(0.6, 0.37, 'N3: circular-shift null', fontsize=10, weight='bold')
+    fig.text(0.6, 0.37, 'Circular-shift null', fontsize=10, weight='bold')
     fig.text(0.6, 0.33, "keeps each unit's mean, variance and autocorrelation; destroys\nco-activation. The whole analysis is repeated on this tree.",
              fontsize=8.5, color='#555555', va='top')
     fig.text(0.0, 0.93, 'A', fontsize=16, weight='bold')
@@ -483,6 +540,7 @@ def fig_participation(results):
 def main():
     results = {m: load(m) for m, _ in MODELS}
     fig_concept()
+    fig_definitions()
     fig_method()
     fig_rho(results)
     fig_layer_split(results)

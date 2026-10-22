@@ -1687,6 +1687,8 @@ Every code change to the repo, newest last. Format: date — files — what and 
 
 - 2026-10-21 -- 2B coupling job submitted at `30ffd44`: `coupling.qwen3.5-2b` 18015769 (john, 4 CPUs, 16 GB, 8 h). Footprint: 3 jobs (12 CPUs, 112 GB, no GPUs), 4B rich-club score and richclub still running/queued.
 
+- 2026-10-21 -- [plots/rich_club/README.md](../plots/rich_club/README.md) rewritten after Andrea's review (question first; hub, club, strength, degree, baselines and participation defined before use; formulas explained; layer analysis motivated); new figure `plots/rich_club/definitions.{svg,png}` (strength against degree, participation worked example); figure labels say 'strength baseline' and 'circular-shift null' instead of N1/N3.
+
 ## Cluster
 
 Compute for this project runs on the Stanford SC cluster (NLP group, CLiMB lab). Connection, storage layout, SLURM conventions, cluster profiles and job-launching instructions are in [CLUSTER.md](CLUSTER.md).

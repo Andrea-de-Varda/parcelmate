@@ -1,29 +1,35 @@
 # Rich club in the functional connectome of language models
 
-Are the most strongly coupled MLP neurons of a language model coupled mainly *to each other*? In the human brain, the best-connected regions form a densely interconnected core, the **rich club** (van den Heuvel and Sporns 2011), present in resting-state functional connectivity too (Grayson et al. 2014). This page tests for one in Pythia-70m (pilot), Qwen3.5-2B and Qwen3.5-4B. It is the first stage of the network-neuroscience analyses (LOG.md Iteration 45; plan: [info/RICH_CLUB_PLAN.md](../../info/RICH_CLUB_PLAN.md)).
+This page reports the first stage of the network-neuroscience analyses (LOG.md Iteration 45; plan in [info/RICH_CLUB_PLAN.md](../../info/RICH_CLUB_PLAN.md)). It asks whether the most strongly coupled MLP neurons of a language model are coupled mainly to each other. Pythia-70m is the pilot; Qwen3.5-2B and Qwen3.5-4B are the main models. The 4B results are still running and appear below as placeholders.
 
 ## In short
 
-- **All analysed models have a rich club, and it replicates across independent halves of the data.** The strongest units couple to each other more than their strength predicts. Above all, they couple more than the hubs of a null connectome built from the same units with their co-activation destroyed: Pythia-70m for club sizes of 50 to 939 units, Qwen3.5-2B for 70 to 29,491.
-- **The null has a rich club of its own.** A circular shift keeps each unit's autocorrelation, and slowly varying units correlate more with each other by chance. The real excess over this null is large in Pythia-70m (ρ 2.10 against 1.58 at 1% of units) and modest in Qwen3.5-2B (1.37 against 1.26).
-- **The two models differ in how the club is built.** In Pythia-70m the excess over the null lies in hub pairs *within* a layer; across layers, real hubs couple no more than null hubs. In Qwen3.5-2B the club also holds across layers (70 to 10,770 units) and spans most of the networks.
-- **Club members are not special connectors.** On thresholded graphs their participation across networks matches that of the units just below them in strength. That is above the median unit, but not distinctively so.
-- **Qwen3.5-4B: pending** (scoring running on 2026-10-21; placeholders below).
+All the models analysed so far have a rich club: their most strongly coupled neurons are more coupled to each other than their overall coupling predicts. This replicates across two independent halves of the data. It also survives a null in which every neuron keeps its own statistics but co-activation is destroyed. That null has a sizeable club of its own, so the real excess over it is large in Pythia-70m and modest in Qwen3.5-2B (1-12%, depending on the club's size).
 
-## 1. Question
+The two models build their club differently. In Pythia-70m the extra coupling is between hubs in the same layer: across layers, the real hubs couple no more than the null's. In Qwen3.5-2B the club also holds across layers and spreads over most of the networks.
+
+In neither model are club members special bridges between networks. They spread their links across networks about as much as neurons of similar coupling strength do.
+
+## 1. The question
+
+Picture the network formed by a model's MLP neurons. Each neuron is a node, and two neurons are linked by how strongly their activations correlate over text. Some neurons are linked strongly to many others. We call these neurons **hubs**. A system with hubs can be organised in two broad ways, shown in Figure 1.
 
 ![concept](concept.png)
 
-**Figure 1.** Two architectures with the same hubs. **A** (H2): each hub anchors its own module and the hubs barely link, so integration runs through ordinary units. **B** (H1): the hubs are densely interconnected, so they form a core through which modules can communicate.
+**Figure 1.** Two networks with the same hubs (black). **A.** Each hub anchors its own group of neurons, and the hubs barely link to each other. Communication between groups goes through ordinary neurons. **B.** The hubs are densely linked to each other and form a core through which the groups can communicate.
 
-- **H1 (rich club):** the units with the highest strength are more strongly coupled among themselves than their strengths alone predict.
-- **H2 (no rich club):** coupling among the top units is what their strengths predict, or less.
+If the hubs are densely interconnected, as in B, they form a **rich club**. The term comes from network science (Colizza et al. 2006): the "rich" (well-connected) nodes associate with each other. In the human brain, the best-connected regions form such a club in the anatomical wiring (van den Heuvel and Sporns 2011). A club also appears in resting-state functional connectivity, though there its members connect mainly within their own systems (Grayson et al. 2014). The question here is whether LLM neurons show the same organisation.
 
-Strong units will couple more in absolute terms in either case, so the comparison is always against what their strength alone predicts.
+There is one subtlety. Hubs have strong links to many neurons, so they will also have fairly strong links to each other, purely because they have strong links to everyone. The question is therefore not whether hubs are linked, but whether they are linked *more than their overall linkage predicts*. The two hypotheses are:
 
-## 2. Data
+- **H1 (rich club):** hubs are more strongly coupled to each other than their overall coupling predicts.
+- **H2 (no rich club):** hubs are coupled to each other only as much as their overall coupling predicts, or less.
 
-**Models and units.** Every MLP neuron (post-nonlinearity) is a unit:
+Section 3 makes "predicts" precise.
+
+## 2. The connectome
+
+Every MLP neuron (post-nonlinearity) is a node, called a *unit* below. Units whose activation is fully explained by the current token and its position carry no information beyond that and are left out. Pythia-70m loses almost all of its first MLP layer this way: its parallel attention and MLP blocks make layer 0 a function of the token alone. The remaining units are called **live**.
 
 | Model | Layers × neurons | Units | Live units |
 |---|---|---|---|
@@ -31,168 +37,216 @@ Strong units will couple more in absolute terms in either case, so the compariso
 | Qwen3.5-2B | 24 × 6,144 | 147,456 | 147,456 |
 | Qwen3.5-4B | 32 × 9,216 | 294,912 | *pending* |
 
-A unit is *dead* when token type and position explain its activation exactly (its residual timecourse is constant). Pythia-70m's first MLP layer is dead apart from 24 units, because its parallel attention and MLP blocks make layer 0 a function of the token alone. Dead units are left out throughout.
+The links come from the **pooled residual connectome** (LOG.md Iteration 43), the same connectome the networks compared with patching circuits were fitted on. Each unit's activation is recorded over text from four prose datasets: wikitext, bookcorpus, agnews and tldr17 (Reddit).
 
-**The pooled residual connectome** (LOG.md Iteration 43), the same connectome the networks compared with patching circuits were fitted on:
+Two neurons can correlate simply because both respond to the same frequent tokens. That co-activation reflects token identity rather than the neurons working together. To remove it, a joint least-squares fit of activation = a(token type) + b(position) is estimated on separate reference text and subtracted from every activation. Only the remaining residual co-activation is correlated.
 
-1. Four prose datasets: wikitext, bookcorpus, agnews and tldr17 (Reddit). Each contributes two samples of 102,400 tokens.
-2. One joint least-squares fit of activation = a(token type) + b(position) on separate reference text. It is removed from every activation, so the connectome reflects co-activation beyond token identity and position.
-3. Each sample is z-scored and correlated on its own. **Half A** is the Fisher mean of the four datasets' first samples, tanh(mean(arctanh r)); **half B** is the same for the second samples. Both halves contain all four datasets.
-4. Edge weight: $w_{ij} = |r_{ij}|$, diagonal excluded. The profile transform used for clustering (Fisher, z-scoring, top-10% sparsification) is **not** applied: the graph is the connectome itself.
-
-The two halves share no tokens, so they are independent replications. There is no per-dataset analysis.
+Each dataset contributes two samples of 102,400 tokens, and each sample is correlated on its own. **Half A** combines the first sample of each dataset: tanh of the mean of the arctanh-transformed correlations (the standard way to average correlations). **Half B** combines the second samples the same way. The two halves share no text, so every result can be measured twice, independently. The weight of the link between units i and j is the absolute correlation $w_{ij} = |r_{ij}|$: a strong negative correlation is as strong a coupling as a positive one. The transformations applied before clustering networks (Fisher transform, z-scoring, keeping each unit's top 10% of partners) are not used here; the graph is the connectome itself.
 
 ## 3. Method
 
+### 3.1 How strongly is a unit coupled?
+
+A hub is a unit that is strongly coupled overall. There are two standard ways to measure this, shown in Figure 2A.
+
+![definitions](definitions.png)
+
+**Figure 2.** **A.** One unit and its links, with weights. Its **strength** is the sum of all its link weights. Its **degree** is the number of links that pass a threshold. **B.** The participation coefficient (section 3.6) for two units with the same eight links. On the left all partners are in one network; on the right they are spread evenly over four.
+
+The **strength** of unit $i$ is the sum of its link weights:
+
+$$s_i = \sum_{j \neq i} w_{ij}.$$
+
+It counts every link, weak or strong, so a unit with many moderate correlations can be as strong as one with a few large ones.
+
+The **degree** of unit $i$ is the number of its links above a threshold $t$: $k_i = \#\{j : w_{ij} \geq t\}$. Weak links are ignored. The threshold is set by **density**, the fraction of all possible links that are kept. At a density of 1%, $t$ is the correlation exceeded by exactly 1% of all unit pairs.
+
+Strength is the primary measure. Degree at densities of 0.1%, 1% and 5% is a robustness check: it asks whether the result depends on counting weak links.
+
+### 3.2 Hubs and clubs
+
+Units are ranked by strength. The **club of size $n$**, written $R(n)$, is the set of the $n$ strongest units; its members are the **hubs**.
+
+There is no natural cut-off for how strong a unit must be to count as a hub. So the analysis is repeated for 20 club sizes, log-spaced from 50 units up to one fifth of the live units. A rich club is a statement about how coupling among the top units changes as the cut-off becomes stricter.
+
+### 3.3 How much coupling should hubs have by chance?
+
+To test whether hubs are coupled to each other *more than their strength predicts*, we need that prediction. Imagine each unit kept its strength but spread it over partners at random, giving each partner a share proportional to the partner's own strength. A unit $j$ then receives a fraction $s_j / 2W$ of unit $i$'s strength, where $2W = \sum_k s_k$ is the total strength of the network. The expected weight between $i$ and $j$ is
+
+$$E[w_{ij}] = \frac{s_i\, s_j}{2W}.$$
+
+We call this the **strength baseline**. It is the configuration model of network science, and it is what "predicted by strength" means throughout this page.
+
+It already expects hubs to be well linked to each other, because $s_i s_j$ is large when both units are strong. It rules out the trivial club. If every correlation were produced by one shared factor ($r_{ij} = a_i a_j$), the strongest units would correlate most with each other, but the baseline predicts this exactly. The verification suite confirms it: ρ = 1.002 for such a matrix.
+
+The club as a whole is measured by its **rich-club coefficient**, the total weight among its members divided by the total the baseline expects:
+
+$$\rho(n) = \frac{\sum_{i<j \,\in\, R(n)} w_{ij}}{\sum_{i<j \,\in\, R(n)} s_i s_j / 2W}.$$
+
+The numerator adds up the observed weight of every link between two club members; the denominator adds up what the baseline expects for the same links. ρ = 1 means the hubs are coupled to each other exactly as much as their strengths predict (H2). ρ = 1.5 means 50% more (H1).
+
+The same ratio for a single hub is its **hub coefficient**:
+
+$$c_i(n) = \frac{\sum_{j \,\in\, R(n),\, j\neq i} w_{ij}}{\sum_{j \,\in\, R(n),\, j\neq i} s_i s_j / 2W}.$$
+
+This is hub $i$'s observed weight to the other club members over the weight the baseline expects. For example, suppose hub $i$'s links to the other 99 hubs of a 100-unit club sum to 12, while the baseline expects 8. Then $c_i = 1.5$: this hub gives the other hubs 50% more coupling than its strength and theirs predict. ρ summarises the whole club; the $c_i$ give one value per hub and are what the statistical test in section 3.5 is applied to.
+
+### 3.4 Choosing hubs on one half, measuring them on the other
+
+Choosing the strongest units and measuring their mutual coupling on the same data is biased. Suppose some units happen to share variance in one sample only, for example because they all respond to one document in it. They become strong in that sample precisely because they co-vary there, and their mutual coupling is then inflated in the same data.
+
+The fix is to choose the hubs on half A and measure every coupling, and the baseline, on half B (A→B), then the reverse (B→A). Variance shared within one half cannot carry over to the other. In the verification suite, a planted case of this kind gives ρ = 3.8 when hubs are chosen and measured on the same half, and ρ = 1.00 across halves. The two directions are two independent replications of the whole analysis.
+
+### 3.5 A second null: units that vary slowly
+
+The strength baseline accounts for each unit's strength, but not for other properties of individual units that could create a club by chance. The most important is how slowly a unit's activation changes from token to token (its **autocorrelation**). The correlation between two unrelated but slowly varying signals fluctuates more widely than that between two fast ones: a slow signal has fewer independent stretches, so chance alignments do not average out. Because the weights are absolute correlations, wider fluctuations mean larger weights. And the inflation is largest when *both* units are slow. Slow units therefore end up coupled to each other more than their strengths predict, which looks like a rich club made only of slow units.
+
+The **circular-shift null** controls for this. Each unit's activation timecourse is shifted in time by a random offset, with the end wrapped round to the start. This keeps each unit's mean, variance and autocorrelation, but breaks any alignment between units, so it destroys co-activation. The null connectome is built with exactly the same pipeline, and the whole analysis is repeated on it. A real club must exceed the strength baseline and also the club this null produces.
+
+Figure 3 puts sections 3.2 to 3.5 together.
+
 ![method](method.png)
 
-**Figure 2.** **A.** Hubs are selected on one half and evaluated on the other. **B.** The club-level and hub-level statistics. **C.** The circular-shift null.
+**Figure 3.** **A.** Units are ranked by strength on half A, and the club is the top $n$. Its members' links are then read on half B and compared with the strength baseline for the same pairs. **B.** The club-level (ρ) and hub-level ($c_i$) ratios. **C.** The circular-shift null: each timecourse is shifted by a random offset, which keeps its own statistics and destroys co-activation. The whole analysis is repeated on the result.
 
-**Strength and rich sets.** The strength of unit $i$ is $s_i = \sum_j w_{ij}$. The rich set $R(n)$ is the $n$ units with the highest strength on the *selection* half. There are 20 values of $n$, log-spaced from 50 to one fifth of the live units.
+### 3.6 Testing H1
 
-**Cross-half evaluation.** $R(n)$ is chosen on half A and every coupling is measured on half B (A→B), then the reverse (B→A). Selecting and evaluating on the same data is biased when some units share variance in one half only, for example a document present in one sample: they are strong *because* they co-vary there. The verification suite plants this case. Evaluated on the same half the planted units give ρ = 3.8; evaluated on the other half, ρ = 1.00.
+The hub coefficients of the real hubs are compared with those of the null's hubs using a one-sided Mann-Whitney test on $\log c_i$. It asks whether a randomly chosen real hub tends to have a larger $c_i$ than a randomly chosen null hub. Hubs share the club's links, so they are not independent observations. The p-values are therefore read as descriptive, and the evidence rests on the result replicating in both directions.
 
-**N1, configuration expectation.** If every unit kept its strength but spread it over partners at random, the expected weight between $i$ and $j$ would be
+The criterion for H1 was fixed before any result. For at least three consecutive club sizes, all of the following must hold in both directions:
+1. ρ > 1;
+2. the real hubs' $c_i$ exceed the null hubs' (p < 0.05);
+3. the real ρ exceeds the null ρ.
 
-$$E[w_{ij}] = \frac{s_i\, s_j}{2W}, \qquad 2W = \sum_i s_i ,$$
+### 3.7 Do hubs bridge networks? The participation coefficient
 
-with strengths from the evaluation half. N1 rules out the trivial club: if $r_{ij} = a_i a_j$ (one shared factor), the strongest units correlate most with each other, but N1 predicts that exactly (the verification gives ρ = 1.002).
+Whether hubs form a club is a separate question from whether they connect different networks. Each unit belongs to one of the k = 100 networks found by the clustering pipeline. A hub can have all its links inside its own network (a **provincial hub**), or spread them across many networks (a **connector hub**). Grayson et al. (2014) found that the members of the human functional rich club are largely provincial.
 
-**Club and hub statistics.** On the evaluation half:
+The **participation coefficient** (Guimerà and Amaral 2005) measures how evenly a unit's links are spread over networks:
 
-$$\rho(n) = \frac{\sum_{i<j \in R} w_{ij}}{\sum_{i<j \in R} s_i s_j / 2W}, \qquad c_i(n) = \frac{\sum_{j \in R,\, j\neq i} w_{ij}}{\sum_{j \in R,\, j \neq i} s_i s_j / 2W}.$$
+$$P_i = 1 - \sum_{s=1}^{K} \left(\frac{\kappa_{is}}{k_i}\right)^2 .$$
 
-$\rho > 1$ means the club is more interconnected than its strengths predict; $c_i > 1$ means hub $i$ belongs to it. The **hub is the unit of inference** (below).
+Here $k_i$ is the unit's number of links and $\kappa_{is}$ the number of them that go to network $s$, so $\kappa_{is}/k_i$ is the share of its links in network $s$. The sum of squared shares is large when the links are concentrated: it is 1 when all links go to one network, giving $P = 0$ (Figure 2B, left). It is small when they are spread out: with links divided evenly over $m$ networks each share is $1/m$, the sum is $1/m$, and $P = 1 - 1/m$. Four networks give 0.75 (Figure 2B, right); spreading over all 100 networks gives the maximum, 0.99. P measures how widely a unit's links are distributed over networks, not how many links it has.
 
-**N3, circular-shift null.** Each unit's timecourse is circularly shifted by a random offset in each sample. That keeps the unit's mean, variance and autocorrelation but destroys co-activation. The null connectome is built with the identical pipeline (same halves, same residual fit, same partitions procedure), and the whole analysis is repeated on it.
+P is computed on a thresholded graph, keeping the strongest 1% of all links (with 2% and 10% as robustness checks). On the full weighted graph every unit has some weight to every network, so every unit's P is close to the maximum and the measure cannot discriminate. The networks come from the half used to choose the hubs, and the links from the other half, following the same cross-half logic. Club members are compared with the units ranked just below them in strength (ranks $n+1$ to $2n$). The comparison then asks whether being a hub matters, not just being strong.
 
-**Pre-stated criterion for H1** (fixed before any result). H1 holds if, over at least 3 consecutive values of $n$, all of the following are true in both directions:
-1. ρ(n) > 1;
-2. the real hubs' $\log c_i$ exceed the null hubs' $\log c_i$ (one-sided Mann-Whitney, p < 0.05);
-3. the real ρ(n) exceeds the null ρ(n).
+### 3.8 Verification and reproduction
 
-Hubs share the club's edges, so they are not independent observations. The p-values are read as descriptive, and the replication across directions carries the weight.
+[tests/verify_iter45_richclub.py](../../tests/verify_iter45_richclub.py) runs 28 checks, all of which pass:
+- the streamed computations equal a direct calculation on small matrices;
+- a planted club is recovered (60 of 60 hubs, ρ = 5.6, null ρ = 1.00);
+- a single-factor matrix and random weights give ρ ≈ 1;
+- the cross-half case of section 3.4 and the layer case of section 4.2 behave as described.
 
-**Layer split (added after the pilot).** Each hub's coupling is split into pairs within its own layer and pairs across layers, each normalised by N1 over the same pairs ($\rho_\text{same}$, $\rho_\text{other}$, $c_i^\text{other}$). The same criterion is applied to the other-layer part; because it was added after seeing the pilot, it is exploratory. A club built only of within-layer coupling gives $\rho_\text{other} < 1$ (verification: 0.46), because N1 spreads its inflated strength over every partner. So $\rho_\text{other} > 1$, and above the null, means a club beyond layer-locality.
-
-**Participation.** Each unit's participation coefficient (Guimerà and Amaral 2005) is
-
-$$P_i = 1 - \sum_{s} \left(\frac{\kappa_{is}}{k_i}\right)^2 ,$$
-
-where $\kappa_{is}$ is the unit's links into network $s$ and $k_i$ its total links. It uses the selection half's k = 100 partition and the evaluation half's graph. On the dense weighted graph every unit reaches every network, so P is computed on binary graphs keeping the top 1% (primary), 2% and 10% of edges, with exact thresholds.
-
-**Verification.** [tests/verify_iter45_richclub.py](../../tests/verify_iter45_richclub.py), 28 checks, all pass:
-- the streamed sums equal dense brute force, independent of block size;
-- a planted club is recovered (60 of 60 hubs, ρ 5.6, null 1.00);
-- a rank-1 matrix and iid weights give ρ ≈ 1;
-- the cross-half and layer-split cases described above.
-
-For Qwen the recomputed connectome was checked against the stored one. The stored Iteration 43 partitions, re-scored on it, reproduce all 36 stored scores (2B: max difference 3.9 × 10⁻¹⁰).
+For Qwen the connectome was recomputed for this analysis, because the original tiles had been deleted after scoring. The stored partitions, re-scored on the new tiles, reproduce all 36 stored scores (2B: maximum difference 3.9 × 10⁻¹⁰). So the new connectome is identical to the one the networks were fitted on.
 
 ## 4. Results
 
-### 4.1 The rich club and the null
+### 4.1 Is there a rich club?
 
 ![rho curves](rho_curves.png)
 
-**Figure 3.** ρ(n) for the real connectome (colour) and the circular-shift null (gray), in both directions (solid: select A, evaluate B; dashed: the reverse). The black line is the N1 expectation (ρ = 1). Shading: club sizes where the H1 criterion holds.
+**Figure 4.** The rich-club coefficient ρ as a function of club size, for the real connectome (colour) and the circular-shift null (gray), in both directions (solid: hubs chosen on A, measured on B; dashed: the reverse). ρ = 1 (black line) is the strength baseline. Shading: club sizes where the H1 criterion holds.
 
 | | Pythia-70m | Qwen3.5-2B | Qwen3.5-4B |
 |---|---|---|---|
-| H1 criterion holds for $n$ in | 50 to 939 (16 of 20 sizes) | 70 to 29,491 (19 of 20) | *pending* |
-| ρ at $n$ = 1% of live units (real / null) | 2.10 / 1.58 ($n$ = 109) | 1.37 / 1.26 ($n$ = 1,436) | *pending* |
+| H1 criterion holds for club sizes | 50 to 939 (16 of 20) | 70 to 29,491 (19 of 20) | *pending* |
+| ρ, club of 1% of live units (real / null) | 2.10 / 1.58 ($n$ = 109) | 1.37 / 1.26 ($n$ = 1,436) | *pending* |
 | median $c_i$ at 1% (real / null) | 2.18 / 1.56 | 1.35 / 1.25 | *pending* |
 | Mann-Whitney p at 1% (A→B, B→A) | 4 × 10⁻²⁰, 3 × 10⁻²³ | 1 × 10⁻¹⁰², 7 × 10⁻¹²⁰ | *pending* |
-| criterion holds for every degree ranking | yes, all sizes | yes, all sizes | *pending* |
+| criterion with hubs ranked by degree | holds at all sizes | holds at all sizes | *pending* |
 
-- **Both directions agree almost exactly**, and so do strength-based and degree-based hub rankings (hubs ranked by binary degree at 0.1%, 1% and 5% density).
-- **The null is not at 1.** Its ρ is 1.6 to 1.7 for the smallest Pythia clubs and 1.6 for the smallest 2B clubs. It falls with $n$ like the real curve. The null hubs are different units (in Pythia, 0 of the top 50 overlap; in 2B, 2 of the top 50). They are mostly slowly varying units: in Pythia-70m, 74% of the null's top 500 sit in the last layer. Against N1 alone the club would look much larger than it is, so N3 is the operative comparison.
-- **The real excess fades with club size.** In Pythia-70m it vanishes from about 1,100 units (11%). In 2B it narrows but persists to the largest size tested (20%).
+Both models meet the criterion. The two directions agree almost exactly, and ranking hubs by degree instead of strength gives the same answer.
 
-### 4.2 Within a layer or across layers
+The circular-shift null is far from ρ = 1. For the smallest clubs its ρ is about 1.6 in both models, and its hubs are different units: 0 of the top 50 are shared with the real hubs in Pythia-70m, and 2 in Qwen3.5-2B. This is the club of slow units anticipated in section 3.5. Against the strength baseline alone, the real club would therefore look much larger than it is.
+
+The real excess over the null is largest for small clubs and shrinks as the club grows. In Pythia-70m it disappears at about 1,100 units (11% of live units). In Qwen3.5-2B it narrows to about 1% but persists up to the largest size tested.
+
+### 4.2 Is the club just a layer effect?
+
+Units in the same layer correlate more than units in different layers: they read the same point of the residual stream. The networks the pipeline finds are partly layer-local. In Qwen3.5-2B the networks share 0.26 adjusted mutual information with layer membership, against 0.13 for the null's networks.
+
+The hubs are also unevenly spread over layers. In Pythia-70m, 55% of the 500 strongest units sit in layer 4. A club whose members share a layer could therefore arise simply because units of the same layer correlate, not because hubs as such couple to each other. To tell these apart, each hub's coupling to the other hubs is split in two: coupling to hubs in its own layer, and coupling to hubs in other layers. The ratio to the strength baseline is computed separately for each ($\rho_\text{same}$ and $\rho_\text{other}$), and the H1 criterion is applied to the other-layer part.
+
+A club built only of within-layer coupling gives $\rho_\text{other}$ *below* 1. The extra coupling stays inside the layer, while the baseline spreads the hubs' extra strength over every partner. The verification suite gives 0.46 for such a club. So $\rho_\text{other} > 1$, and above the null, shows coupling between hubs beyond what layer membership produces. This test was added after the Pythia pilot showed the concentration in layer 4, so it is exploratory.
 
 ![layer split](layer_split.png)
 
-**Figure 4.** ρ on hub pairs in the same layer (filled circles) and in different layers (open squares), real (colour) against null (gray), mean of the two directions. Shading: sizes where the criterion holds on other-layer pairs.
+**Figure 5.** ρ computed separately on hub pairs in the same layer (filled circles) and in different layers (open squares), real (colour) and null (gray), averaged over the two directions. Shading: club sizes where the H1 criterion holds on other-layer pairs.
 
-| at $n$ = 1% of live units | Pythia-70m | Qwen3.5-2B |
+| club of 1% of live units | Pythia-70m | Qwen3.5-2B |
 |---|---|---|
-| $\rho_\text{same}$ real / null | 2.76 / 1.58 | 1.62 / 1.26 |
-| $\rho_\text{other}$ real / null | 1.68 / 1.58 | 1.34 / 1.26 |
-| Mann-Whitney p, other-layer $c_i$ (A→B, B→A) | 0.92, 0.96 | 2 × 10⁻⁶⁸, 2 × 10⁻⁸⁴ |
+| $\rho_\text{same}$, real / null | 2.76 / 1.58 | 1.62 / 1.26 |
+| $\rho_\text{other}$, real / null | 1.68 / 1.58 | 1.34 / 1.26 |
+| Mann-Whitney p on other-layer $c_i$ (A→B, B→A) | 0.92, 0.96 | 2 × 10⁻⁶⁸, 2 × 10⁻⁸⁴ |
 | share of hub pairs in the same layer, real / null | 0.39 / 0.68 | 0.09 / 0.11 |
-| criterion on other-layer pairs holds for $n$ in | none (strength ranking) | 70 to 10,770 |
+| H1 criterion on other-layer pairs holds for | no club size | 70 to 10,770 |
 
-- **Pythia-70m: the club is layer-local.** Same-layer hub pairs couple far beyond N1 and the null (2.76). Across layers, real hubs couple about as strongly as null hubs, and slightly less for $n$ above about 400. For hubs ranked by degree (0.1% and 1%), the cross-layer criterion holds at the smallest sizes only (50 to 109 units).
-- **Qwen3.5-2B: the club spans layers.** Same-layer pairs are still the most coupled. But other-layer pairs, which make up 91% of hub pairs, exceed both N1 and the null hubs, from 70 to 10,770 units.
+The two models answer differently. In Pythia-70m the excess over the null is a within-layer effect. Same-layer hub pairs are coupled 2.76 times the baseline. Across layers, real hubs couple about as strongly as the null's hubs, and slightly less for clubs above about 350 units. When hubs are ranked by degree at 0.1% or 1% density, the other-layer criterion is met for the smallest clubs only (50 to 109 units).
+
+In Qwen3.5-2B, 91% of hub pairs are in different layers. These cross-layer pairs exceed both the baseline and the null for clubs from 70 to 10,770 units. Same-layer pairs remain the most strongly coupled, but the club is not a layer artefact.
+
+Figure 6 shows the same comparison hub by hub, for a club of 1% of the live units.
 
 ![hub level](hub_level.png)
 
-**Figure 5.** Every hub's $\log_2 c_i$ at $n$ = 1% of live units, both directions pooled, real (colour) against null (gray). Left pair: all hub pairs; right pair: other-layer pairs only. 0 is the N1 expectation. Up to 300 hubs per box are drawn as dots; the boxes use all hubs.
+**Figure 6.** Each dot is one hub's $\log_2 c_i$ (0 = the strength baseline), real (colour) against null (gray), both directions pooled. Left pair: coupling to all other hubs. Right pair: coupling to hubs in other layers only. Boxes show all hubs; at most 300 dots are drawn per box.
 
-The hub-level view gives the same picture. Nearly every hub sits above the N1 expectation in both trees. Only on all pairs in Pythia do real hubs sit clearly above null hubs; on other-layer pairs Pythia's real hubs are, if anything, more spread out and lower. In 2B the real hubs sit above the null hubs on both counts.
+Almost every hub, real or null, lies above the baseline, which is the null's own club again. Only in Qwen3.5-2B do the real hubs lie above the null hubs on both measures. In Pythia-70m they do so only when same-layer pairs are included.
 
-### 4.3 Where the club is, and how stable
+### 4.3 Where are the hubs, and are they the same in both halves?
 
 ![composition](composition.png)
 
-**Figure 6.** **A.** Layers of the 500 strongest units, real (colour, black edge) and null (gray). **B.** Effective number of k = 100 networks spanned by the club (exp of the entropy of its members' network labels), real (solid) and null (dashed). **C.** Overlap (Jaccard) of the hub sets selected on half A and on half B, against random sets of the same size (dotted).
+**Figure 7.** **A.** Layer distribution of the 500 strongest units, real (colour, black edge) and null (gray). **B.** How many of the k = 100 networks the club spans, as an effective number (the exponential of the entropy of its members' network labels: 1 if all members are in one network, 100 if they are spread evenly over all of them). **C.** Overlap (Jaccard index, shared members over total members) between the club chosen on half A and the club chosen on half B, against random sets of the same size (dotted).
 
-- **Location.**
-  - Pythia-70m: the club sits in layers 3 and 4 (82% of the top 500), the null's in layer 5.
-  - Qwen3.5-2B: the club sits in the upper two thirds; none of the top 500 are below layer 6, and the share rises to 21% in the last layer. The null's top units are concentrated in layers 10, 14 and 16.
-- **Networks.**
-  - 2B: the club is spread over the networks from the start. The top 50 units fall in 29 networks (effective number 25), the top 1% in an effective 55. The null's hubs crowd into 2 to 4 networks.
-  - Pythia-70m: the club stays in few networks (effective 6.4 at 1%), barely more than its null.
-- **Stability.** The hub sets replicate across halves: Jaccard 0.90 to 0.97 (Pythia-70m) and 0.85 to 0.93 (2B), against at most 0.11 for random sets. Strengths correlate at r = 0.999 (Pythia-70m) and 0.997 (2B) across halves.
+In Pythia-70m the hubs sit in layers 3 and 4 (82% of the top 500); the null's hubs sit mostly in layer 5. In Qwen3.5-2B the hubs occupy the upper two thirds of the model. None of the top 500 are below layer 6, and their share rises to 21% in the last layer.
 
-### 4.4 Participation
+The two clubs also differ in how many networks they reach. Qwen3.5-2B's top 50 hubs fall in 29 networks (effective number 25), and the top 1% in an effective 55. The null's hubs crowd into 2 to 4. Pythia-70m's club stays in few networks (effective number 6.4 at 1%), barely more than its null.
+
+In both models the same units are hubs in both halves: Jaccard 0.90 to 0.97 in Pythia-70m and 0.85 to 0.93 in Qwen3.5-2B, against at most 0.11 for random sets. Unit strengths correlate at r = 0.999 and 0.997 across halves.
+
+### 4.4 Do hubs bridge networks?
 
 ![participation](participation.png)
 
-**Figure 7.** Participation coefficient of the club at 1% of live units (filled), against the units ranked just below it (open, ranks $n$ to $2n$), and the median unit (tick). Graphs: binary top 1%, 2% and 10% of edges, and the dense weighted graph.
+**Figure 8.** Participation coefficient of the club of 1% of live units (filled), of the units ranked just below it (open, ranks $n+1$ to $2n$), and of the median unit (tick), on graphs keeping the strongest 1%, 2% and 10% of links and on the full weighted graph.
 
-| top-1% graph, at 1% of live units | club | ranked just below | median unit |
+| graph of the strongest 1% of links, club of 1% | club | ranked just below | median unit |
 |---|---|---|---|
 | Pythia-70m | 0.890 | 0.881 | 0.864 |
 | Qwen3.5-2B | 0.977 | 0.975 | 0.956 |
 
-Club members spread their links over networks a little more than the median unit, and as much as units of similar strength. They are neither provincial hubs (links confined to one network) nor connector hubs that stand out from their peers. The 2% and 10% graphs agree. The weighted graph compresses every unit to 0.97 to 0.99, so it cannot discriminate. In the null every unit sits at about 0.98, as random edges imply.
+Club members spread their links over networks slightly more widely than the median unit, and almost exactly as widely as the units just below them in strength. They are neither provincial hubs nor distinctive connector hubs: they spread their links like other strongly coupled units. The 2% and 10% graphs agree. On the full weighted graph, as expected, every unit is close to the maximum. In the null, every unit has P ≈ 0.98, as random links imply.
 
 ### 4.5 Qwen3.5-4B
 
-*Pending.* Connectivity is done (job 18002892, 3 h 32); the reproduction scoring (18002894) and the rich-club analysis (18002895) are running. Figures 3 to 7 fill in automatically when the script is rerun; the tables above are to be completed.
+*Pending.* The connectome is computed (job 18002892), and the reproduction scoring (18002894) and the rich-club analysis (18002895) are running. Rerunning the figure script fills in the 4B panels; the tables and text above then need updating.
 
-## 5. Reading and caveats
+## 5. What this shows, and what it does not
 
-- **A rich club is present and reproducible in both models analysed**, and it is not explained by:
-  - the units' strengths (N1);
-  - their individual statistics (N3);
-  - selection noise (cross-half design).
-- **Its character differs with scale.**
-  - Pythia-70m's club is a layer-local core in layers 3 and 4, confined to a few networks.
-  - Qwen3.5-2B's club spans layers and most networks, closer to the integrative backbone described for structural brain networks.
+Both models have a rich club that cannot be explained by three things:
+- the units' strengths (the strength baseline);
+- their individual statistics, autocorrelation in particular (the circular-shift null);
+- noise in choosing the hubs (choosing on one half, measuring on the other).
 
-  Two models are not a scaling result; 4B will show whether the cross-layer character holds.
-- **Relation to the brain.** In human resting-state data, the functional rich club exists but its members connect mainly within their own systems (Grayson et al. 2014). Our club members are not confined to their networks. They also do not stand out as connectors relative to similarly strong units.
-- **The effect is modest relative to the null in 2B** (1 to 12% above it, largest at a few hundred units). The null's own club is large, which means much of what N1 would call a rich club comes from units' autocorrelation, not from co-activation. That makes N3 indispensable for any graph measure on these connectomes.
-- **The p-values are descriptive.** Hubs are not independent; the replication across the two halves is the evidence.
-- **The layer split was added after the pilot** and is exploratory.
+The club differs in character between the two models. Pythia-70m's is a set of strongly coupled units within layers 3 and 4, confined to a few networks. Qwen3.5-2B's spans layers and most networks, closer to the integrative core described for the brain's anatomical wiring than to the provincial functional club of Grayson et al. (2014). Two models are not a scaling result; 4B will show whether the cross-layer character holds at larger size.
+
+The effect in Qwen3.5-2B is modest relative to the null: 1 to 12% above it, largest for clubs of a few hundred units. The null's own club is large. A graph measure that compares only against the strength baseline would therefore attribute to co-activation what is in part a property of single units. Any further graph analysis on these connectomes needs the circular-shift comparison.
+
+Two limits apply to the inference. The p-values are descriptive because hubs are not independent; the replication across halves carries the evidence. And the layer analysis was added after the pilot, so it is exploratory.
 
 ## 6. Files
 
-- **Code:**
-  - [parcelmate/richclub.py](../../parcelmate/richclub.py): streamed measures;
-  - [parcelmate/bin/richclub.py](../../parcelmate/bin/richclub.py): both trees, inference, criterion;
-  - [scripts/launch_richclub.sh](../../scripts/launch_richclub.sh): cluster chain;
-  - [scripts/check_tiles_reproduce.py](../../scripts/check_tiles_reproduce.py): reproduction check.
-- **Configs:** `configs/richclub/<model>-resid-pool4-tiles.yml`. The connectivity block is identical to Iteration 43, and the tiles are kept.
-- **Results:** `results/richclub/<model>-resid-pool4-tiles/metrics/richclub/`:
-  - `curves.csv`, `layers.csv`, `participation.csv`, `verdict.json`;
-  - `units_{real,null}.npz` and `hubs_{real,null}.npz`, the per-unit and per-hub values used by the later stages.
+The measures are computed by [parcelmate/richclub.py](../../parcelmate/richclub.py). [parcelmate/bin/richclub.py](../../parcelmate/bin/richclub.py) runs them on the real and null connectomes, applies the criterion and writes the outputs. [scripts/launch_richclub.sh](../../scripts/launch_richclub.sh) runs the cluster chain, and [scripts/check_tiles_reproduce.py](../../scripts/check_tiles_reproduce.py) is the reproduction check. The configs are `configs/richclub/<model>-resid-pool4-tiles.yml`: the connectivity settings of Iteration 43, with the tiles kept for the later stages.
 
-  Read `curves.csv` with pandas' `keep_default_na=False`, or the tree label `null` becomes missing.
-- **Figures:** `python figures/make_richclub_figures.py` writes every figure on this page (SVG with editable text, and PNG).
+Results are in `results/richclub/<model>-resid-pool4-tiles/metrics/richclub/`:
+- `curves.csv`: ρ and hub statistics per club size;
+- `layers.csv`, `participation.csv`;
+- `verdict.json`: the criterion;
+- `units_{real,null}.npz` and `hubs_{real,null}.npz`: per-unit and per-hub values.
+
+In the code and output files the strength baseline is called N1 and the circular-shift null N3, and the null tree is labelled `null`. Read `curves.csv` with pandas' `keep_default_na=False`, or that label is read as missing. `python figures/make_richclub_figures.py` draws every figure on this page as SVG with editable text, plus PNG.
 
 ## References
 
