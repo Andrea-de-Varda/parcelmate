@@ -1685,6 +1685,8 @@ Every code change to the repo, newest last. Format: date — files — what and 
 
 - 2026-10-21 -- **Iteration 46**: [parcelmate/cohesion.py](../parcelmate/cohesion.py), [parcelmate/bin/network_coupling.py](../parcelmate/bin/network_coupling.py), [parcelmate/bin/circuit_cohesion.py](../parcelmate/bin/circuit_cohesion.py), [scripts/launch_coupling.sh](../scripts/launch_coupling.sh), [tests/verify_iter46_cohesion.py](../tests/verify_iter46_cohesion.py) (all new; 11 checks pass).
 
+- 2026-10-21 -- 2B coupling job submitted at `30ffd44`: `coupling.qwen3.5-2b` 18015769 (john, 4 CPUs, 16 GB, 8 h). Footprint: 3 jobs (12 CPUs, 112 GB, no GPUs), 4B rich-club score and richclub still running/queued.
+
 ## Cluster
 
 Compute for this project runs on the Stanford SC cluster (NLP group, CLiMB lab). Connection, storage layout, SLURM conventions, cluster profiles and job-launching instructions are in [CLUSTER.md](CLUSTER.md).
