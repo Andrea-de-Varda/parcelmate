@@ -246,7 +246,7 @@ So in the Qwen models the club is late in depth and spread across the networks: 
 | ratio to random spread, club of 1% | 0.13 | 0.71 | 0.68 |
 | ratio to random spread, all live units | 0.27 | 0.47 | 0.43 |
 
-In the Qwen models participation rises steadily with strength. The weakest units' links reach 40% of the networks random spread predicts. Units around rank 1,000 reach 65%, the strongest few close to 90 to 100%, and on the 10% graph the top units slightly exceed random spread. There is no break at the edge of the club: hubs are the high end of a continuous trend. The more strongly a unit is coupled, the less its links respect network boundaries. So in the Qwen models hubs lean towards connectors relative to other units, though even they reach somewhat fewer networks than chance on the strongest links.
+In the Qwen models participation rises steadily with strength. The weakest units' links reach 40% of the networks random spread predicts. Units around rank 1,000 reach 65%, the strongest few 85 to 97%, and on the 10% graph the top units slightly exceed random spread. There is no break at the edge of the club: hubs are the high end of a continuous trend. The more strongly a unit is coupled, the less its links respect network boundaries. So in the Qwen models hubs lean towards connectors relative to other units, though even they reach somewhat fewer networks than chance on the strongest links.
 
 Pythia-70m shows the opposite. Every unit's links are concentrated, and the hubs most of all: the club's links reach 9 networks where random spread predicts 67, a ratio of 0.13, against 0.25 to 0.34 for the weaker units. Its hubs are provincial, which fits section 4.2, where its club was a within-layer effect confined to a few networks.
 
@@ -272,6 +272,7 @@ The measures are computed by [parcelmate/richclub.py](../../parcelmate/richclub.
 Results are in `results/richclub/<model>-resid-pool4-tiles/metrics/richclub/`:
 - `curves.csv`: ρ and hub statistics per club size;
 - `layers.csv`, `participation.csv`;
+- `participation_random.csv`: observed participation against random spread, by strength rank (written by [parcelmate/bin/richclub_participation.py](../../parcelmate/bin/richclub_participation.py) from the stored per-unit values);
 - `verdict.json`: the criterion;
 - `units_{real,null}.npz` and `hubs_{real,null}.npz`: per-unit and per-hub values.
 
