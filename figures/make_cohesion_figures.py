@@ -232,16 +232,30 @@ def domains_fig(g, model):
             pos[(t.group, t.task)] = x
         ticks.append(xs.mean()); tlabels.append(TICK[d] + '\n(%d)' % len(sub))
         x0 = xs[-1] + 7
-    for ax, val, nul, pcol, ylab, L in ((axes[0], 'C', 'Cn', 'pC', 'cohesion of the circuit\'s networks', 'A'),
-                                        (axes[1], 'S', 'Sn', 'pS', 'specificity', 'B')):
+    from scipy.stats import wilcoxon
+    for ax, val, nul, ylab, L in ((axes[0], 'C', 'Cn', 'cohesion of the circuit\'s networks', 'A'),
+                                  (axes[1], 'S', 'Sn', 'specificity', 'B')):
+        # Each task is coloured by its domain when its circuit is numerically above its own
+        # layer-matched null, gray when below. Per-task p-values are not used for colour: a
+        # single task's null is wide (SD about 0.024 in cohesion against a median effect of
+        # 0.014), so the evidence is the consistency across tasks, tested per domain below.
         for _, t in r.iterrows():
             x = pos[(t.group, t.task)]
-            sig = t[pcol] < 0.05
-            col = COLORS[t.domain] if sig else GRAY_EDGE
+            up = t[val] > t[nul]
+            col = COLORS[t.domain] if up else GRAY_EDGE
             ax.plot([x, x], [t[val], t[nul]], color=col, lw=0.9, alpha=0.6, zorder=2)
             ax.scatter(x, t[nul], s=9, facecolors='white', edgecolors=GRAY_EDGE, linewidths=0.6, zorder=3)
-            ax.scatter(x, t[val], s=11, facecolors=col if sig else GRAY_FILL, edgecolors='black' if sig else GRAY_EDGE,
+            ax.scatter(x, t[val], s=11, facecolors=col if up else GRAY_FILL, edgecolors='black' if up else GRAY_EDGE,
                        linewidths=0.4, zorder=4)
+        for d, xm in zip(ORDER, ticks):
+            sub = r[r.domain == d]
+            diff = (sub[val] - sub[nul]).values
+            k = int((diff > 0).sum())
+            pw = wilcoxon(diff).pvalue if len(sub) >= 6 else np.nan
+            ptxt = '' if np.isnan(pw) else ('\np < .001' if pw < 1e-3 else '\np = %.2g' % pw)
+            ax.text(xm, 0.99, '%d/%d%s' % (k, len(sub), ptxt), transform=ax.get_xaxis_transform(),
+                    ha='center', va='top', fontsize=5.8, color=COLORS[d] if k > len(sub) / 2 else '#777777',
+                    linespacing=1.0)
         ax.set_ylabel(ylab, fontsize=8.5)
         style(ax)
         letter(ax, L, x=-0.09, y=0.97)
@@ -249,13 +263,14 @@ def domains_fig(g, model):
     axes[0].text(0.995, (between - 0.35) / (0.72 - 0.35) - 0.015, 'typical pair of networks (%.2f)' % between, transform=axes[0].transAxes,
                  ha='right', va='top', fontsize=6.5, color='#555555', bbox=dict(facecolor='white', edgecolor='none', pad=1))
     axes[0].set_ylim(0.35, 0.72)
-    axes[0].text(0.03, 0.98, 'one network = 1.0 (off scale)', transform=axes[0].transAxes, fontsize=6.5, color='#555555', va='top')
+    axes[0].text(0.003, 0.03, 'one network = 1.0 (off scale)', transform=axes[0].transAxes, fontsize=6.5, color='#555555', va='bottom')
     axes[1].axhline(1.0, color='#555555', lw=1, ls='--', zorder=1)
+    axes[1].set_ylim(0.94, 1.29)
     axes[1].set_xticks(ticks); axes[1].set_xticklabels(tlabels, fontsize=7)
     handles = [Line2D([0], [0], marker='o', color='none', markerfacecolor='#555555', markeredgecolor='black', markersize=4.5,
-                      label="circuit's networks (p < .05 in both directions)"),
+                      label="circuit's networks, above their null"),
                Line2D([0], [0], marker='o', color='none', markerfacecolor=GRAY_FILL, markeredgecolor=GRAY_EDGE, markersize=4.5,
-                      label='not above the null in both directions'),
+                      label="circuit's networks, below their null"),
                Line2D([0], [0], marker='o', color='none', markerfacecolor='white', markeredgecolor=GRAY_EDGE, markersize=4.5,
                       label='layer-matched networks (mean of 1,000)')]
     fig.legend(handles=handles, loc='upper center', ncol=3, frameon=False, fontsize=7, bbox_to_anchor=(0.53, 1.03))
