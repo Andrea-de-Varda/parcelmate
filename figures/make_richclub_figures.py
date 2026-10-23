@@ -36,7 +36,8 @@ RES = os.path.join(ROOT, 'results', 'richclub')
 OUT = os.path.join(ROOT, 'plots', 'rich_club')
 
 MODELS = [('pythia-70m', 'Pythia-70m'), ('qwen3.5-2b', 'Qwen3.5-2B'), ('qwen3.5-4b', 'Qwen3.5-4B')]
-COLOR = {'pythia-70m': '#6a51a3', 'qwen3.5-2b': '#2c5f8a', 'qwen3.5-4b': '#1b7f6e'}
+REAL = '#2c5f8a'   # real connectome, every model (Andrea 2026-10-22: one colour, not one per model)
+COLOR = {'pythia-70m': REAL, 'qwen3.5-2b': REAL, 'qwen3.5-4b': REAL}
 NULL = '#9a9a9a'
 GRAY_FILL, GRAY_EDGE = '#cccccc', '#999999'
 
@@ -341,12 +342,10 @@ def fig_rho(results):
         criterion_span(ax, r, 'rankings', COLOR[m])
         log_x(ax)
         ax.set_title(lab, fontsize=10.5, weight='bold')
-        ax.text(0.97, 0.95, '%s live units' % format(r['verdict']['n_live'], ','), transform=ax.transAxes,
-                ha='right', va='top', fontsize=8, color='#555555')
         ax.set_xlabel('Club size $n$', fontsize=11)
     axes[0].set_ylabel(r'$\rho(n)$', fontsize=12)
     axes[0].set_ylim(0.9, None)
-    fig.legend(handles=[Line2D([0], [0], color=COLOR['qwen3.5-2b'], lw=1.8, label='real (model colour)'),
+    fig.legend(handles=[Line2D([0], [0], color=COLOR['qwen3.5-2b'], lw=1.8, label='real'),
                         Line2D([0], [0], color=NULL, lw=1.8, label='circular-shift null'),
                         Line2D([0], [0], color='#444444', lw=1.8, ls='-', label='select A, evaluate B'),
                         Line2D([0], [0], color='#444444', lw=1.8, ls='--', label='select B, evaluate A'),
@@ -361,6 +360,8 @@ def mean_dir(c, tree, col):
 
 
 def fig_layer_split(results):
+    """The H1 test restricted to hub pairs in different layers: real against null, with the
+    all-pairs real curve as a faint reference."""
     fig, axes = plt.subplots(1, 3, figsize=(9.6 * .8, 3.0 * .8), sharey=True)
     for ax, (m, lab) in zip(axes, MODELS):
         r = results[m]
@@ -370,30 +371,28 @@ def fig_layer_split(results):
         chrome(ax)
         c = r['curves']
         c = c[c.ranking == 'strength']
-        for tree, col in (('real', COLOR[m]), ('null', NULL)):
-            for key, ls, mk in (('rho_same', '-', 'o'), ('rho_other', '-', 's')):
-                n, y = mean_dir(c, tree, key)
-                ok = np.isfinite(y)
-                ax.plot(n[ok], y[ok], ls=ls, marker=mk, ms=3.2, mfc='white' if key == 'rho_other' else col,
-                        color=col, lw=1.6, zorder=3)
+        n, y = mean_dir(c, 'real', 'rho')
+        ax.plot(n, y, color=REAL, lw=1.2, alpha=0.35, zorder=2)
+        for tree, col in (('real', REAL), ('null', NULL)):
+            n, y = mean_dir(c, tree, 'rho_other')
+            ok = np.isfinite(y)
+            ax.plot(n[ok], y[ok], color=col, lw=1.9, zorder=3)
         ax.axhline(1, color='black', lw=0.9, zorder=2)
-        criterion_span(ax, r, 'rankings_other_layers', COLOR[m])
+        criterion_span(ax, r, 'rankings_other_layers', REAL)
         log_x(ax)
         ax.set_title(lab, fontsize=10.5, weight='bold')
         ax.set_xlabel('Club size $n$', fontsize=11)
-    axes[0].set_ylabel(r'$\rho$ by hub pair', fontsize=12)
-    fig.legend(handles=[Line2D([0], [0], color='#444444', marker='o', ms=4, lw=1.6, label='same-layer pairs'),
-                        Line2D([0], [0], color='#444444', marker='s', ms=4, mfc='white', lw=1.6,
-                               label='other-layer pairs'),
-                        Line2D([0], [0], color=NULL, lw=1.6, label='circular-shift null'),
-                        Rectangle((0, 0), 1, 1, color='#444444', alpha=0.12,
-                                  label='criterion holds on other-layer pairs')],
+    axes[0].set_ylabel(r'$\rho$, other-layer pairs', fontsize=12)
+    fig.legend(handles=[Line2D([0], [0], color=REAL, lw=1.9, label='real, other-layer pairs'),
+                        Line2D([0], [0], color=NULL, lw=1.9, label='null, other-layer pairs'),
+                        Line2D([0], [0], color=REAL, lw=1.2, alpha=0.35, label='real, all pairs (reference)'),
+                        Rectangle((0, 0), 1, 1, color=REAL, alpha=0.12, label='criterion holds')],
                loc='lower center', bbox_to_anchor=(0.5, -0.17), ncol=4, frameon=False, fontsize=8.5)
     save(fig, 'layer_split')
 
 
 def fig_hub_level(results):
-    fig, axes = plt.subplots(1, 3, figsize=(9.6 * .8, 3.0 * .8), sharey=True)
+    fig, axes = plt.subplots(1, 3, figsize=(9.0 * .8, 2.9 * .8), sharey=True)
     rng = np.random.RandomState(0)
     for ax, (m, lab) in zip(axes, MODELS):
         r = results[m]
@@ -404,11 +403,11 @@ def fig_hub_level(results):
         n = one_percent(r)
         g = int(np.nonzero(np.asarray(r['verdict']['grid']) == n)[0][0])
         groups = []
-        for key in ('c', 'c_other'):
+        for key in ('c',):
             for tree in ('real', 'null'):
                 v = np.concatenate([r['hubs'][tree]['%s_%s_strength' % (key, d)][:n, g] for d in ('AB', 'BA')])
                 groups.append(np.log2(v[np.isfinite(v) & (v > 0)]))
-        pos = [0, 0.9, 2.3, 3.2]
+        pos = [0, 1]
         for i, (x, v) in enumerate(zip(pos, groups)):
             real = i % 2 == 0
             col = COLOR[m] if real else NULL
@@ -424,72 +423,56 @@ def fig_hub_level(results):
             for med in bp['medians']:
                 med.set(color='black', lw=1.8)
         ax.axhline(0, color='black', lw=0.9, zorder=1)
-        ax.set_xticks([0.45, 2.75])
-        ax.set_xticklabels(['all pairs', 'other-layer\npairs'], fontsize=9)
-        ax.set_title('%s\n$n$ = %s (1%% of units)' % (lab, format(n, ',')), fontsize=10, weight='bold')
+        ax.set_xticks(pos)
+        ax.set_xticklabels(['real hubs', 'null hubs'], fontsize=9.5)
+        ax.set_xlim(-0.6, 1.6)
+        ax.set_title('%s\n$n$ = %s' % (lab, format(n, ',')), fontsize=10, weight='bold')
     axes[0].set_ylabel(r'$\log_2\,c_i$', fontsize=12)
-    fig.legend(handles=[Line2D([0], [0], marker='o', color='none', markerfacecolor='#555555', markersize=5,
-                               label='real hubs (colour)'),
-                        Line2D([0], [0], marker='o', color='none', markerfacecolor=NULL, markersize=5,
-                               label='null hubs (gray)')],
-               loc='lower center', bbox_to_anchor=(0.5, -0.2), ncol=2, frameon=False, fontsize=8.5)
     save(fig, 'hub_level')
 
 
 def fig_composition(results):
-    fig = plt.figure(figsize=(9.6 * .8, 5.6 * .8))
-    gs = fig.add_gridspec(2, 3, hspace=0.6, wspace=0.38)
+    """A: layers of the 500 strongest units. B: how many networks the club spans. Real in blue,
+    null in light gray, one column per model."""
+    fig = plt.figure(figsize=(9.6 * .8, 5.4 * .8))
+    gs = fig.add_gridspec(2, 3, hspace=0.62, wspace=0.32)
     for i, (m, lab) in enumerate(MODELS):
-        ax = fig.add_subplot(gs[0, i])
         r = results[m]
+        ax = fig.add_subplot(gs[0, i])
+        axb = fig.add_subplot(gs[1, i], sharey=fig.axes[1] if i else None)
         if r is None:
             pending(ax, lab)
+            pending(axb, lab)
             continue
         chrome(ax)
         L = int(r['units']['real']['coordinates'][:, 0].max()) + 1
-        for tree, col, off in (('real', COLOR[m], -0.2), ('null', NULL, 0.2)):
+        for tree, col, off in (('real', REAL, -0.2), ('null', NULL, 0.2)):
             u = r['units'][tree]
             lay = u['coordinates'][:, 0]
             o = u['order_strength_halfA'][:500]
             h = np.bincount(lay[o], minlength=L) / 500.0
-            ax.bar(np.arange(L) + off, h, width=0.4, color=col, edgecolor='black' if tree == 'real' else GRAY_EDGE,
-                   lw=0.5, zorder=3)
+            real = tree == 'real'
+            ax.bar(np.arange(L) + off, h, width=0.4, color=col, alpha=1.0 if real else 0.4,
+                   edgecolor='black' if real else 'none', lw=0.5, zorder=3)
         ax.set_xlabel('Layer', fontsize=10)
         ax.set_title(lab, fontsize=10.5, weight='bold')
         ax.set_xticks(np.arange(0, L, 8 if L > 24 else 4 if L > 12 else 1))
-    fig.axes[0].set_ylabel('Share of top 500', fontsize=11)
-
-    ax = fig.add_subplot(gs[1, 0:2])
-    chrome(ax)
-    ax2 = fig.add_subplot(gs[1, 2])
-    chrome(ax2)
-    for m, lab in MODELS:
-        r = results[m]
-        if r is None:
-            continue
+        chrome(axb)
         p = r['part']
-        p = p[(p.graph == 'weighted')]
-        for tree, ls in (('real', '-'), ('null', '--')):
-            s = p[p.tree == tree].groupby('n').networks_effective.mean()
-            ax.plot(s.index / r['verdict']['n_live'], s.values, ls=ls, color=COLOR[m] if tree == 'real' else NULL,
-                    lw=1.8, zorder=3)
-        c = r['curves']
-        s = c[(c.tree == 'real') & (c.ranking == 'strength')].groupby('n')[['jaccard_AB', 'jaccard_random']].mean()
-        ax2.plot(s.index / r['verdict']['n_live'], s.jaccard_AB, color=COLOR[m], lw=1.8, zorder=3)
-        ax2.plot(s.index / r['verdict']['n_live'], s.jaccard_random, color=COLOR[m], lw=1.0, ls=':', zorder=3)
-    for a in (ax, ax2):
-        log_x(a)
-        a.set_xlabel('Club size $n$ / live units', fontsize=10)
-    ax.set_ylabel('Networks spanned (eff.)', fontsize=10)
-    ax2.set_ylabel('Jaccard, A vs B hubs', fontsize=10)
-    ax2.set_ylim(0, 1.02)
-    handles = [Line2D([0], [0], color=COLOR[m], lw=1.8, label=lab) for m, lab in MODELS if results[m] is not None]
-    handles += [Line2D([0], [0], color=NULL, lw=1.8, ls='--', label='null (each model)'),
-                Line2D([0], [0], color='#555555', lw=1.0, ls=':', label='random sets')]
-    fig.legend(handles=handles, loc='lower center', bbox_to_anchor=(0.5, -0.06), ncol=5, frameon=False, fontsize=8.5)
-    fig.text(0.07, 0.93, 'A', fontsize=16, weight='bold')
-    fig.text(0.07, 0.45, 'B', fontsize=16, weight='bold')
-    fig.text(0.675, 0.45, 'C', fontsize=16, weight='bold')
+        p = p[p.graph == 'weighted']
+        for tree, col, a in (('real', REAL, 1.0), ('null', NULL, 0.7)):
+            q = p[p.tree == tree].groupby('n').networks_effective.mean()
+            axb.plot(q.index, q.values, color=col, alpha=a, lw=1.9, zorder=3)
+        log_x(axb)
+        axb.set_xlabel('Club size $n$', fontsize=10)
+        axb.set_ylim(0, 100)
+    fig.axes[0].set_ylabel('Share of top 500', fontsize=10.5)
+    fig.axes[1].set_ylabel('Networks spanned', fontsize=10.5)
+    fig.legend(handles=[Rectangle((0, 0), 1, 1, facecolor=REAL, edgecolor='black', lw=0.5, label='real'),
+                        Rectangle((0, 0), 1, 1, facecolor=NULL, alpha=0.4, label='circular-shift null')],
+               loc='lower center', bbox_to_anchor=(0.5, -0.1), ncol=2, frameon=False, fontsize=8.5)
+    fig.text(0.06, 0.93, 'A', fontsize=16, weight='bold')
+    fig.text(0.06, 0.46, 'B', fontsize=16, weight='bold')
     save(fig, 'composition')
 
 
