@@ -1718,6 +1718,8 @@ Every code change to the repo, newest last. Format: date — files — what and 
 
 - 2026-10-22 -- Iteration 46 correction: [figures/make_cohesion_figures.py](../figures/make_cohesion_figures.py) (Figure 4 coloured by sign of the difference, per-domain counts and Wilcoxon p), [plots/circuit_cohesion/README.md](../plots/circuit_cohesion/README.md) rewritten (intuitive explanation of each formula; across-task statistics replace per-task classification).
 
+- 2026-10-22 -- [plots/circuit_cohesion/README.md](../plots/circuit_cohesion/README.md) shortened (same content and figures, about half the length).
+
 ## Cluster
 
 Compute for this project runs on the Stanford SC cluster (NLP group, CLiMB lab). Connection, storage layout, SLURM conventions, cluster profiles and job-launching instructions are in [CLUSTER.md](CLUSTER.md).
