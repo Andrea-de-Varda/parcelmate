@@ -8,7 +8,7 @@ All three models have a rich club: their most strongly coupled neurons are more 
 
 The models build their club differently. In Pythia-70m the extra coupling is between hubs in the same layer: across layers, the real hubs couple no more than the null's. In both Qwen models the club also holds across layers, and it spreads over most of the networks.
 
-The models may also differ in how hubs spread their strongest links over the networks (preliminary, see section 4.4). In the Qwen models, the more strongly coupled a unit is, the more networks its links reach: the top hubs come close to placing their links without regard to network, while weaker units keep theirs within fewer networks. In Pythia-70m every unit's links are concentrated in few networks, and the hubs most of all.
+In all three models the hubs are provincial. Each unit's closest partners lie disproportionately in its own network, beyond what layer-locality or the null produce. Hubs show this more than weaker units, and real hubs more than the null's. So the club is made of units that each anchor their own network and are also coupled to each other: in the Qwen models, anchors of many different networks. This resembles the human functional rich club, whose members connect mainly within their own systems.
 
 ## 1. The question
 
@@ -141,23 +141,23 @@ $$P_i = 1 - \sum_{s=1}^{K} \left(\frac{\kappa_{is}}{k_i}\right)^2 .$$
 
 Here $k_i$ is the unit's number of links and $\kappa_{is}$ the number of them that go to network $s$, so $\kappa_{is}/k_i$ is the share of its links in network $s$. The sum of squared shares is large when the links are concentrated: it is 1 when all links go to one network, giving $P = 0$ (Figure 2B, left). It is small when they are spread out: with links divided evenly over $m$ networks each share is $1/m$, the sum is $1/m$, and $P = 1 - 1/m$. Four networks give 0.75 (Figure 2B, right); spreading over all 100 networks gives the maximum, 0.99. P measures how widely a unit's links are distributed over networks, not how many links it has.
 
-P is computed on a thresholded graph, keeping the strongest 1% of all links (with 2% and 10% as robustness checks). On the full weighted graph every unit has some weight to every network, so every unit's P is close to the maximum. The networks come from the half used to choose the hubs, and the links from the other half, following the same cross-half logic.
+**How P is measured here.** Three choices make P comparable across units.
 
-**Two problems, and how they are handled.**
+*The same number of partners for every unit.* P is computed on each unit's own **top-$k$ partners**, its $k$ most strongly correlated units, with the same $k$ for every unit: 1% of the live units (2% and 10% as robustness checks). Thresholding the whole graph at one correlation value would not be fair. A weak unit would keep only a handful of links, its very closest partners. A hub would keep thousands, reaching far down its partner list. A unit's closest partners are the ones most likely to share its network, so a global threshold makes weak units look concentrated and hubs look spread, just from how deep into their lists the links go. Fixing $k$ compares every unit on equally deep partner lists. Partners are read on one half and networks on the other, with the same cross-half logic as for the hubs.
 
-The first is that P depends on how many links a unit has. A unit with 3 links can reach at most 3 networks, and a unit with 3,000 can come close to the maximum by chance alone. Hubs have many more links than other units, so comparing their P with the median unit's mixes being a hub with having many links. The reference used here is therefore **random spread**: the participation a unit would have if its $k_i$ links went to $k_i$ randomly chosen other units, regardless of network. Under random spread the share of links landing in network $s$ follows a hypergeometric distribution, with mean $p_s$, the fraction of the unit's possible partners that lie in network $s$. Its expected participation is
+*A layer-matched reference.* Units in the same layer correlate more, and the networks are partly layer-local. A unit's partners can therefore sit in few networks simply because they sit in few layers. Each unit is compared with the participation it would have if every one of its partners were replaced by a random unit **from the same layer** as that partner. Partners drawn without replacement within a layer follow a hypergeometric distribution, so the expectation is exact:
 
-$$E[P_i] = \Big(1 - \sum_s p_s^2\Big)\Big(1 - \frac{M - k_i}{k_i\,(M - 1)}\Big),$$
+$$E_	ext{layer}[P_i] = 1 - \sum_s \Big[\Big(\tfrac{1}{k}\sum_l c_{il}\, q_{ls}\Big)^2 + \tfrac{1}{k^2}\sum_l c_{il}\, q_{ls}(1-q_{ls})\,\tfrac{N_l - c_{il}}{N_l - 1}\Big],$$
 
-where $M$ is the number of possible partners (all other live units). The first factor is the participation of perfectly proportional spread; the second corrects for the unit having only $k_i$ links, and goes to 1 as $k_i$ grows. The verification suite checks this formula against simulation. Each unit is read against its own expectation, so units with few and many links are compared fairly.
+where $c_{il}$ is how many of unit $i$'s partners are in layer $l$, $N_l$ the live units of layer $l$, and $q_{ls}$ the fraction of them in network $s$. A unit at this reference places its partners regardless of network within the layers it draws them from. One below it concentrates them in fewer networks than layer-locality explains. The verification suite checks the formula against simulation, and checks two planted cases. When units couple only within their layer, the ratio to this reference is 1.03, while the ratio to plain random spread is 0.59. When they also couple within their network, the ratio to this reference is 0.29.
 
-The second problem is that with 100 networks P is compressed near its maximum. Random spread over 100 equal networks gives P = 0.99. A unit sending 10% of its links into its own network, ten times what chance predicts, still has P = 0.982. Differences in P therefore look negligible even when they are large. The comparison is made on a readable scale instead: the **effective number of networks reached**, $1/(1 - P)$. That is 1 if all links go to one network and $m$ if they are spread evenly over $m$. The unit's value is divided by its random-spread value, $1/(1 - E[P_i])$. A ratio of 1 means the unit places its links regardless of network; 0.5 means its links reach half as many networks as chance predicts.
+*A readable scale.* With 100 networks P is compressed near its maximum: random spread over 100 equal networks gives P = 0.99, and a unit sending 10% of its partners into its own network, ten times chance, still has P = 0.982. The comparison is therefore made on the **effective number of networks reached**, $1/(1-P)$. That is 1 if all partners are in one network and $m$ if they are spread evenly over $m$. The unit's value is divided by its layer-matched value, $1/(1-E_\text{layer}[P_i])$, which gives its **relative network reach**. A value of 1 means no concentration beyond layers; 0.5 means the partners reach half as many networks as the layers alone would give.
 
-Rather than comparing the club with an arbitrary group of other units, the ratio is shown as a function of strength rank across all live units, with the club marked. This shows whether hubs differ from weaker units, and whether there is any break at the top or simply a trend.
+The relative reach is shown as a function of strength rank across all live units, with the club marked. It is also computed on the circular-shift null with its own networks, which shows how much concentration single-unit statistics produce on their own.
 
 ### 3.8 Verification and reproduction
 
-[tests/verify_iter45_richclub.py](../../tests/verify_iter45_richclub.py) runs 28 checks, all of which pass:
+[tests/verify_iter45_richclub.py](../../tests/verify_iter45_richclub.py) runs 34 checks, all of which pass:
 - the streamed computations equal a direct calculation on small matrices;
 - a planted club is recovered (60 of 60 hubs, ρ = 5.6, null ρ = 1.00);
 - a single-factor matrix and random weights give ρ ≈ 1;
@@ -234,23 +234,27 @@ In the Qwen models the club spans many networks from the start. The top 50 hubs 
 
 So in the Qwen models the club is late in depth and spread across the networks: a cross-network core, not one network. Pythia-70m's is a set of strongly coupled units within two layers and a few networks.
 
-### 4.4 Do hubs spread their links across networks?
-
-> **Preliminary (2026-10-22).** The analysis below has two known confounds, and a corrected version is running. (1) On a graph thresholded globally, weak units keep only their very closest partners, which the clustering tends to put in the unit's own network, while hubs keep thousands of partners reaching far down their lists. That alone can make participation rise with strength. (2) Links concentrate within layers, and the networks are partly layer-local, so random spread over all units overstates how widely links "should" spread. The corrected analysis gives every unit the same number of partners (its own top k) and compares it with a layer-matched reference and with the circular-shift null. Until then, read this section as descriptive only.
+### 4.4 Do hubs keep their partners in their own network?
 
 ![participation](participation.png)
 
-**Figure 8.** Effective number of networks a unit's strongest links reach, $1/(1-P)$, divided by the value expected under random spread, $1/(1-E[P])$. Median per strength-rank bin, both directions averaged; rank 1 is the strongest unit. Thick line: graph of the strongest 1% of links; thin lines: 2% and 10%. Shading: the club of 1% of live units.
+**Figure 8.** Relative network reach by strength rank: the effective number of networks a unit's top-$k$ partners reach, divided by the layer-matched expectation (1 = no concentration beyond layers). Median per rank bin, both directions averaged; rank 1 is the strongest unit. Real (blue) against the circular-shift null (gray); thick lines k = 1% of live units, thin lines k = 10%. Shading: the club of 1% of live units.
 
-| graph of the strongest 1% of links | Pythia-70m | Qwen3.5-2B | Qwen3.5-4B |
+| top-$k$ partners, k = 1% of live units | Pythia-70m | Qwen3.5-2B | Qwen3.5-4B |
 |---|---|---|---|
-| networks reached, club of 1% (median; random spread) | 9.0 (67) | 45 (64) | 44 (64) |
-| ratio to random spread, club of 1% | 0.13 | 0.71 | 0.68 |
-| ratio to random spread, all live units | 0.27 | 0.47 | 0.43 |
+| networks reached by the club (median; layer-matched expectation) | 1.8 (32) | 18 (43) | 16 (41) |
+| relative reach, club: real / null | 0.06 / 0.41 | 0.41 / 0.51 | 0.37 / 0.62 |
+| relative reach, all live units: real / null | 0.34 / 0.90 | 0.72 / 0.80 | 0.76 / 0.88 |
+| club's partners in its own network: real / null | 64% / 8% | 15% / 4% | 16% / 3% |
+| all live units' partners in their own network: real / null | 22% / 1% | 9% / 1% | 9% / 1% |
 
-In the Qwen models participation rises steadily with strength. The weakest units' links reach 40% of the networks random spread predicts. Units around rank 1,000 reach 65%, the strongest few 85 to 97%, and on the 10% graph the top units slightly exceed random spread. There is no break at the edge of the club: hubs are the high end of a continuous trend. The more strongly a unit is coupled, the less its links respect network boundaries. So in the Qwen models hubs lean towards connectors relative to other units, though even they reach somewhat fewer networks than chance on the strongest links.
+With 100 networks, chance would put about 1% of a unit's partners in its own network. In every model the real units' closest partners lie in their own network far more often than that, and far more often than in the null. The relative reach is below 1 throughout, so this concentration goes beyond layer-locality.
 
-Pythia-70m shows the opposite. Every unit's links are concentrated, and the hubs most of all: the club's links reach 9 networks where random spread predicts 67, a ratio of 0.13, against 0.25 to 0.34 for the weaker units. Its hubs are provincial, which fits section 4.2, where its club was a within-layer effect confined to a few networks.
+**Hubs are the most provincial units.** In every model the relative reach falls with strength. The club's partners reach fewer networks, relative to its layers, than those of weaker units. Some of this trend is also present in the null: its strongest units are concentrated too, which points to the slowly varying units again. But in every model the real club is more concentrated than the null's club: 0.06 against 0.41 in Pythia-70m, 0.41 against 0.51 in 2B and 0.37 against 0.62 in 4B. In Pythia-70m the effect is extreme: two thirds of a hub's closest partners are in its own network.
+
+The concentration is a property of the closest partners. With k = 10%, the relative reach of all units rises to about 1 in the Qwen models, and the real club's (0.85 at 2B, 0.89 at 4B) is close to the null's. Deeper down their partner lists, units couple across networks about as layer-locality predicts.
+
+**This reverses an earlier reading.** A first version of this analysis thresholded the whole graph instead of fixing $k$ per unit, and compared with random spread over all units. In the Qwen models it showed network reach *rising* with strength, as if hubs were connectors. That was the artefact described in section 3.7: on a global threshold hubs keep thousands of links reaching far down their partner lists, weak units only their closest few. With the same $k$ for every unit and the layer-matched reference, the trend reverses. The earlier version is kept in `participation_random.csv` for the record.
 
 ## 5. What this shows, and what it does not
 
@@ -259,11 +263,11 @@ All three models have a rich club that cannot be explained by three things:
 - their individual statistics, autocorrelation in particular (the circular-shift null);
 - noise in choosing the hubs (choosing on one half, measuring on the other).
 
-The club differs in character between Pythia-70m and the Qwen models (sections 4.2 and 4.3). Pythia-70m's is a set of strongly coupled units within layers 3 and 4, confined to a few networks. In Qwen3.5-2B and 4B the club spans layers and most networks, sits mostly in the upper half of the model, and is slightly stronger relative to the null at 4B. That is closer to the integrative core described for the brain's anatomical wiring than to the provincial functional club of Grayson et al. (2014). Pythia-70m differs from the Qwen models in size, depth, architecture and training data, so the contrast cannot be attributed to scale alone. Within the Qwen family, the two sizes agree.
+The club differs in character between Pythia-70m and the Qwen models (sections 4.2 and 4.3). Pythia-70m's is a set of strongly coupled units within layers 3 and 4, confined to a few networks. In Qwen3.5-2B and 4B the club spans layers and most networks, sits mostly in the upper half of the model, and is slightly stronger relative to the null at 4B. Pythia-70m differs from the Qwen models in size, depth, architecture and training data, so the contrast cannot be attributed to scale alone. Within the Qwen family, the two sizes agree.
 
 The effect in the Qwen models is modest relative to the null: 1 to 12% above it at 2B and 1 to 17% at 4B, largest for clubs of a few hundred to a few thousand units. The null's own club is large. A graph measure that compares only against the strength baseline would therefore attribute to co-activation what is in part a property of single units. Any further graph analysis on these connectomes needs the circular-shift comparison.
 
-The participation results point the same way. In the Qwen models hubs spread their strongest links over more networks than weaker units do, while in Pythia-70m they keep them within fewer. That mirrors the human functional rich club, whose members connect mainly within their own systems (Grayson et al. 2014); Pythia-70m resembles it and the Qwen models do not.
+The participation results qualify this picture. In all three models the hubs are provincial: their closest partners lie mostly in their own network, more so than for weaker units and more than for the null's hubs. That mirrors the human functional rich club, whose members connect mainly within their own systems (Grayson et al. 2014). Taken together with section 4.3, the Qwen club is a set of units that each anchor one of many different networks and that are, beyond that, more coupled to each other than their strength predicts. It is not a set of hubs whose links individually bridge networks.
 
 Two limits apply to the inference. The p-values are descriptive because hubs are not independent; the replication across halves carries the evidence. And the layer analysis was added after the pilot, so it is exploratory.
 
@@ -274,7 +278,8 @@ The measures are computed by [parcelmate/richclub.py](../../parcelmate/richclub.
 Results are in `results/richclub/<model>-resid-pool4-tiles/metrics/richclub/`:
 - `curves.csv`: ρ and hub statistics per club size;
 - `layers.csv`, `participation.csv`;
-- `participation_random.csv`: observed participation against random spread, by strength rank (written by [parcelmate/bin/richclub_participation.py](../../parcelmate/bin/richclub_participation.py) from the stored per-unit values);
+- `topk_participation.csv` and `topk_units_{real,null}.npz`: fixed-k participation against the random-spread and layer-matched references, by strength rank (written by [parcelmate/bin/richclub_topk.py](../../parcelmate/bin/richclub_topk.py) from the stored tiles);
+- `participation_random.csv`: the superseded global-threshold version (section 4.4);
 - `verdict.json`: the criterion;
 - `units_{real,null}.npz` and `hubs_{real,null}.npz`: per-unit and per-hub values.
 

@@ -477,36 +477,40 @@ def fig_composition(results):
 
 
 def fig_participation(results):
-    """Effective number of networks a unit's links reach, 1 / (1 - P), over the same under random
-    spread, 1 / (1 - E[P]); median per strength-rank bin, mean of the two directions. 1 = links
-    placed regardless of network; below 1 = links concentrated in fewer networks than chance.
-    Shading: the club of 1% of live units."""
+    """Fixed-k participation (2026-10-22): each unit's top-k partners, the effective number of
+    networks they reach, 1 / (1 - P), over the layer-matched random-spread value, by strength rank;
+    median per rank bin, both directions averaged. Real (blue) against the circular-shift null
+    (gray). Thick: k = 1% of live units; thin: k = 10%. 1 = partners placed regardless of network
+    within their layers; below 1 = concentrated in fewer networks. Shading: the club of 1%."""
     fig, axes = plt.subplots(1, 3, figsize=(9.6 * .8, 2.9 * .8), sharey=True)
     for ax, (m, lab) in zip(axes, MODELS):
         r = results[m]
-        path = os.path.join(RES, '%s-resid-pool4-tiles' % m, 'metrics', 'richclub', 'participation_random.csv')
+        path = os.path.join(RES, '%s-resid-pool4-tiles' % m, 'metrics', 'richclub', 'topk_participation.csv')
         if r is None or not os.path.exists(path):
             pending(ax, lab)
             continue
         chrome(ax)
-        d = pd.read_csv(path)
-        for g, a, lw in (('top1%', 1.0, 1.9), ('top2%', 0.55, 1.2), ('top10%', 0.3, 1.2)):
-            q = d[(d.kind == 'rank_bin') & (d.graph == g)].groupby(['rank_lo', 'rank_hi'])[['neff_ratio_median']].mean()
-            q = q.reset_index()
-            x = np.sqrt(q.rank_lo * q.rank_hi)
-            ax.plot(x, q.neff_ratio_median, color=REAL, alpha=a, lw=lw, marker='o' if g == 'top1%' else None, ms=3, zorder=3)
+        d = pd.read_csv(path, keep_default_na=False)
+        d['ratio_layer_median'] = pd.to_numeric(d['ratio_layer_median'], errors='coerce')
+        for tree, col in (('real', REAL), ('null', NULL)):
+            for frac, lw, a in ((0.01, 1.9, 1.0), (0.1, 1.1, 0.45)):
+                q = d[(d.kind == 'rank_bin') & (d.tree == tree) & (np.isclose(d.k_frac.astype(float), frac))]
+                q = q.groupby(['rank_lo', 'rank_hi']).ratio_layer_median.mean().reset_index()
+                ax.plot(np.sqrt(q.rank_lo * q.rank_hi), q.ratio_layer_median, color=col, lw=lw, alpha=a,
+                        marker='o' if frac == 0.01 else None, ms=3, zorder=3)
         ax.axhline(1, color='black', lw=0.9, zorder=2)
         ax.axvspan(1, 0.01 * r['verdict']['n_live'], color=REAL, alpha=0.08, lw=0, zorder=0)
         log_x(ax)
         ax.set_title(lab, fontsize=10.5, weight='bold')
         ax.set_xlabel('Strength rank', fontsize=11)
-    axes[0].set_ylabel('Networks reached / random', fontsize=11)
-    axes[0].set_ylim(0, 1.3)
-    fig.legend(handles=[Line2D([0], [0], color=REAL, lw=1.9, marker='o', ms=3, label='top 1% graph'),
-                        Line2D([0], [0], color=REAL, lw=1.2, alpha=0.55, label='top 2%'),
-                        Line2D([0], [0], color=REAL, lw=1.2, alpha=0.3, label='top 10%'),
-                        Rectangle((0, 0), 1, 1, color=REAL, alpha=0.12, label='club (top 1% of units)')],
-               loc='lower center', bbox_to_anchor=(0.5, -0.17), ncol=4, frameon=False, fontsize=8.5)
+    axes[0].set_ylabel('Relative network reach', fontsize=11)
+    axes[0].set_ylim(0, 1.1)
+    fig.legend(handles=[Line2D([0], [0], color=REAL, lw=1.9, marker='o', ms=3, label='real, k = 1%'),
+                        Line2D([0], [0], color=REAL, lw=1.1, alpha=0.45, label='real, k = 10%'),
+                        Line2D([0], [0], color=NULL, lw=1.9, marker='o', ms=3, label='null, k = 1%'),
+                        Line2D([0], [0], color=NULL, lw=1.1, alpha=0.45, label='null, k = 10%'),
+                        Rectangle((0, 0), 1, 1, color=REAL, alpha=0.12, label='club (top 1%)')],
+               loc='lower center', bbox_to_anchor=(0.5, -0.17), ncol=5, frameon=False, fontsize=8.5)
     save(fig, 'participation')
 
 
