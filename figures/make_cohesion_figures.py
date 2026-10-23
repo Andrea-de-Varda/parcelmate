@@ -5,7 +5,7 @@
 Reads figures/circuit_cohesion_<model>.csv (parcelmate.bin.circuit_cohesion), the coupling files
 results/richclub/qwen3.5-<model>-resid-pool4-tiles{,_null}/metrics/coupling/coupling.npz, the
 concentration scores figures/bank_concentration_<model>_resid_pool4.csv and the task labels.
-Writes plots/circuit_cohesion/{concept,coupling,example,domains,controls}_<model>.{svg,png}.
+Writes plots/circuit_cohesion/{concept,coupling,method,domains,controls}_<model>.{svg,png}.
 """
 
 import argparse
@@ -23,8 +23,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
 sys.path.insert(0, HERE)
-from parcelmate.cohesion import (cohesion_stats, layer_bins, network_layers, normalized_coupling,  # noqa: E402
-                                 permute_within_bins)
+from parcelmate.cohesion import network_layers, normalized_coupling, outside_reference  # noqa: E402
 from parcelmate.circuits import circuit_indices  # noqa: E402
 from make_bank_concentration_figure import COLORS  # noqa: E402
 
@@ -71,9 +70,9 @@ def load(model):
     lab = pd.read_csv(os.path.join(HERE, 'bank_task_labels.csv'))
     d = d.merge(lab[['group', 'task', 'name', 'domain']], on=['group', 'task'], validate='many_to_one')
     g = d.groupby(['tree', 'group', 'task', 'name', 'domain']).agg(
-        C=('cohesion', 'mean'), Cn=('null_cohesion_mean', 'mean'), S=('specificity', 'mean'),
-        Sn=('null_specificity_mean', 'mean'), pC=('p_cohesion', 'max'), pS=('p_specificity', 'max'),
-        eff=('effective_networks', 'mean'), between=('median_between_coupling', 'mean')).reset_index()
+        C=('cohesion', 'mean'), R=('preference', 'mean'), Ru=('preference_unmatched', 'mean'),
+        spread=('depth_spread', 'mean'), eff=('effective_networks', 'mean'),
+        between=('median_between_coupling', 'mean')).reset_index()
     return d, g
 
 
@@ -170,146 +169,145 @@ def coupling_fig(model):
 
 # ---------------------------------------------------------------------------- figure 3
 
-def example(model, group='causalgym', task='filler_gap_pp', name='Filler-gap, PP gap'):
+def method(model, group='causalgym', task='filler_gap_pp', name='Filler-gap, PP gap'):
+    """How the preference ratio is computed, on one task (half-A networks, half-B coupling)."""
     z = np.load(os.path.join(ROOT, 'results', 'richclub', 'qwen3.5-%s-resid-pool4-tiles' % model, 'metrics', 'coupling', 'coupling.npz'))
     lab, co, M = z['labels_halfA'], z['coordinates'], z['M_halfA_on_halfB']
     k = M.shape[0]
     Bn = normalized_coupling(M)
-    c = network_layers(lab, co, k)
-    bins = layer_bins(c, 10)
-    roots = {'patching_bank': 'results/patching_bank/Qwen_Qwen3-5-%s' % model.upper(), 'patching': 'results/patching/Qwen_Qwen3-5-%s' % model.upper()}
-    a = np.load(os.path.join(ROOT, roots['patching_bank'], group, task, 'neuron_attribution.npy'))
+    depth = network_layers(lab, co, k)
+    a = np.load(os.path.join(ROOT, 'results', 'patching_bank', 'Qwen_Qwen3-5-%s' % model.upper(), group, task, 'neuron_attribution.npy'))
     n_layers, width = a.shape
     flat = co[:, 0].astype(np.int64) * width + co[:, 1]
     unit_net = np.empty(n_layers * width, dtype=np.int64); unit_net[flat] = lab
-    circ = circuit_indices(a, 0.1)
-    p = np.bincount(unit_net[circ], minlength=k) / len(circ)
-    C, S = cohesion_stats(p, Bn)
-    rng = np.random.RandomState(7)
-    perms = permute_within_bins(bins, 1000, rng)
-    Cn, Sn = cohesion_stats(p[perms], Bn)
-    order = np.argsort(c, kind='stable')
-    fig = plt.figure(figsize=(7.2, 2.5), dpi=300)
-    gs = fig.add_gridspec(1, 3, width_ratios=[1.6, 1, 1], wspace=0.42)
-    ax0, ax1, ax2 = (fig.add_subplot(gs[i]) for i in range(3))
-    x = np.arange(k)
-    ax0.bar(x, p[order], color=COLORS['Syntax'], width=0.9, label='circuit')
-    ax0.bar(x, -p[perms[0]][order], color=GRAY_EDGE, width=0.9, label='one layer-matched permutation')
-    for b_ in range(1, 10):
-        ax0.axvline(b_ * 10 - 0.5, color='#bbbbbb', lw=0.6, ls=':')
-    ax0.axhline(0, color='black', lw=0.8)
-    ax0.set_xlabel('networks, by mean layer (dotted: the 10 layer bins)', fontsize=8)
-    ax0.set_ylabel('share of circuit units', fontsize=8)
-    yt = ax0.get_yticks(); ax0.set_yticks(yt); ax0.set_yticklabels(['%.2f' % abs(v) for v in yt])
-    ax0.legend(frameon=False, fontsize=6.5, loc='upper left')
-    style(ax0)
-    letter(ax0, 'A', x=-0.1)
-    for ax, null, obs, lab_, L in ((ax1, Cn, C, 'cohesion', 'B'), (ax2, Sn, S, 'specificity', 'C')):
-        ax.hist(null, bins=30, color=GRAY_FILL, edgecolor=GRAY_EDGE, lw=0.4)
-        ax.axvline(obs, color=COLORS['Syntax'], lw=2)
-        pv = (1 + np.sum(null >= obs - 1e-12)) / 1001
-        ax.text(0.03, 0.95, 'p = %.3f' % pv, transform=ax.transAxes, ha='left', va='top', fontsize=7.5,
-                bbox=dict(facecolor='white', edgecolor='gray', boxstyle='round,pad=0.3'))
-        ax.set_xlabel(lab_, fontsize=8); ax.set_ylabel('permutations', fontsize=8)
-        style(ax)
-        letter(ax, L)
-    fig.text(0.5, 1.0, '%s (one direction: half-A networks, half-B coupling)' % name, ha='center', fontsize=8, color='#444444')
-    save(fig, 'example_%s' % model)
+    p = np.bincount(unit_net[circuit_indices(a, 0.1)], minlength=k) / 147.0
+    O = outside_reference(p, Bn, depth, 3)
+    inside = np.flatnonzero(p > 0); outside = np.flatnonzero(p == 0)
+    col = COLORS['Syntax']
+    fig = plt.figure(figsize=(7.2, 2.7), dpi=300)
+    gs = fig.add_gridspec(1, 2, width_ratios=[1.55, 1], wspace=0.32)
+    ax0, ax1 = fig.add_subplot(gs[0]), fig.add_subplot(gs[1])
+    # A: networks along depth; one pair of circuit networks and the outsiders it is compared with
+    rng = np.random.RandomState(4)
+    yj = rng.uniform(-1, 1, k)
+    ax0.scatter(depth[outside], yj[outside], s=12, color=GRAY_FILL, edgecolors=GRAY_EDGE, linewidths=0.4, zorder=2)
+    ax0.scatter(depth[inside], yj[inside], s=12 + 600 * p[inside], color=col, edgecolors='black', linewidths=0.4, zorder=3)
+    big = inside[np.argsort(-p[inside])]
+    i, j = big[0], big[1]
+    near = outside[np.argsort(np.abs(depth[outside] - depth[j]), kind='stable')[:3]]
+    ax0.plot([depth[i], depth[j]], [yj[i], yj[j]], color=col, lw=2.2, zorder=2.5)
+    for m in near:
+        ax0.plot([depth[i], depth[m]], [yj[i], yj[m]], color='#555555', lw=1.0, ls='--', zorder=1.5)
+        ax0.scatter(depth[m], yj[m], s=22, color='white', edgecolors='#333333', linewidths=1.0, zorder=3)
+    ax0.annotate('i', (depth[i], yj[i]), xytext=(-12, -4), textcoords='offset points', fontsize=8, weight='bold')
+    ax0.annotate('j', (depth[j], yj[j]), xytext=(5, 5), textcoords='offset points', fontsize=8, weight='bold')
+    ax0.set_yticks([]); ax0.spines['left'].set_visible(False)
+    ax0.set_xlabel('network depth (mean layer of its neurons)', fontsize=8)
+    ax0.legend(handles=[Line2D([0], [0], marker='o', color='none', markerfacecolor=col, markeredgecolor='black', markersize=6,
+                               label="circuit's networks (size = share)"),
+                        Line2D([0], [0], marker='o', color='none', markerfacecolor=GRAY_FILL, markeredgecolor=GRAY_EDGE, markersize=5,
+                               label='networks outside the circuit'),
+                        Line2D([0], [0], color=col, lw=2.2, label='coupling of the pair i-j'),
+                        Line2D([0], [0], color='#555555', lw=1.0, ls='--', marker='o', markerfacecolor='white',
+                               markeredgecolor='#333333', markersize=4.5, label="i to the 3 outsiders nearest j's depth")],
+              frameon=False, fontsize=6.3, loc='upper center', bbox_to_anchor=(0.55, 1.24), ncol=2)
+    style(ax0, grid=None)
+    letter(ax0, 'A', x=-0.06, y=1.2)
+    # B: every pair of circuit networks: its coupling against its comparison
+    ii, jj = np.meshgrid(inside, inside, indexing='ij')
+    mask = ii != jj
+    x, y, w = O[ii, jj][mask], Bn[ii, jj][mask], (p[ii] * p[jj])[mask]
+    ax1.scatter(x, y, s=4 + 3000 * w, color=col, alpha=0.55, edgecolors='black', linewidths=0.2, zorder=3)
+    lo, hi = min(x.min(), y.min()) - 0.03, max(x.max(), y.max()) + 0.03
+    ax1.plot([lo, hi], [lo, hi], color='black', lw=0.9, ls='--', zorder=2)
+    R = (w * y).sum() / (w * x).sum()
+    ax1.text(0.04, 0.96, 'ratio = %.2f' % R, transform=ax1.transAxes, ha='left', va='top', fontsize=7.5,
+             bbox=dict(facecolor='white', edgecolor='gray', boxstyle='round,pad=0.3'))
+    ax1.text(0.96, 0.04, 'above the line:\nthe pair is more coupled\nthan i to outsiders', transform=ax1.transAxes,
+             ha='right', va='bottom', fontsize=6.2, color='#444444')
+    ax1.set_xlim(lo, hi); ax1.set_ylim(lo, hi)
+    ax1.set_xlabel('i to depth-matched outsiders', fontsize=8); ax1.set_ylabel('i to j (both in the circuit)', fontsize=8)
+    style(ax1, grid='both')
+    letter(ax1, 'B', x=-0.22, y=1.2)
+    fig.text(0.5, -0.06, '%s, half-A networks on half-B coupling. B: every ordered pair of the circuit\'s networks (size = weight).' % name,
+             ha='center', fontsize=7, color='#444444')
+    save(fig, 'method_%s' % model)
 
 
 # ---------------------------------------------------------------------------- figure 4
 
 def domains_fig(g, model):
-    r = g[g.tree == 'real'].copy()
-    between = r.between.iloc[0]
-    fig, axes = plt.subplots(2, 1, figsize=(7.2, 5.0), dpi=300, sharex=True)
+    from scipy.stats import wilcoxon
+    r = g[g.tree == 'real'].set_index(['group', 'task'])
+    n = g[g.tree == 'null'].set_index(['group', 'task'])
+    fig, ax = plt.subplots(figsize=(7.2, 3.0), dpi=300)
     x0, ticks, tlabels = 0, [], []
-    pos = {}
     for d in ORDER:
-        sub = r[r.domain == d].sort_values('C')
+        sub = r[r.domain == d].sort_values('R')
         xs = x0 + np.arange(len(sub))
-        for (_, t), x in zip(sub.iterrows(), xs):
-            pos[(t.group, t.task)] = x
+        for (key, t), x in zip(sub.iterrows(), xs):
+            up = t.R > 1
+            c = COLORS[d] if up else GRAY_EDGE
+            ax.plot([x, x], [1, t.R], color=c, lw=0.9, alpha=0.6, zorder=2)
+            ax.scatter(x, n.loc[key].R, s=8, facecolors='white', edgecolors=GRAY_EDGE, linewidths=0.6, zorder=3)
+            ax.scatter(x, t.R, s=11, facecolors=c if up else GRAY_FILL, edgecolors='black' if up else GRAY_EDGE,
+                       linewidths=0.4, zorder=4)
+        k = int((sub.R > 1).sum())
+        pw = wilcoxon(sub.R - 1).pvalue if len(sub) >= 6 else np.nan
+        ptxt = '' if np.isnan(pw) else ('\np < .001' if pw < 1e-3 else '\np = %.2g' % pw)
+        ax.text(xs.mean(), 0.99, '%d/%d%s' % (k, len(sub), ptxt), transform=ax.get_xaxis_transform(), ha='center', va='top',
+                fontsize=5.8, color=COLORS[d] if k > len(sub) / 2 else '#777777', linespacing=1.0)
         ticks.append(xs.mean()); tlabels.append(TICK[d] + '\n(%d)' % len(sub))
         x0 = xs[-1] + 7
-    from scipy.stats import wilcoxon
-    for ax, val, nul, ylab, L in ((axes[0], 'C', 'Cn', 'cohesion of the circuit\'s networks', 'A'),
-                                  (axes[1], 'S', 'Sn', 'specificity', 'B')):
-        # Each task is coloured by its domain when its circuit is numerically above its own
-        # layer-matched null, gray when below. Per-task p-values are not used for colour: a
-        # single task's null is wide (SD about 0.024 in cohesion against a median effect of
-        # 0.014), so the evidence is the consistency across tasks, tested per domain below.
-        for _, t in r.iterrows():
-            x = pos[(t.group, t.task)]
-            up = t[val] > t[nul]
-            col = COLORS[t.domain] if up else GRAY_EDGE
-            ax.plot([x, x], [t[val], t[nul]], color=col, lw=0.9, alpha=0.6, zorder=2)
-            ax.scatter(x, t[nul], s=9, facecolors='white', edgecolors=GRAY_EDGE, linewidths=0.6, zorder=3)
-            ax.scatter(x, t[val], s=11, facecolors=col if up else GRAY_FILL, edgecolors='black' if up else GRAY_EDGE,
-                       linewidths=0.4, zorder=4)
-        for d, xm in zip(ORDER, ticks):
-            sub = r[r.domain == d]
-            diff = (sub[val] - sub[nul]).values
-            k = int((diff > 0).sum())
-            pw = wilcoxon(diff).pvalue if len(sub) >= 6 else np.nan
-            ptxt = '' if np.isnan(pw) else ('\np < .001' if pw < 1e-3 else '\np = %.2g' % pw)
-            ax.text(xm, 0.99, '%d/%d%s' % (k, len(sub), ptxt), transform=ax.get_xaxis_transform(),
-                    ha='center', va='top', fontsize=5.8, color=COLORS[d] if k > len(sub) / 2 else '#777777',
-                    linespacing=1.0)
-        ax.set_ylabel(ylab, fontsize=8.5)
-        style(ax)
-        letter(ax, L, x=-0.09, y=0.97)
-    axes[0].axhline(between, color='#555555', lw=1, ls='--', zorder=1)
-    axes[0].text(0.995, (between - 0.35) / (0.72 - 0.35) - 0.015, 'typical pair of networks (%.2f)' % between, transform=axes[0].transAxes,
-                 ha='right', va='top', fontsize=6.5, color='#555555', bbox=dict(facecolor='white', edgecolor='none', pad=1))
-    axes[0].set_ylim(0.35, 0.72)
-    axes[0].text(0.003, 0.03, 'one network = 1.0 (off scale)', transform=axes[0].transAxes, fontsize=6.5, color='#555555', va='bottom')
-    axes[1].axhline(1.0, color='#555555', lw=1, ls='--', zorder=1)
-    axes[1].set_ylim(0.94, 1.29)
-    axes[1].set_xticks(ticks); axes[1].set_xticklabels(tlabels, fontsize=7)
+    ax.axhline(1, color='#555555', lw=1, ls='--', zorder=1)
+    ax.set_ylim(0.85, 1.42)
+    ax.set_xticks(ticks); ax.set_xticklabels(tlabels, fontsize=6.4)
+    ax.set_ylabel('preference ratio', fontsize=8.5)
+    style(ax)
     handles = [Line2D([0], [0], marker='o', color='none', markerfacecolor='#555555', markeredgecolor='black', markersize=4.5,
-                      label="circuit's networks, above their null"),
+                      label='circuit, real networks (above 1)'),
                Line2D([0], [0], marker='o', color='none', markerfacecolor=GRAY_FILL, markeredgecolor=GRAY_EDGE, markersize=4.5,
-                      label="circuit's networks, below their null"),
+                      label='circuit, real networks (below 1)'),
                Line2D([0], [0], marker='o', color='none', markerfacecolor='white', markeredgecolor=GRAY_EDGE, markersize=4.5,
-                      label='layer-matched networks (mean of 1,000)')]
-    fig.legend(handles=handles, loc='upper center', ncol=3, frameon=False, fontsize=7, bbox_to_anchor=(0.53, 1.03))
-    fig.subplots_adjust(hspace=0.12, top=0.95)
+                      label='same circuit, null partition')]
+    fig.legend(handles=handles, loc='upper center', ncol=3, frameon=False, fontsize=7, bbox_to_anchor=(0.53, 1.06))
     save(fig, 'domains_%s' % model)
 
 
 # ---------------------------------------------------------------------------- figure 5
 
 def controls(g, model):
-    fig, axes = plt.subplots(1, 2, figsize=(7.2, 2.9), dpi=300, gridspec_kw=dict(width_ratios=[1.5, 1], wspace=0.35))
-    ax = axes[0]
-    rng = np.random.RandomState(0)
-    for i, d in enumerate(ORDER):
-        for j, (tree, off) in enumerate((('real', -0.18), ('null', 0.18))):
-            v = (g[(g.tree == tree) & (g.domain == d)].C - g[(g.tree == tree) & (g.domain == d)].Cn).values
-            col = COLORS[d] if tree == 'real' else GRAY_EDGE
-            ax.scatter(i + off + rng.uniform(-0.07, 0.07, len(v)), v, s=7, color=col, alpha=0.7, lw=0, zorder=3)
-            ax.plot([i + off - 0.13, i + off + 0.13], [np.median(v)] * 2, color='black' if tree == 'real' else '#666666', lw=1.6, zorder=4)
-    ax.axhline(0, color='black', lw=0.8)
-    ax.set_xticks(range(len(ORDER))); ax.set_xticklabels([SHORT.get(d, d).replace('\n', ' ') for d in ORDER], rotation=40, ha='right', fontsize=6.8)
-    ax.set_ylabel('cohesion − layer-matched null', fontsize=8)
-    ax.legend(handles=[Line2D([0], [0], marker='o', color='none', markerfacecolor='#555555', markersize=4, label='real networks'),
-                       Line2D([0], [0], marker='o', color='none', markerfacecolor=GRAY_EDGE, markersize=4, label='null partition')],
-              frameon=False, fontsize=6.8, loc='upper left')
-    style(ax)
-    letter(ax, 'A', x=-0.12)
-    ax = axes[1]
-    r = g[g.tree == 'real']
-    for d in ORDER:
-        s = r[r.domain == d]
-        ax.scatter(s.eff, s.C, s=10, color=COLORS[d], edgecolors='black', linewidths=0.3, alpha=0.85, zorder=3)
     from scipy.stats import spearmanr
-    rho = spearmanr(r.eff, r.C).correlation
-    ax.text(0.95, 0.05, 'ρ = %.2f' % rho, transform=ax.transAxes, ha='right', va='bottom', fontsize=7.5,
+    r = g[g.tree == 'real']
+    fig, axes = plt.subplots(1, 2, figsize=(7.2, 2.7), dpi=300, gridspec_kw=dict(wspace=0.35))
+    ax = axes[0]
+    ax.scatter(r.spread, r.Ru, s=8, color=GRAY_EDGE, alpha=0.8, lw=0, zorder=3)
+    for d in ORDER:
+        s_ = r[r.domain == d]
+        ax.scatter(s_.spread, s_.R, s=9, color=COLORS[d], edgecolors='black', linewidths=0.25, alpha=0.85, zorder=4)
+    ax.axhline(1, color='black', lw=0.8, ls='--')
+    ax.text(0.97, 0.97, 'all outsiders: ρ = %.2f\ndepth-matched: ρ = %.2f' % (spearmanr(r.spread, r.Ru).correlation,
+                                                                          spearmanr(r.spread, r.R).correlation),
+            transform=ax.transAxes, ha='right', va='top', fontsize=6.8,
             bbox=dict(facecolor='white', edgecolor='gray', boxstyle='round,pad=0.3'))
-    ax.set_xlabel('effective number of networks', fontsize=8); ax.set_ylabel('cohesion', fontsize=8)
+    ax.legend(handles=[Line2D([0], [0], marker='o', color='none', markerfacecolor=GRAY_EDGE, markersize=4,
+                              label='compared with all outsiders'),
+                       Line2D([0], [0], marker='o', color='none', markerfacecolor='#555555', markeredgecolor='black',
+                              markersize=4, label='compared with depth-matched outsiders')],
+              frameon=False, fontsize=6.3, loc='lower left', bbox_to_anchor=(0.0, 1.0), ncol=1)
+    ax.set_xlabel("depth spread of the circuit's networks (layers)", fontsize=8); ax.set_ylabel('preference ratio', fontsize=8)
+    style(ax)
+    letter(ax, 'A', x=-0.18, y=1.18)
+    ax = axes[1]
+    for d in ORDER:
+        s_ = r[r.domain == d]
+        ax.scatter(s_.eff, s_.R, s=9, color=COLORS[d], edgecolors='black', linewidths=0.25, alpha=0.85, zorder=3)
+    ax.axhline(1, color='black', lw=0.8, ls='--')
+    ax.text(0.97, 0.97, 'ρ = %.2f' % spearmanr(r.eff, r.R).correlation, transform=ax.transAxes, ha='right', va='top',
+            fontsize=7.5, bbox=dict(facecolor='white', edgecolor='gray', boxstyle='round,pad=0.3'))
+    ax.set_xlabel('effective number of networks', fontsize=8); ax.set_ylabel('preference ratio', fontsize=8)
     style(ax, grid='both')
-    letter(ax, 'B')
+    letter(ax, 'B', x=-0.18, y=1.18)
     save(fig, 'controls_%s' % model)
 
 
@@ -320,7 +318,7 @@ def main():
     d, g = load(args.model)
     concept()
     coupling_fig(args.model)
-    example(args.model)
+    method(args.model)
     domains_fig(g, args.model)
     controls(g, args.model)
 

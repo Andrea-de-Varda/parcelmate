@@ -1,26 +1,33 @@
-"""Cohesion of the networks a circuit spans (LOG.md Iteration 46).
+"""How strongly the networks a circuit spans prefer each other (LOG.md Iteration 46).
 
 A circuit (the top units of a task's attribution) falls into several networks of a partition,
-with shares p (sum 1). The question is whether those networks are more of one thing than
-other networks would be: are they coupled to each other more strongly than networks matched
-on layer position?
+with shares p (sum 1). Coupling between networks comes from the block means of |r|
+(`metrics.stream_block_means`): B[i, j] = mean |r| between the units of networks i and j
+(self-pairs excluded on the diagonal), computed on the half the partition was NOT fitted on.
+It is normalised by the within-network coupling, Bn[i, j] = B[i, j] / sqrt(B[i, i] B[j, j]),
+so 1 means "as tight as a single network".
 
-Coupling between networks comes from the block means of |r| (`metrics.stream_block_means`):
-B[i, j] = mean |r| between the units of networks i and j (self-pairs excluded on the
-diagonal), computed on the half the partition was NOT fitted on. It is normalised by the
-within-network coupling, Bn[i, j] = B[i, j] / sqrt(B[i, i] B[j, j]), so 1 means "as tight as a
-single network".
+Two quantities per circuit:
 
-    cohesion     C = sum_{i != j} p_i p_j Bn_ij / sum_{i != j} p_i p_j
-    specificity  S = C / sum_i p_i E_i,   E_i = mean_{j != i} Bn_ij
+    cohesion    C = sum_{i != j} p_i p_j Bn_ij / sum_{i != j} p_i p_j
+                how coupled the circuit's networks are to each other, on the 0-1 scale of Bn
+                (1 = one network). Descriptive only.
 
-S > 1: the circuit's networks are coupled to each other more than they are to networks in
-general, which a set of hub networks (strongly coupled to everyone) would not be.
+    preference  R = sum_{i != j} p_i p_j Bn_ij / sum_{i != j} p_i p_j O_ij
+                O_ij = mean Bn between network i and the `n_near` networks outside the circuit
+                whose depth (mean layer) is closest to network j's.
+                How coupled the circuit's networks are to each other, relative to how coupled
+                they are to networks outside the circuit at the same depths. 1 = no preference.
 
-Null (Andrea, 2026-10-21): the circuit's share profile, given to other networks. Network
-identities are permuted within bins of layer position (each network's mean layer), so a
-replacement network sits at a similar depth; the profile itself (how many networks, with
-which weights) is unchanged.
+The preference ratio is the test statistic (Andrea, 2026-10-22). Depth is matched pair by pair
+because coupling falls with the depth distance between networks: against all outside networks,
+any layer-concentrated circuit would look grouped (the unmatched ratio correlated -0.72 with a
+circuit's depth spread, and the null partition exceeded 1 in 192 of 193 tasks). Network i
+appears in the numerator and the denominator of every pair, so a hub coupled at the same level
+to every network scores 1. Networks that are each more coupled to everyone, and therefore
+doubly coupled to each other, score above 1: they are coupled to each other more than to
+outsiders, which is what the ratio asks. This replaces the earlier layer-binned permutation reference and the
+specificity ratio (first version of Iteration 46).
 """
 
 import numpy as np
@@ -46,63 +53,64 @@ def network_layers(labels, coordinates, k):
         return sums / counts
 
 
-def layer_bins(centres, n_bins):
-    """Bin index of every network by layer position (quantile bins of equal size)."""
-    order = np.argsort(centres, kind='stable')
-    bins = np.empty(len(centres), dtype=np.int64)
-    for b, idx in enumerate(np.array_split(order, n_bins)):
-        bins[idx] = b
-    return bins
+def _pair_weights(p):
+    W = np.outer(p, p)
+    np.fill_diagonal(W, 0.0)
+    return W
 
 
-def permute_within_bins(bins, n_draws, rng):
-    """(n_draws, k) permutations of network indices that keep every network in its bin."""
-    k = len(bins)
-    out = np.tile(np.arange(k), (n_draws, 1))
-    groups = [np.flatnonzero(bins == b) for b in np.unique(bins)]
-    for d in range(n_draws):
-        for g in groups:
-            out[d, g] = rng.permutation(g)
-    return out
+def cohesion(p, Bn):
+    """Share-weighted mean coupling over pairs of distinct networks; NaN with one network."""
+    W = _pair_weights(np.asarray(p, dtype=np.float64))
+    den = W.sum()
+    return float((W * Bn).sum() / den) if den > 0 else float('nan')
 
 
-def cohesion_stats(P, Bn):
-    """Cohesion and specificity for one or many share vectors.
+def outside_reference(p, Bn, depth, n_near=3):
+    """O[i, j]: mean coupling of network i to the n_near outside networks nearest j in depth.
 
-    P  (k,) or (n, k) shares summing to 1 per row.
-    Returns (C, S) as floats or (n,) arrays. A vector with a single network has no pairs:
-    C and S are NaN.
+    Outside = networks holding none of the circuit (p == 0). Columns of circuit networks only
+    are meaningful; others are 0. Ties in depth are broken by network index.
     """
-    P = np.atleast_2d(np.asarray(P, dtype=np.float64))
-    k = Bn.shape[0]
-    off = Bn - np.diag(np.diag(Bn))
-    num = np.einsum('ni,ij,nj->n', P, off, P)
-    sq = (P ** 2).sum(1)
-    den = P.sum(1) ** 2 - sq
-    E = off.sum(1) / (k - 1)
-    with np.errstate(invalid='ignore', divide='ignore'):
-        C = np.where(den > 0, num / den, np.nan)
-        S = C / (P @ E)
-    if C.shape[0] == 1:
-        return float(C[0]), float(S[0])
-    return C, S
+    p = np.asarray(p, dtype=np.float64)
+    k = len(p)
+    inside = np.flatnonzero(p > 0)
+    outside = np.flatnonzero(p == 0)
+    O = np.zeros((k, k))
+    if len(outside) == 0:
+        return O * np.nan
+    m = min(n_near, len(outside))
+    N = np.zeros((len(outside), k))
+    for j in inside:
+        near = np.argsort(np.abs(depth[outside] - depth[j]), kind='stable')[:m]
+        N[near, j] = 1.0 / m
+    return Bn[:, outside] @ N
 
 
-def cohesion_test(shares, Bn, bins, n_draws, rng):
-    """Observed C and S against the layer-binned network-permutation null.
+def preference(p, Bn, depth, n_near=3):
+    """Coupling among the circuit's networks / their coupling to depth-matched outsiders."""
+    p = np.asarray(p, dtype=np.float64)
+    W = _pair_weights(p)
+    if W.sum() == 0:
+        return float('nan')
+    O = outside_reference(p, Bn, depth, n_near)
+    den = (W * O).sum()
+    return float((W * Bn).sum() / den) if den > 0 else float('nan')
 
-    p = (1 + #{null >= observed}) / (1 + n_draws), one-sided (more cohesive / specific).
-    """
-    C, S = cohesion_stats(shares, Bn)
-    perms = permute_within_bins(bins, n_draws, rng)
-    # network j of a null set receives the share the circuit gave network perms[d, j]
-    Pn = shares[perms]
-    Cn, Sn = cohesion_stats(Pn, Bn)
-    out = dict(cohesion=C, specificity=S,
-               null_cohesion_mean=float(np.nanmean(Cn)), null_cohesion_sd=float(np.nanstd(Cn, ddof=1)),
-               null_specificity_mean=float(np.nanmean(Sn)), null_specificity_sd=float(np.nanstd(Sn, ddof=1)),
-               p_cohesion=float((1 + np.sum(Cn >= C - 1e-12)) / (1 + n_draws)),
-               p_specificity=float((1 + np.sum(Sn >= S - 1e-12)) / (1 + n_draws)),
-               n_networks_spanned=int((shares > 0).sum()),
-               effective_networks=float(np.exp(-np.sum(shares[shares > 0] * np.log(shares[shares > 0])))))
-    return out
+
+def unmatched_preference(p, Bn):
+    """Diagnostic only: coupling among the circuit's networks / their coupling to ALL outside
+    networks, regardless of depth. Inflated for layer-concentrated circuits (why depth is matched)."""
+    p = np.asarray(p, dtype=np.float64)
+    out = p == 0
+    if not out.any():
+        return float('nan')
+    ref = (p @ Bn[:, out]).sum() / out.sum() / p.sum()
+    return cohesion(p, Bn) / ref
+
+
+def depth_spread(p, depth):
+    """Share-weighted standard deviation of the depth of the circuit's networks (layers)."""
+    p = np.asarray(p, dtype=np.float64)
+    mu = np.sum(p * depth)
+    return float(np.sqrt(np.sum(p * (depth - mu) ** 2)))

@@ -1,12 +1,13 @@
-"""Verification for Iteration 46 (cohesion of the networks a circuit spans).
+"""Verification for Iteration 46 (do the networks a circuit spans prefer each other?).
 
     PYTHONPATH=. python tests/verify_iter46_cohesion.py
 
-CPU only. Covers: normalised coupling; cohesion and specificity equal brute-force loops;
-within-bin permutations; a planted super-network is detected against layer-matched networks
-while random circuits give calibrated p; a set of hub networks reads high cohesion but
-specificity near 1, unlike a planted super-network; and `network_coupling` end to end on
-tiled float16 halves equals dense block means of |r|.
+CPU only. Covers: normalised coupling; cohesion and the preference ratio equal brute-force
+loops; network depth; on synthetic coupling that depends only on depth distance, layer-
+concentrated circuits score a preference of about 1 while the unmatched in/out ratio is well
+above 1 (why depth is matched); a planted group of networks scores above 1, an avoiding group
+below 1, and hub networks coupled to everyone about 1 (sociability cancels); and
+`network_coupling` end to end on tiled float16 halves equals dense block means of |r|.
 """
 
 import os
@@ -19,8 +20,7 @@ os.environ['CUDA_VISIBLE_DEVICES'] = ''
 import h5py
 import numpy as np
 
-from parcelmate.cohesion import (cohesion_stats, cohesion_test, layer_bins, network_layers,
-                                 normalized_coupling, permute_within_bins)
+from parcelmate.cohesion import cohesion, network_layers, normalized_coupling, preference, unmatched_preference
 
 failures = []
 n_checks = [0]
@@ -47,68 +47,81 @@ check('normalised coupling: diagonal 1, symmetric, B_ij / sqrt(B_ii B_jj)',
 k = 12
 Bn = normalized_coupling(np.abs(rs.normal(0.1, 0.05, (k, k))) + np.diag(rs.uniform(0.4, 0.6, k)))
 Bn = (Bn + Bn.T) / 2; np.fill_diagonal(Bn, 1)
-ok = True
+depth = rs.uniform(0, 24, k)
+okC = okR = True
 for _ in range(20):
     p = rs.dirichlet(np.ones(k) * 0.5) * (rs.rand(k) > 0.4)
     p = p / p.sum()
-    num = den = 0.0
-    for i in range(k):
-        for j in range(k):
-            if i != j:
-                num += p[i] * p[j] * Bn[i, j]; den += p[i] * p[j]
-    E = np.array([np.mean([Bn[i, j] for j in range(k) if j != i]) for i in range(k)])
-    C, S = cohesion_stats(p, Bn)
-    ok &= np.isclose(C, num / den) and np.isclose(S, (num / den) / (p @ E))
-check('cohesion and specificity equal brute-force double loops', ok)
-C1, S1 = cohesion_stats(np.eye(k)[3], Bn)
-check('a single-network circuit has no pairs: cohesion NaN', np.isnan(C1) and np.isnan(S1))
-P = rs.dirichlet(np.ones(k), size=5)
-Cv, Sv = cohesion_stats(P, Bn)
-check('vectorised over rows equals one row at a time',
-      np.allclose(Cv, [cohesion_stats(r, Bn)[0] for r in P]) and np.allclose(Sv, [cohesion_stats(r, Bn)[1] for r in P]))
-
-# ---------------------------------------------------------------- bins and permutations
-cent = rs.uniform(0, 24, 40)
-bins = layer_bins(cent, 4)
-perms = permute_within_bins(bins, 200, rs)
-check('layer bins: equal sizes, ordered by layer position',
-      np.bincount(bins).tolist() == [10] * 4 and all(cent[bins == b].max() <= cent[bins == b + 1].min() for b in range(3)))
-check('within-bin permutations are permutations that keep every network in its bin',
-      all(sorted(r) == list(range(40)) for r in perms) and np.all(bins[perms] == bins[None, :]))
+    inside = [i for i in range(k) if p[i] > 0]
+    outside = [i for i in range(k) if p[i] == 0]
+    num = den = denO = 0.0
+    for i in inside:
+        for j in inside:
+            if i == j:
+                continue
+            near = sorted(outside, key=lambda m: (abs(depth[m] - depth[j]), m))[:3]
+            num += p[i] * p[j] * Bn[i, j]; den += p[i] * p[j]
+            denO += p[i] * p[j] * np.mean([Bn[i, m] for m in near])
+    okC &= np.isclose(cohesion(p, Bn), num / den)
+    okR &= np.isclose(preference(p, Bn, depth, 3), num / denO)
+check('cohesion equals a brute-force double loop', okC)
+check('preference ratio equals a brute-force loop (3 outside networks nearest in depth to each partner)', okR)
+check('a single-network circuit has no pairs: cohesion and preference NaN',
+      np.isnan(cohesion(np.eye(k)[3], Bn)) and np.isnan(preference(np.eye(k)[3], Bn, depth)))
+check('a circuit covering every network has no outsiders: preference NaN',
+      np.isnan(preference(np.ones(k) / k, Bn, depth)))
 labels = np.repeat(np.arange(4), 3)
 coords = np.c_[np.array([0, 0, 2, 4, 4, 4, 1, 1, 1, 7, 9, 8]), np.arange(12)]
-check('network layer centre = mean layer of its units',
+check('network depth = mean layer of its units',
       np.allclose(network_layers(labels, coords, 4), [2 / 3, 4.0, 1.0, 8.0]))
 
 # ---------------------------------------------------------------- planted structure
-k, nb = 40, 4
-bins = np.repeat(np.arange(nb), k // nb)     # networks 0-9 bin 0, 10-19 bin 1, ...
-base = rs.uniform(0.15, 0.25, (k, k)); base = (base + base.T) / 2
-club = [0, 1, 2, 3, 4, 5]                     # a super-network inside bin 0 (layer-matched swaps leave it)
-Bc = base.copy()
-for i in club:
-    for j in club:
-        Bc[i, j] = 0.7
-np.fill_diagonal(Bc, 1.0)
-p = np.zeros(k); p[club] = [0.3, 0.2, 0.2, 0.1, 0.1, 0.1]
-r = cohesion_test(p, Bc, bins, 1000, np.random.RandomState(1))
-check('planted super-network: cohesion far above layer-matched networks (p %.3f), specificity > 1.5 (%.2f)'
-      % (r['p_cohesion'], r['specificity']), r['p_cohesion'] < 0.01 and r['specificity'] > 1.5)
-ps = []
-for s in range(300):
-    q = np.zeros(k); idx = rs.choice(k, 6, replace=False); q[idx] = rs.dirichlet(np.ones(6))
-    ps.append(cohesion_test(q, normalized_coupling(base + np.eye(k) * 0.8), bins, 200, np.random.RandomState(s))['p_cohesion'])
-frac = np.mean(np.asarray(ps) < 0.05)
-check('no structure: p < 0.05 in about 5%% of random circuits (%.3f)' % frac, 0.01 <= frac <= 0.10)
-hubs = [0, 1, 10, 20, 21, 30]     # spread over the layer bins, so matched swaps reach non-hubs
+# 60 networks spread over 24 layers; coupling falls with depth distance, as in the model.
+k = 60
+depth = np.sort(rs.uniform(0, 24, k))
+dist = np.abs(depth[:, None] - depth[None, :])
+base = 0.65 - 0.02 * dist + rs.normal(0, 0.01, (k, k)); base = (base + base.T) / 2
+np.fill_diagonal(base, 1.0)
+
+
+pref, unm = [], []
+for s in range(200):
+    start = rs.randint(0, k - 12)
+    idx = start + rs.choice(12, 5, replace=False)        # five networks within a narrow depth range
+    q = np.zeros(k); q[idx] = rs.dirichlet(np.ones(5))
+    pref.append(preference(q, base, depth)); unm.append(unmatched_preference(q, base))
+check('depth only: layer-concentrated circuits score preference about 1 (median %.3f) while the unmatched ratio is inflated (median %.3f)'
+      % (np.median(pref), np.median(unm)), abs(np.median(pref) - 1) < 0.03 and np.median(unm) > 1.15)
+group = [10, 14, 20, 25, 33]
+Bg = base.copy()
+for i in group:
+    for j in group:
+        if i != j:
+            Bg[i, j] += 0.15
+q = np.zeros(k); q[group] = [0.3, 0.2, 0.2, 0.15, 0.15]
+rg = preference(q, Bg, depth)
+check('planted group (+0.15 among five networks): preference > 1.2 (%.2f)' % rg, rg > 1.2)
+Ba = base.copy()
+for i in group:
+    for j in group:
+        if i != j:
+            Ba[i, j] -= 0.15
+ra = preference(q, Ba, depth)
+check('planted avoidance (-0.15): preference < 0.85 (%.2f)' % ra, ra < 0.85)
 Bh = base.copy()
-for i in hubs:
-    Bh[i, :] = Bh[:, i] = 0.6
+for i in group:
+    Bh[i, :] = Bh[:, i] = 0.8          # hubs: coupled at the same high level to every network, each other included
 np.fill_diagonal(Bh, 1.0)
-q = np.zeros(k); q[hubs] = 1 / 6
-rh = cohesion_test(q, Bh, bins, 1000, np.random.RandomState(2))
-check('hub networks (coupled to everyone): high cohesion (p %.3f) but specificity near 1 (%.2f), unlike a club'
-      % (rh['p_cohesion'], rh['specificity']), rh['p_cohesion'] < 0.01 and 0.85 < rh['specificity'] < 1.3)
+rh = preference(q, Bh, depth)
+check('hub networks (0.8 to every network): preference 1 (%.3f), cohesion raised (%.2f vs %.2f)'
+      % (rh, cohesion(q, Bh), cohesion(q, base)), abs(rh - 1) < 0.01 and cohesion(q, Bh) > cohesion(q, base) + 0.1)
+Bs = base.copy()
+for i in group:
+    Bs[i, :] += 0.2; Bs[:, i] += 0.2
+np.fill_diagonal(Bs, 1.0)
+rs_ = preference(q, Bs, depth)
+check('sociable networks (+0.2 to everyone, so +0.4 to each other): preference > 1 (%.2f); they are coupled to each other more than to outsiders'
+      % rs_, rs_ > 1.1)
 
 # ---------------------------------------------------------------- network_coupling end to end
 from parcelmate.bigconn import write_tiled_half

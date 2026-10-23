@@ -1,152 +1,135 @@
-# Are the networks a circuit spans one larger network?
+# Do the networks a circuit spans prefer each other?
 
 LOG.md Iteration 46, Qwen3.5-2B (4B pending). Circuits found by attribution patching span far fewer networks than random neurons do ([../circuits_vs_networks/](../circuits_vs_networks/)), but still about 10-25 each. This page asks what those networks are to each other.
 
 ## In short
 
-- **Not one network.** A circuit's networks couple to each other at about half the strength found within one network (median 0.56, where 1 = one network). No task comes close to 1.
-- **More interlinked than other networks, in most domains.** In 128 of 193 tasks, the circuit's networks are more coupled than networks at the same depth (Wilcoxon across tasks, p = 1.5 × 10⁻⁵). In 151 of 193 they are also a group of their own rather than generally well-connected networks. Both hold almost without exception for factual knowledge, arithmetic, entity tracking and in-context string tasks.
-- **Syntax is the exception.** Agreement circuits span networks *less* coupled than chance. Filler-gap and NPI licensing are the opposite, among the most cohesive tasks of any domain.
+- **Not one network.** A circuit's networks are coupled to each other at about half the strength found within one network (median 0.56, where 1 = one network). No task comes close to 1, so the networks a circuit spans are genuinely distinct.
+- **But in most domains they prefer each other.** In 147 of 193 tasks, a circuit's networks are more coupled to each other than to other networks at the same depth (median 5% more; Wilcoxon across tasks, p = 8 × 10⁻¹⁶). This holds for every task, or nearly every task, in arithmetic (+10%), in-context string tasks (+8%), entity tracking (+7%) and factual knowledge (+7%).
+- **Syntax is the exception.** Most syntax circuits (35 of 47) span networks that are *less* coupled to each other than to networks at the same depth. Agreement tasks drive this. Filler-gap (+31%) and NPI licensing (+9 to +14%) go the other way and are among the strongest preferences of any task.
 
-*Correction to the first version.* It counted only tasks whose own test reached p < 0.05 (53 of 193) and called the rest "no effect". A single task's test is too weak for that (section 2.6); the evidence is the consistency across tasks.
-
-## 1. The question and the data
+## 1. The question
 
 ![concept](concept.png)
 
-**Figure 1.** A circuit (red) spanning three networks. **A.** Distinct networks, weakly coupled to each other. **B.** One larger network cut into three by the choice of 100 networks.
+**Figure 1.** A circuit (red) spanning three networks. **A.** Distinct networks, weakly coupled to each other. **B.** One larger network, cut into three by the choice of 100 networks.
 
-The two readings differ in how strongly the circuit's networks are coupled to each other. Under B, almost as strongly as within one network.
+A circuit spans many networks. Are those networks pieces of one larger network (B)? And if not, do they at least form a group, more connected to each other than to the rest of the model?
 
-**Data.** All 147,456 MLP neurons of Qwen3.5-2B. The 100 networks of the pooled residual connectome (Iteration 43: four prose datasets, token and position effects removed, independent halves A and B). The 193 tasks and circuits (top 0.1% of neurons) of the concentration analysis. The connectome is the stored copy from the rich-club stage, which reproduces the original scores to within 4 × 10⁻¹⁰.
+**Data.** All 147,456 MLP neurons of Qwen3.5-2B. The 100 networks of the pooled residual connectome (Iteration 43: four prose datasets, token and position effects removed, independent halves A and B). The 193 tasks and circuits (top 0.1% of neurons) of the concentration analysis. The connectome is the stored copy from the rich-club stage, which reproduces the original network scores to within 4 × 10⁻¹⁰.
 
 ## 2. Method
 
 ### 2.1 Coupling between two networks
 
-$B_{ij}$ is the mean |r| between a neuron of network i and a neuron of network j: how strongly two neurons from these networks correlate on average, ignoring sign. $B_{ii}$ is the same for two neurons of one network. Because networks differ in how tight they are inside, coupling is normalised:
+The coupling between networks i and j is the mean |r| between a neuron of i and a neuron of j, normalised by how tight each network is inside:
 
 $$\tilde B_{ij} = \frac{B_{ij}}{\sqrt{B_{ii}\,B_{jj}}}$$
 
-This is the coupling between two networks as a fraction of how tight each is inside: 1 = as coupled as within one network, 0.5 = half as strong.
+Here $B_{ij}$ is the mean |r| between neurons of the two networks and $B_{ii}$ the mean |r| within network i. On this scale, 1 means the two networks are as coupled to each other as each is inside: effectively one network. 0.5 means half as strong.
 
-Coupling is measured on the half the networks were *not* fitted on (half-A networks on half-B data, and the reverse). A partition groups neurons that happen to correlate in its own half, which would inflate coupling measured there. The two directions replicate each other (r = 0.989 across tasks).
+Coupling is measured on the half the networks were *not* fitted on: half-A networks on half-B data, and the reverse. A partition groups neurons that happen to correlate in its own half, which would inflate coupling measured there. The two directions serve as replications.
 
 ![coupling](coupling_2b.png)
 
-**Figure 2.** **A.** Normalised coupling between the 100 networks, ordered by depth. **B.** Coupling falls with the distance in depth between networks (0.58 within 2 layers, 0.45 beyond 6). **C.** A typical pair of real networks couples at 0.49: the networks are distinct. On the null partition (shifted timecourses, no co-activation) pairs couple at 0.97: those networks are interchangeable.
+**Figure 2.** **A.** Coupling between the 100 networks, ordered by depth. **B.** Coupling falls with the distance in depth between two networks: 0.58 within 2 layers, 0.45 beyond 6 layers. **C.** A typical pair of real networks couples at 0.49, so the networks are distinct. On the null partition (shifted timecourses, no co-activation) pairs couple at 0.97: those networks are interchangeable.
 
-### 2.2 First metric: cohesion
+### 2.2 Is the set one network? Cohesion
 
-**Cohesion asks: how strongly are the circuit's networks coupled to each other?**
-
-With $p_i$ the share of the circuit's neurons in network i:
+With $p_i$ the share of the circuit's neurons in network i, the circuit's **cohesion** is the average coupling between its networks:
 
 $$C = \frac{\sum_{i \neq j} p_i\, p_j\, \tilde B_{ij}}{\sum_{i \neq j} p_i\, p_j}$$
 
-Take two of the circuit's neurons that sit in different networks, and look up how coupled their two networks are. C is the average of that over all such pairs. A network that holds more of the circuit contributes more pairs, so a single stray neuron cannot dominate (share weighting, Andrea's choice).
+Take two of the circuit's neurons that sit in different networks and look up how coupled their networks are. C is the average of that over all such pairs. A network holding more of the circuit contributes more pairs, so a single stray neuron cannot dominate. C is on the 0-1 scale above, so it answers the first question directly: near 1, the networks behave as one.
 
-C is on the scale of $\tilde B$, so it answers the question of Figure 1 directly: near 1, the networks behave as one; near a typical pair (0.49), they are as distinct as any two networks.
+Cohesion is descriptive. It is not compared with anything.
 
-### 2.3 Second metric: specificity
+### 2.3 Do the networks prefer each other? The preference ratio
 
-**Specificity asks: are the circuit's networks coupled to *each other* more than to the rest of the model?**
+**The preference ratio asks whether the circuit's networks are more coupled to each other than to the rest of the model.** It is a single number:
 
-First, each network's general sociability, $E_i$: its average coupling to all other networks,
+> preference = coupling among the circuit's networks ÷ coupling of the same networks to networks outside the circuit at the same depth
 
-$$E_i = \frac{1}{k-1}\sum_{j \neq i} \tilde B_{ij}.$$
+Concretely, every pair of the circuit's networks (i, j) is compared with an equivalent pair in which j is replaced by outsiders. These are the 3 networks outside the circuit whose depth is closest to j's, where depth is the mean layer of a network's neurons. The ratio sums over all pairs, with the same share weights as cohesion:
 
-The circuit's networks have an average sociability $\sum_i p_i E_i$, weighted by the circuit's shares. This is the cohesion they would show if they were coupled to each other no more than to anyone else. Specificity is the cohesion they actually show divided by that expectation:
+$$R = \frac{\sum_{i \neq j} p_i\, p_j\, \tilde B_{ij}}{\sum_{i \neq j} p_i\, p_j\, O_{ij}}, \qquad O_{ij} = \text{mean coupling of } i \text{ to the 3 outsiders nearest } j \text{ in depth}.$$
 
-$$S = \frac{C}{\sum_i p_i E_i}.$$
+- R = 1: the circuit's networks are no more coupled to each other than to comparable outsiders.
+- R = 1.10: they are 10% more coupled to each other.
+- R < 1: they are less coupled to each other than to outsiders.
 
-S = 1: the circuit's networks are just as coupled to each other as to everything else. S > 1: they are preferentially coupled to each other, a group of their own.
+![method](method_2b.png)
 
-### 2.4 Why two metrics
+**Figure 3.** The ratio for one task (filler-gap, PP gap). **A.** Networks by depth (vertical position is jitter). The circuit's networks are red, sized by share. One pair of circuit networks, i and j, is shown with the comparison: i's coupling to the 3 outsiders nearest j's depth. **B.** Every pair of the circuit's networks: its coupling (y) against its comparison (x), sized by weight. Pairs above the diagonal are more coupled than their comparison. The ratio is the weighted mean of y over the weighted mean of x: 1.32 here.
 
-Each metric alone can mislead.
+**Why outsiders at the same depth.** Coupling falls with depth distance (Figure 2B), and circuits are concentrated in certain layers. If the comparison were all outside networks, any circuit packed into a few layers would look like a group, simply because its networks are close in depth. The data show this. Against all outsiders, the ratio correlates strongly with how spread out in depth a circuit is (ρ = −0.72; Figure 5A), and the null partition exceeds 1 in 192 of 193 tasks. Matching each comparison to the partner's depth removes most of this (ρ = −0.22).
 
-- **Cohesion alone cannot tell a group from a set of hubs.** Some networks couple strongly to every network (the rich-club stage found such hubs). A circuit that uses several of them has high cohesion even though its networks form no group: they are equally coupled to everything. In the planted test below, six hub networks gave high cohesion but specificity of exactly 1.00. Specificity is what exposes them.
-- **Specificity alone cannot say how close to one network the set is.** It is a ratio, so it discards the absolute level. A set of networks that are weakly coupled to everything, but slightly less weakly to each other, has S > 1 while being nowhere near one network. Only cohesion, on its 0-1 scale, answers the question of Figure 1.
+**Why this also handles hub networks.** Some networks are strongly coupled to everything. Network i appears in both the numerator and the denominator of each pair. A network coupled at the same level to every network therefore gets the same coupling to its partners as to their outsiders, and scores 1. Networks that are each strongly coupled to everything, and even more to each other, score above 1. That is correct: they are coupled to each other more than to the rest of the model.
 
-So cohesion measures *how tight* the circuit's networks are, and specificity measures *whether that tightness is their own*. A loosely coupled group scores above its reference on both.
+**Why 3 outsiders.** One outsider would make the comparison noisy; many would reach far in depth. With 3, an outsider sits a median 0.38 layers from the partner it replaces (90% within 1.4 layers). A circuit touches 44 networks at the median, which leaves 56 outsiders to choose from.
 
-### 2.5 The reference: the circuit's profile on networks of similar depth
+### 2.4 Statistics
 
-Each metric is compared with a reference built from the circuit itself. The circuit's share profile (its bar chart of shares over networks) is kept exactly, and each bar is moved to a different network of similar depth. C and S are recomputed. This is repeated 1,000 times, and the means are the references $C_{\text{null}}$ and $S_{\text{null}}$. How concentrated the circuit is never changes; only which networks it sits on.
+The ratio has a natural zero point (1), so no permutation reference is needed. For each task, R is averaged over the two directions; they agree across tasks with r = 0.91. Per domain, we count tasks with R > 1 and test R − 1 against 0 with a two-sided Wilcoxon signed-rank test across tasks. Tasks from one source share materials, so these p-values summarise consistency rather than give an exact error rate. Single tasks are not classified one by one.
 
-**How "similar depth" is defined.** Matching is done on networks, not on circuits, and it is approximate.
-- Each network's depth is the mean layer of its neurons (a network has 29 to 5,786 neurons spread over a few neighbouring layers, so this is a real number such as 9.4).
-- The 100 networks are sorted by depth and cut into 10 bins of 10 consecutive networks.
-- A network is only ever replaced by another network from its own bin.
-
-No two networks have exactly the same depth, so each bin spans a range of depths. Six bins are narrow, 0.5 to 1.9 layers (layers 9.0-12.3 and 16.0-19.3, where networks are dense). Four are wider where networks are sparser: layers 0.0-5.8 (5.7 layers), 5.8-8.7 (2.9), 12.4-15.4 (3.0) and 19.4-22.5 (3.1). In practice a network moves by 0.76 layers on average under a permutation (median 0.42; 90% of moves under 2.1 layers). Coupling falls by about 0.02 per layer of distance (Figure 2B), so these moves change coupling by roughly 0.01 on average, less than most of the domain effects below.
-
-- *Why move networks, not draw random neurons.* The question is whether these networks are more of one thing than other networks. Random neurons spread over more networks than the circuit does, mixing spread with network identity.
-- *Why match on depth.* Coupling falls with depth distance (Figure 2B), and circuits favour certain layers. An unconstrained reference would put the circuit's profile on networks at all depths, which couple less for that reason alone, and any layer-concentrated circuit would look cohesive.
-
-![example](example_2b.png)
-
-**Figure 3.** One task (filler-gap, PP gap). **A.** The circuit's shares by network (top; dotted lines separate the 10 depth bins) and after one permutation (bottom): each bar moves within its bin. **B.** Cohesion of 1,000 permutations (gray) and of the circuit (red). **C.** The same for specificity.
-
-*Reading specificity.* Networks at similar depth are coupled to each other more than to networks in general, so a depth-matched set already has S above 1 (median 1.065). Specificity is therefore read against its reference, not against 1.
-
-*A limit.* If a circuit covers most networks of a bin, permutations can only reshuffle shares among those same networks, so the reference stays close to the circuit. This makes the comparison conservative for circuits packed into a few layers.
-
-### 2.6 Statistics
-
-- **Per task.** A one-sided permutation p (the share of permutations at least as high as the circuit). It is valid (4% false positives on random circuits) but weak: a task's reference varies by 0.024 (SD), more than the typical effect (+0.014), so most real effects cannot reach significance alone. Per-task p is not used to classify tasks.
-- **Across tasks.** For each task, d = C − C_null (and likewise for S). Per domain, we count tasks with d > 0 and test d against 0 with a Wilcoxon signed-rank test. Tasks from one source share materials, so these p-values summarise consistency rather than give an exact error rate.
-
-**Verification** ([tests/verify_iter46_cohesion.py](../../tests/verify_iter46_cohesion.py), 11 checks): both formulas match brute force; coupling matches a dense computation; a planted super-network is detected on both metrics (S 2.67); planted hubs raise C but give S = 1.00 (section 2.4).
+**Verification** ([tests/verify_iter46_cohesion.py](../../tests/verify_iter46_cohesion.py), 12 checks, all pass):
+- both formulas match brute-force loops;
+- on synthetic coupling that depends only on depth, layer-concentrated circuits score R = 1.005, while the ratio against all outsiders is inflated (1.29);
+- a planted group scores 1.27 and planted avoidance 0.72;
+- hubs coupled equally to every network score 1.000;
+- the coupling matrices match a dense computation.
 
 ## 3. Results
 
+### 3.1 Not one network
+
+Cohesion has a median of 0.56. Its 10th-90th percentiles are 0.45-0.60 and its maximum is 0.64. Every circuit's networks are coupled to each other at roughly half of within-network strength, so none behaves like one network (reading B of Figure 1 holds for no task).
+
+### 3.2 Most circuits' networks prefer each other; syntax circuits do not
+
 ![domains](domains_2b.png)
 
-**Figure 4.** Every task, by domain. **A.** Cohesion of the circuit's networks (filled; coloured if above its reference, gray if below) and of the reference (open). Above each domain: tasks above the reference, and the Wilcoxon p. Dashed: a typical pair of networks. **B.** Specificity, same layout. Dashed: 1.
+**Figure 4.** The preference ratio of every task, by domain, sorted. Filled: real networks, coloured when above 1 and gray when below. Open: the same circuit on the null partition. Above each domain: tasks above 1, and the Wilcoxon p.
 
-| Domain | Tasks | Cohesion: circuit / reference | Above | p | Specificity above | p |
-|---|---|---|---|---|---|---|
-| Factual knowledge | 47 | 0.58 / 0.54 | 46 | < .001 | 47 | < .001 |
-| Arithmetic | 21 | 0.58 / 0.52 | 18 | < .001 | 20 | < .001 |
-| Entity tracking & binding | 18 | 0.54 / 0.53 | 18 | < .001 | 18 | < .001 |
-| In-context string tasks | 20 | 0.58 / 0.57 | 18 | < .001 | 20 | < .001 |
-| Social reasoning | 7 | 0.53 / 0.51 | 5 | .38 | 5 | .30 |
-| Morphology & lexical | 16 | 0.56 / 0.54 | 8 | .18 | 14 | .004 |
-| Logic, code & MC | 12 | 0.51 / 0.52 | 4 | .47 | 10 | .034 |
-| Physical reasoning | 5 | 0.50 / 0.54 | 1 | – | 1 | – |
-| Syntax | 47 | 0.46 / 0.50 | 10 | .002 (below) | 16 | .20 |
+| Domain | Tasks | Median ratio | Above 1 | p | Null partition (median) |
+|---|---|---|---|---|---|
+| Arithmetic | 21 | 1.10 | 21 | < .001 | 1.02 |
+| In-context string tasks | 20 | 1.08 | 20 | < .001 | 1.01 |
+| Entity tracking & binding | 18 | 1.07 | 18 | < .001 | 1.00 |
+| Factual knowledge | 47 | 1.07 | 45 | < .001 | 1.03 |
+| Morphology & lexical | 16 | 1.03 | 13 | .013 | 1.02 |
+| Logic, code & MC | 12 | 1.02 | 11 | .005 | 1.01 |
+| Social reasoning | 7 | 1.03 | 5 | .47 | 1.00 |
+| Physical reasoning | 5 | 0.99 | 2 | – | 1.01 |
+| Syntax | 47 | 0.96 | 12 | .015 (below) | 1.00 |
 
-Medians per domain; "above" = tasks above their reference; Wilcoxon p over the domain's tasks.
+Over all 193 tasks, the median ratio is 1.05, with 147 tasks above 1 (p = 8 × 10⁻¹⁶).
 
-### 3.1 Cohesion
-
-- **No circuit's networks behave as one network.** Cohesion ranges from 0.45 to 0.60 (10th-90th percentile), maximum 0.64.
-- **Most circuits' networks are tighter than depth-matched networks:** 128 of 193 (p = 1.5 × 10⁻⁵), and 153 lie above a typical pair. The consistent domains are factual knowledge, arithmetic, entity tracking and string tasks. The effect is largest for arithmetic (median +0.064) and factual knowledge (+0.042), and small for entity tracking (+0.016) and string tasks (+0.010).
-- **Syntax is consistently below.** 37 of 47 circuits span networks less coupled than depth-matched ones (median −0.045). This comes from agreement tasks (subject-verb, determiner-noun, reflexive) in every source. The exceptions are filler-gap (+0.095) and NPI licensing (+0.055 to +0.065), among the most cohesive tasks overall; hypernymy plays the same role among lexical tasks (+0.075 to +0.094).
-
-### 3.2 Specificity
-
-- **The tightness is the networks' own:** 151 of 193 circuits have specificity above their reference (p = 2.3 × 10⁻¹⁵). In the four consistent domains this holds for 105 of 106 tasks, so their cohesion does not come from hub networks.
-- **Two domains are specific without being cohesive.** Morphology and lexical tasks (14 of 16) and logic and code tasks (10 of 12) are above their reference in specificity but not in cohesion. Their networks prefer each other over the rest of the model, but are not tighter overall than depth-matched networks. This is the case specificity was added to separate.
-- **Syntax is not specific either** (16 of 47 above).
+- **Four domains are consistently above 1.** In arithmetic, in-context string tasks, entity tracking and factual knowledge, essentially every circuit spans networks that are 7-10% more coupled to each other than to equivalent outsiders. Taken together with section 3.1, these circuits use distinct networks that form a loosely connected group.
+- **Morphology, lexical semantics and logic/code are weakly above 1** (2-3%, but consistent).
+- **Syntax is below 1.**
+  - 35 of 47 circuits span networks less coupled to each other than to outsiders (median 0.96).
+  - This comes from agreement tasks (subject-verb, determiner-noun, reflexive), and holds in every source that has them. These circuits recruit networks that are, if anything, more separate than usual.
+  - The exceptions are long-distance dependencies: filler-gap (1.31, 1.32) and NPI licensing (1.09-1.14, in both CausalGym and LLM_Modularity).
+- **Physical and social reasoning** have too few tasks for a conclusion.
 
 ### 3.3 Controls
 
 ![controls](controls_2b.png)
 
-**Figure 5.** **A.** Cohesion minus its reference per task, on the real networks (coloured) and the null partition (gray). **B.** Cohesion against the effective number of networks.
+**Figure 5.** **A.** Why outsiders must be depth-matched. The ratio against all outsiders (gray) rises sharply for circuits concentrated in depth; against depth-matched outsiders (coloured by domain), much less. **B.** The preference ratio against the effective number of networks.
 
-- **Null partition.** Its differences are tiny (median +0.005). The real effects are much larger where it matters: factual +0.042 vs +0.000, arithmetic +0.064 vs +0.014. Overall, the difference is larger on the real networks in 119 of 193 tasks (p = 0.007).
-- **Concentration and cohesion are unrelated** (Spearman ρ = −0.01). Agreement circuits are highly concentrated but not cohesive.
+- **Null partition.** The same circuits on the null partition score close to 1 (median 1.010). They sit slightly above 1 in most tasks, probably a small depth residue the 3-nearest comparison does not fully remove. The real networks are higher in 136 of 193 tasks (Wilcoxon p = 1.4 × 10⁻¹⁰). The difference is clear where the effects are: arithmetic 1.10 vs 1.02, factual 1.07 vs 1.03, entity tracking 1.07 vs 1.00, string tasks 1.08 vs 1.01.
+- **Concentration and preference are unrelated** (ρ = 0.12). How many networks a circuit spans does not predict whether those networks prefer each other: agreement circuits are concentrated but their networks do not prefer each other.
 
 ## 4. Limits
 
-- **Modest effects.** Domain differences are a few hundredths on a 0-1 scale: consistent, but small. The most cohesive set (0.64) is far from one network.
-- **No per-task verdicts.** Statements about single tasks rest on effect sizes and agreement between related tasks, not on per-task significance.
-- **One granularity.** Only the 100-network partition is tested; merging networks into coarser levels was discussed but not run.
+- **Modest effects.** The ratios are a few to ten percent above 1. They are consistent across tasks and halves, and clearly above the null partition, but they describe loose groups, not tight systems.
+- **Approximate depth matching.** Outsiders are matched to the nearest available depths, not exact ones. The null partition's small offset above 1 (median 1.010) is the best estimate of what remains.
+- **One granularity.** Only the 100-network partition is tested.
 - **4B pending.** The 4B coupling job is ready once its rich-club scoring finishes.
+
+**History.** A first version of this page used two metrics (cohesion and a specificity ratio) against permutations of networks within depth bins. It then classified tasks by per-task significance, which was underpowered and led to a wrong conclusion. The single preference ratio replaces both metrics and the permutation reference (LOG.md Iteration 46).
 
 ## Files
 
@@ -154,8 +137,7 @@ Medians per domain; "above" = tasks above their reference; Wilcoxon p over the d
 |---|---|
 | Method | [parcelmate/cohesion.py](../../parcelmate/cohesion.py) |
 | Coupling matrices (cluster) | [parcelmate/bin/network_coupling.py](../../parcelmate/bin/network_coupling.py), [scripts/launch_coupling.sh](../../scripts/launch_coupling.sh) |
-| Per-task test | [parcelmate/bin/circuit_cohesion.py](../../parcelmate/bin/circuit_cohesion.py) |
-| Results | [figures/circuit_cohesion_2b.csv](../../figures/circuit_cohesion_2b.csv) |
+| Per-task values | [parcelmate/bin/circuit_cohesion.py](../../parcelmate/bin/circuit_cohesion.py) → [figures/circuit_cohesion_2b.csv](../../figures/circuit_cohesion_2b.csv) |
 | Figures | [figures/make_cohesion_figures.py](../../figures/make_cohesion_figures.py) |
 | Tests | [tests/verify_iter46_cohesion.py](../../tests/verify_iter46_cohesion.py) |
 | Decisions | [info/LOG.md](../../info/LOG.md), Iteration 46 |
