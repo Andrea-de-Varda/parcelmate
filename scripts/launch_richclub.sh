@@ -25,8 +25,8 @@ MODE=${1:-}
 NAME=${2:-}
 
 case "$MODE" in
-    generate|submit) ;;
-    *) echo "usage: $0 generate | submit {pythia-70m|qwen3.5-2b|qwen3.5-4b}" >&2; exit 2 ;;
+    generate|submit|submit-topk) ;;
+    *) echo "usage: $0 generate | submit {pythia-70m|qwen3.5-2b|qwen3.5-4b} | submit-topk {...}" >&2; exit 2 ;;
 esac
 
 cd "$WORK"
@@ -79,10 +79,15 @@ generate() {
     for m in pythia-70m qwen3.5-2b qwen3.5-4b; do
         cfg=$(config_of $m); job=$(job_of $m)
         case "$m" in
-            pythia-70m) GPU_OPTS="-t 3 -m 48"; SCO="-t 4 -m 16"; RC=(4 16 4) ;;
-            qwen3.5-2b) GPU_OPTS="-t 10 -m 180"; SCO="-t 24 -m 32"; RC=(24 32 8) ;;
-            qwen3.5-4b) GPU_OPTS="-t 16 -m 320 -P sphinx -G a100"; SCO="-t 36 -m 48"; RC=(48 48 8) ;;
+            pythia-70m) GPU_OPTS="-t 3 -m 48"; SCO="-t 4 -m 16"; RC=(4 16 4); TK=(2 16 4 1024) ;;
+            qwen3.5-2b) GPU_OPTS="-t 10 -m 180"; SCO="-t 24 -m 32"; RC=(24 32 8); TK=(16 32 8 1024) ;;
+            qwen3.5-4b) GPU_OPTS="-t 16 -m 320 -P sphinx -G a100"; SCO="-t 36 -m 48"; RC=(48 48 8); TK=(40 48 8 512) ;;
         esac
+        # Fixed-k participation (2026-10-22): reads the kept tiles and the richclub outputs, so it
+        # runs on its own after `submit`. Four passes (2 trees x 2 halves), each with a per-row
+        # partial sort; sized from the richclub job (12 passes, 14 h at 4B).
+        write_pbs $job.richclub_topk ${TK[0]} ${TK[1]} ${TK[2]} \
+            "python -m parcelmate.bin.richclub_topk $cfg --block ${TK[3]}"
         $M $cfg -c $GPU -s connectivity $GPU_OPTS -n 8 -o jobs/
         $M $cfg -c $CPU -s score $SCO -n 4 -o jobs/
         if [ "$m" = pythia-70m ]; then
@@ -136,7 +141,15 @@ submit() {
     echo "$job richclub -> $r"
 }
 
+submit_topk() {
+    local m=$1
+    test -n "$m" || { echo "submit-topk needs a model name" >&2; exit 2; }
+    echo "code at $(git log --oneline | head -1)"
+    echo "$(job_of $m) richclub_topk -> $(sbatch --parsable jobs/$(job_of $m).richclub_topk.pbs)"
+}
+
 case "$MODE" in
     generate) generate ;;
     submit) submit "$NAME" ;;
+    submit-topk) submit_topk "$NAME" ;;
 esac

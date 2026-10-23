@@ -1729,6 +1729,8 @@ Every code change to the repo, newest last. Format: date — files — what and 
 
 - 2026-10-22 -- [plots/circuit_cohesion/README.md](../plots/circuit_cohesion/README.md) cut to a short control page (measure, Figure 1 method, Figure 2 domains, table); `concept`, `coupling` and `controls` figures kept on disk but no longer shown; domains figure widened (8.0 in, minimum width for small domains).
 
+- 2026-10-22 -- Fixed-k participation (Andrea approved): [parcelmate/richclub.py](../parcelmate/richclub.py) (`topk_pass`, `layer_matched_expectation`, `layer_network_table`, `TOPK_FRACS`), [parcelmate/bin/richclub_topk.py](../parcelmate/bin/richclub_topk.py) (new), [scripts/launch_richclub.sh](../scripts/launch_richclub.sh) (`submit-topk`), [tests/verify_iter45_richclub.py](../tests/verify_iter45_richclub.py) (34 checks pass: brute force, Monte Carlo of the layer-matched expectation, planted layer-only coupling at the layer reference 1.03 and below random spread 0.59, planted network coupling below the layer reference 0.29, CLI end to end). Reason: on the globally thresholded graph participation confounds being a hub with how deep into its partner list a unit's links reach, and random spread over all units ignores layer-locality. Every unit is now read on its own top-k partners (k = 1, 2, 10% of live units) against random spread and layer-matched random spread, on the real and circular-shift trees. [plots/rich_club/README.md](../plots/rich_club/README.md) section 4.4 marked preliminary.
+
 ## Cluster
 
 Compute for this project runs on the Stanford SC cluster (NLP group, CLiMB lab). Connection, storage layout, SLURM conventions, cluster profiles and job-launching instructions are in [CLUSTER.md](CLUSTER.md).

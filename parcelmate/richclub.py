@@ -292,3 +292,89 @@ def expected_participation(k, labels, live):
         E = (1 - sum_sq) * (1 - (M - k) / (k * (M - 1)))
     E[(k <= 0) | ~live] = np.nan
     return E
+
+
+# ---------------------------------------------------------------------- fixed-k participation
+#
+# Revised 2026-10-22 (Andrea). On a globally thresholded graph a weak unit keeps only its very
+# closest partners and a hub thousands, so participation mixes being a hub with how deep into
+# its partner list a unit's links reach. Here every unit is read on its own top-k partners (the
+# same k for all), against two references: random spread over all live units, and random
+# spread within the layers the unit's partners actually come from.
+
+TOPK_FRACS = (0.01, 0.02, 0.1)           # k as a fraction of the live units
+
+
+def layer_network_table(labels, layers, live, n_layers=None, n_networks=None):
+    """counts[l, s] = live units in layer l and network s; sizes[l] = live units in layer l."""
+    n_layers = int(layers.max()) + 1 if n_layers is None else n_layers
+    n_networks = int(labels.max()) + 1 if n_networks is None else n_networks
+    counts = np.zeros((n_layers, n_networks), dtype=np.float64)
+    np.add.at(counts, (layers[live], labels[live]), 1.0)
+    return counts, counts.sum(1)
+
+
+def layer_matched_expectation(C, counts, sizes):
+    """E[P] if each of a unit's partners were replaced by a random live unit of the SAME layer
+    (drawn without replacement within each layer, independently across layers).
+
+    C (b, L) partners of each unit per layer (rows sum to k); counts (L, K), sizes (L,) from
+    `layer_network_table`. For layer l with c_l partners, the number landing in network s is
+    hypergeometric: mean c_l q_ls, variance c_l q_ls (1 - q_ls) (N_l - c_l) / (N_l - 1), with
+    q_ls = counts[l, s] / N_l. Then f_s = (sum over layers) / k and E[P] = 1 - sum_s E[f_s^2].
+    The unit itself is not excluded from its own layer (an O(1 / N_l) effect).
+    """
+    k = C.sum(1, keepdims=True)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        Q = np.where(sizes[:, None] > 0, counts / sizes[:, None], 0.0)
+        fpc = np.where(sizes[None, :] > 1, (sizes[None, :] - C) / (sizes[None, :] - 1), 0.0)
+    mean = C @ Q / k                                              # (b, K)
+    var = (C * fpc) @ (Q * (1 - Q)) / k ** 2
+    return 1.0 - (mean ** 2 + var).sum(1)
+
+
+def topk_pass(M, ks, labels, layers, live, block=1024, verbose=True, label='top-k'):
+    """For every live unit, its top-k partners on M (live units only, self excluded), for each
+    k in `ks`: observed participation over `labels`, the random-spread and layer-matched
+    expectations, and the shares of partners in the unit's own network and own layer.
+
+    Returns {k: dict(P, E_random, E_layer, own_network, own_layer)}, each (N,) float64, NaN
+    for dead units.
+    """
+    N = M.shape[0]
+    ks = sorted(int(k) for k in ks)
+    kmax = ks[-1]
+    n_layers = int(layers.max()) + 1
+    n_networks = int(labels.max()) + 1
+    counts, sizes = layer_network_table(labels, layers, live, n_layers, n_networks)
+    out = {k: {key: np.full(N, np.nan) for key in ('P', 'E_random', 'E_layer', 'own_network', 'own_layer')}
+           for k in ks}
+    dead_cols = ~live
+    for k in ks:
+        out[k]['E_random'][:] = expected_participation(np.full(N, k), labels, live)
+    for s, e, rows in _blocks(M, block, verbose, label):
+        rows[np.arange(e - s), np.arange(s, e)] = -1.0          # no self (the diagonal is zeroed)
+        rows[:, dead_cols] = -1.0
+        idx_rows = np.nonzero(live[s:e])[0]
+        if not len(idx_rows):
+            continue
+        R = rows[idx_rows]
+        top = np.argpartition(-R, kmax - 1, axis=1)[:, :kmax]   # the kmax strongest, unordered
+        vals = np.take_along_axis(R, top, axis=1)
+        order = np.argsort(-vals, axis=1, kind='stable')
+        top = np.take_along_axis(top, order, axis=1)            # strongest first
+        units = s + idx_rows
+        for k in ks:
+            t = top[:, :k]
+            lab = labels[t]
+            lay = layers[t]
+            F = np.zeros((len(units), n_networks))
+            np.add.at(F, (np.repeat(np.arange(len(units)), k), lab.ravel()), 1.0)
+            C = np.zeros((len(units), n_layers))
+            np.add.at(C, (np.repeat(np.arange(len(units)), k), lay.ravel()), 1.0)
+            o = out[k]
+            o['P'][units] = 1.0 - ((F / k) ** 2).sum(1)
+            o['E_layer'][units] = layer_matched_expectation(C, counts, sizes)
+            o['own_network'][units] = (lab == labels[units][:, None]).mean(1)
+            o['own_layer'][units] = (lay == layers[units][:, None]).mean(1)
+    return out

@@ -8,7 +8,7 @@ All three models have a rich club: their most strongly coupled neurons are more 
 
 The models build their club differently. In Pythia-70m the extra coupling is between hubs in the same layer: across layers, the real hubs couple no more than the null's. In both Qwen models the club also holds across layers, and it spreads over most of the networks.
 
-The models also differ in how hubs spread their strongest links over the networks. In the Qwen models, the more strongly coupled a unit is, the more networks its links reach: the top hubs come close to placing their links without regard to network, while weaker units keep theirs within fewer networks. In Pythia-70m every unit's links are concentrated in few networks, and the hubs most of all.
+The models may also differ in how hubs spread their strongest links over the networks (preliminary, see section 4.4). In the Qwen models, the more strongly coupled a unit is, the more networks its links reach: the top hubs come close to placing their links without regard to network, while weaker units keep theirs within fewer networks. In Pythia-70m every unit's links are concentrated in few networks, and the hubs most of all.
 
 ## 1. The question
 
@@ -235,6 +235,8 @@ In the Qwen models the club spans many networks from the start. The top 50 hubs 
 So in the Qwen models the club is late in depth and spread across the networks: a cross-network core, not one network. Pythia-70m's is a set of strongly coupled units within two layers and a few networks.
 
 ### 4.4 Do hubs spread their links across networks?
+
+> **Preliminary (2026-10-22).** The analysis below has two known confounds, and a corrected version is running. (1) On a graph thresholded globally, weak units keep only their very closest partners, which the clustering tends to put in the unit's own network, while hubs keep thousands of partners reaching far down their lists. That alone can make participation rise with strength. (2) Links concentrate within layers, and the networks are partly layer-local, so random spread over all units overstates how widely links "should" spread. The corrected analysis gives every unit the same number of partners (its own top k) and compares it with a layer-matched reference and with the circular-shift null. Until then, read this section as descriptive only.
 
 ![participation](participation.png)
 

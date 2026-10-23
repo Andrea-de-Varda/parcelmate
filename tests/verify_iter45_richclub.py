@@ -332,6 +332,81 @@ else:
           v['rankings_other_layers']['strength']['H1'] and float(r60[('real', 'A->B')]['rho_other']) > 1.5)
     check('CLI outputs group-writable', oct(os.stat(os.path.join(out, 'curves.csv')).st_mode & 0o777) in ('0o664', '0o666'))
 
+# ---------------------------------------------------------------- 5. fixed-k participation
+from parcelmate.richclub import layer_matched_expectation, layer_network_table, topk_pass
+rs = np.random.RandomState(2)
+N4, T4 = 400, 600
+lay4 = np.arange(N4) // 100
+net4 = rs.randint(0, 8, N4)
+live4 = np.ones(N4, bool)
+live4[-5:] = False
+X = rs.randn(N4, T4)
+X[-5:] = 0
+W4 = np.abs(corr_dead(X))
+res = topk_pass(DenseRows(W4), [5, 20], net4, lay4, live4, block=37, verbose=False)
+res2 = topk_pass(DenseRows(W4), [5, 20], net4, lay4, live4, block=400, verbose=False)
+ok = True
+for k in (5, 20):
+    for i in np.nonzero(live4)[0]:
+        w = W4[i].copy()
+        w[i] = -1
+        w[~live4] = -1
+        t = np.argsort(-w, kind='stable')[:k]
+        f = np.bincount(net4[t], minlength=8) / k
+        ok &= np.isclose(res[k]['P'][i], 1 - (f ** 2).sum())
+        ok &= np.isclose(res[k]['own_network'][i], (net4[t] == net4[i]).mean())
+        ok &= np.isclose(res[k]['own_layer'][i], (lay4[t] == lay4[i]).mean())
+    ok &= all(np.allclose(res[k][key], res2[k][key], equal_nan=True) for key in res[k])
+ok &= all(np.all(np.isnan(res[k]['P'][~live4])) for k in (5, 20))
+check('top-k participation and own-network / own-layer shares = brute force, any block size, dead units NaN', ok)
+
+counts, sizes = layer_network_table(net4, lay4, live4)
+C = np.array([[3., 10., 0., 7.]])
+E = layer_matched_expectation(C, counts, sizes)[0]
+sims = []
+for _ in range(6000):
+    labs = np.concatenate([rs.choice(net4[(lay4 == l) & live4], int(c), replace=False) for l, c in enumerate(C[0]) if c])
+    f = np.bincount(labs, minlength=8) / C.sum()
+    sims.append(1 - (f ** 2).sum())
+check('layer-matched expectation = Monte Carlo (%.4f vs %.4f)' % (E, np.mean(sims)), abs(E - np.mean(sims)) < 0.005)
+
+# Planted: units couple only within their layer; networks are random within layers. Then the
+# partners are concentrated relative to random spread over all units (they all share one layer,
+# and networks are uneven across layers here), but not relative to the layer-matched reference.
+netL = np.where(lay4 < 2, rs.randint(0, 4, N4), rs.randint(4, 8, N4))   # networks 0-3 in layers 0-1
+X = rs.randn(N4, T4)
+for l in range(4):
+    X[lay4 == l] += 0.8 * rs.randn(1, T4)
+Wl = np.abs(corr_dead(X))
+allv = np.ones(N4, bool)
+rl = topk_pass(DenseRows(Wl), [20], netL, lay4, allv, verbose=False)[20]
+ratio_rand = np.median((1 - rl['E_random']) / (1 - rl['P']))
+ratio_layer = np.median((1 - rl['E_layer']) / (1 - rl['P']))
+check('layer-only coupling: below random spread (%.2f) but at the layer-matched reference (%.2f)' % (ratio_rand, ratio_layer),
+      ratio_rand < 0.75 and abs(ratio_layer - 1) < 0.1)
+# Planted: within each layer, units also couple within their network: below the layer reference too.
+X = rs.randn(N4, T4)
+for l in range(4):
+    X[lay4 == l] += 0.5 * rs.randn(1, T4)
+for g in range(8):
+    X[netL == g] += 0.8 * rs.randn(1, T4)
+Wn = np.abs(corr_dead(X))
+rn = topk_pass(DenseRows(Wn), [20], netL, lay4, allv, verbose=False)[20]
+check('network coupling beyond layer: below the layer-matched reference (%.2f)' % np.median((1 - rn['E_layer']) / (1 - rn['P'])),
+      np.median((1 - rn['E_layer']) / (1 - rn['P'])) < 0.6)
+
+r = subprocess.run([sys.executable, '-m', 'parcelmate.bin.richclub_topk', cfg_path, '--block', '100'],
+                   cwd=ROOT, env=ENV, capture_output=True, text=True)
+tp = os.path.join(root, 'metrics', 'richclub', 'topk_participation.csv')
+ok = r.returncode == 0 and os.path.exists(tp)
+if ok:
+    rows_t = list(csv.DictReader(open(tp)))
+    club = [x for x in rows_t if x['kind'] == 'club_1pct' and x['tree'] == 'real' and x['k_frac'] == '0.01']
+    ok = len({x['tree'] for x in rows_t}) == 2 and len(club) == 2 and all(np.isfinite(float(x['ratio_layer_median'])) for x in club)
+else:
+    print(r.stderr[-2000:])
+check('top-k CLI end to end: both trees, both directions, finite ratios', ok)
+
 shutil.rmtree(tmp)
 print('\n%d checks, %d failure(s)' % (n_checks[0], len(failures)))
 for f in failures:
