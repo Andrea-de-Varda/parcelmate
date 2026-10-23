@@ -1720,6 +1720,8 @@ Every code change to the repo, newest last. Format: date — files — what and 
 
 - 2026-10-22 -- [plots/circuit_cohesion/README.md](../plots/circuit_cohesion/README.md) shortened (same content and figures, about half the length).
 
+- 2026-10-22 -- [plots/circuit_cohesion/README.md](../plots/circuit_cohesion/README.md) restructured: cohesion and specificity presented in turn, why both are needed, how depth matching works (networks in 10 bins by mean layer; bin widths 0.5-5.7 layers; a network moves 0.76 layers on average under permutation, median 0.42), specificity results per domain (morphology/lexical 14/16 and logic/code 10/12 specific but not cohesive).
+
 ## Cluster
 
 Compute for this project runs on the Stanford SC cluster (NLP group, CLiMB lab). Connection, storage layout, SLURM conventions, cluster profiles and job-launching instructions are in [CLUSTER.md](CLUSTER.md).
