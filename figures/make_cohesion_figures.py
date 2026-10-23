@@ -240,11 +240,12 @@ def domains_fig(g, model):
     from scipy.stats import wilcoxon
     r = g[g.tree == 'real'].set_index(['group', 'task'])
     n = g[g.tree == 'null'].set_index(['group', 'task'])
-    fig, ax = plt.subplots(figsize=(7.2, 3.0), dpi=300)
+    fig, ax = plt.subplots(figsize=(8.0, 3.0), dpi=300)
     x0, ticks, tlabels = 0, [], []
     for d in ORDER:
         sub = r[r.domain == d].sort_values('R')
-        xs = x0 + np.arange(len(sub))
+        pad = max(0, 12 - len(sub)) / 2.0     # small domains get a minimum width, so labels do not collide
+        xs = x0 + pad + np.arange(len(sub))
         for (key, t), x in zip(sub.iterrows(), xs):
             up = t.R > 1
             c = COLORS[d] if up else GRAY_EDGE
@@ -258,10 +259,10 @@ def domains_fig(g, model):
         ax.text(xs.mean(), 0.99, '%d/%d%s' % (k, len(sub), ptxt), transform=ax.get_xaxis_transform(), ha='center', va='top',
                 fontsize=5.8, color=COLORS[d] if k > len(sub) / 2 else '#777777', linespacing=1.0)
         ticks.append(xs.mean()); tlabels.append(TICK[d] + '\n(%d)' % len(sub))
-        x0 = xs[-1] + 7
+        x0 = xs[-1] + pad + 9
     ax.axhline(1, color='#555555', lw=1, ls='--', zorder=1)
     ax.set_ylim(0.85, 1.42)
-    ax.set_xticks(ticks); ax.set_xticklabels(tlabels, fontsize=6.4)
+    ax.set_xticks(ticks); ax.set_xticklabels(tlabels, fontsize=6.8)
     ax.set_ylabel('preference ratio', fontsize=8.5)
     style(ax)
     handles = [Line2D([0], [0], marker='o', color='none', markerfacecolor='#555555', markeredgecolor='black', markersize=4.5,

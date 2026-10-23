@@ -1727,6 +1727,8 @@ Every code change to the repo, newest last. Format: date — files — what and 
 
 - 2026-10-22 -- Iteration 46 revised to the preference ratio: [parcelmate/cohesion.py](../parcelmate/cohesion.py), [parcelmate/bin/circuit_cohesion.py](../parcelmate/bin/circuit_cohesion.py), [tests/verify_iter46_cohesion.py](../tests/verify_iter46_cohesion.py) (12 checks pass), [figures/make_cohesion_figures.py](../figures/make_cohesion_figures.py), [figures/circuit_cohesion_2b.csv](../figures/circuit_cohesion_2b.csv) regenerated, `plots/circuit_cohesion/{method,domains,controls}_2b` (example_2b removed), [plots/circuit_cohesion/README.md](../plots/circuit_cohesion/README.md) rewritten.
 
+- 2026-10-22 -- [plots/circuit_cohesion/README.md](../plots/circuit_cohesion/README.md) cut to a short control page (measure, Figure 1 method, Figure 2 domains, table); `concept`, `coupling` and `controls` figures kept on disk but no longer shown; domains figure widened (8.0 in, minimum width for small domains).
+
 ## Cluster
 
 Compute for this project runs on the Stanford SC cluster (NLP group, CLiMB lab). Connection, storage layout, SLURM conventions, cluster profiles and job-launching instructions are in [CLUSTER.md](CLUSTER.md).
