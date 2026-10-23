@@ -477,46 +477,36 @@ def fig_composition(results):
 
 
 def fig_participation(results):
-    graphs = [('top1%', 'top 1% graph'), ('top2%', 'top 2%'), ('top10%', 'top 10%'), ('weighted', 'weighted')]
-    rows = []
-    for m, lab in MODELS:
-        for gk, glab in graphs:
-            rows.append((m, lab, gk, glab))
-    fig, ax = plt.subplots(figsize=(5.6 * .75, 4.4 * .75))
-    ax.spines[['top', 'right']].set_visible(False)
-    for s in ('left', 'bottom'):
-        ax.spines[s].set_linewidth(1.5)
-    ax.grid(axis='x', linestyle='--', alpha=0.5, zorder=1)
-    y = 0
-    ticks, labels = [], []
-    for m, lab in MODELS:
+    """Effective number of networks a unit's links reach, 1 / (1 - P), over the same under random
+    spread, 1 / (1 - E[P]); median per strength-rank bin, mean of the two directions. 1 = links
+    placed regardless of network; below 1 = links concentrated in fewer networks than chance.
+    Shading: the club of 1% of live units."""
+    fig, axes = plt.subplots(1, 3, figsize=(9.6 * .8, 2.9 * .8), sharey=True)
+    for ax, (m, lab) in zip(axes, MODELS):
         r = results[m]
-        for gk, glab in graphs:
-            ticks.append(y)
-            labels.append('%s  %s' % (lab if gk == 'top1%' else '', glab))
-            if r is not None:
-                n = one_percent(r)
-                p = r['part']
-                q = p[(p.tree == 'real') & (p.graph == gk) & (p.n == n)]
-                club, below, live = q.P_club_mean.mean(), q.P_below_mean.mean(), q.P_live_median.mean()
-                ax.plot([below, club], [y, y], color=COLOR[m], lw=2, zorder=2)
-                ax.scatter([club], [y], s=36, color=COLOR[m], edgecolor='black', lw=0.8, zorder=4)
-                ax.scatter([below], [y], s=36, color='white', edgecolor=COLOR[m], lw=1.4, zorder=4)
-                ax.scatter([live], [y], marker='|', s=70, color='#555555', lw=1.4, zorder=3)
-            else:
-                ax.text(0.5, y, 'pending', transform=ax.get_yaxis_transform(), fontsize=8, color='#999999',
-                        va='center', ha='center')
-            y -= 1
-        y -= 0.6
-    ax.set_yticks(ticks)
-    ax.set_yticklabels(labels, fontsize=8.5)
-    ax.set_xlabel('Participation coefficient', fontsize=11)
-    ax.legend(handles=[Line2D([0], [0], marker='o', color='none', markerfacecolor='#555555', markeredgecolor='black',
-                              markersize=6, label='club (top 1% of units)'),
-                       Line2D([0], [0], marker='o', color='none', markerfacecolor='white', markeredgecolor='#555555',
-                              markersize=6, label='ranked just below'),
-                       Line2D([0], [0], marker='|', color='#555555', markersize=8, lw=0, label='median unit')],
-              loc='upper left', bbox_to_anchor=(1.0, 1.0), frameon=False, fontsize=8.5)
+        path = os.path.join(RES, '%s-resid-pool4-tiles' % m, 'metrics', 'richclub', 'participation_random.csv')
+        if r is None or not os.path.exists(path):
+            pending(ax, lab)
+            continue
+        chrome(ax)
+        d = pd.read_csv(path)
+        for g, a, lw in (('top1%', 1.0, 1.9), ('top2%', 0.55, 1.2), ('top10%', 0.3, 1.2)):
+            q = d[(d.kind == 'rank_bin') & (d.graph == g)].groupby(['rank_lo', 'rank_hi'])[['neff_ratio_median']].mean()
+            q = q.reset_index()
+            x = np.sqrt(q.rank_lo * q.rank_hi)
+            ax.plot(x, q.neff_ratio_median, color=REAL, alpha=a, lw=lw, marker='o' if g == 'top1%' else None, ms=3, zorder=3)
+        ax.axhline(1, color='black', lw=0.9, zorder=2)
+        ax.axvspan(1, 0.01 * r['verdict']['n_live'], color=REAL, alpha=0.08, lw=0, zorder=0)
+        log_x(ax)
+        ax.set_title(lab, fontsize=10.5, weight='bold')
+        ax.set_xlabel('Strength rank', fontsize=11)
+    axes[0].set_ylabel('Networks reached / random', fontsize=11)
+    axes[0].set_ylim(0, 1.3)
+    fig.legend(handles=[Line2D([0], [0], color=REAL, lw=1.9, marker='o', ms=3, label='top 1% graph'),
+                        Line2D([0], [0], color=REAL, lw=1.2, alpha=0.55, label='top 2%'),
+                        Line2D([0], [0], color=REAL, lw=1.2, alpha=0.3, label='top 10%'),
+                        Rectangle((0, 0), 1, 1, color=REAL, alpha=0.12, label='club (top 1% of units)')],
+               loc='lower center', bbox_to_anchor=(0.5, -0.17), ncol=4, frameon=False, fontsize=8.5)
     save(fig, 'participation')
 
 

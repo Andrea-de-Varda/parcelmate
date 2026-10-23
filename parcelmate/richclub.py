@@ -270,3 +270,25 @@ def longest_run(flags):
         else:
             cur = 0
     return start, best
+
+
+def expected_participation(k, labels, live):
+    """Participation expected if each unit's k links went to k distinct other live units drawn
+    at random, regardless of network (the random-spread reference).
+
+    For unit i in network g with M = L - 1 possible partners, of which m_s in network s
+    (m_s = L_s - [s == g]), the share f_s of its k links in network s is hypergeometric with
+    E[f_s] = p_s = m_s / M and Var[f_s] = p_s (1 - p_s) (M - k) / (k (M - 1)). So
+        E[P_i] = 1 - sum_s E[f_s^2] = (1 - sum_s p_s^2) (1 - (M - k) / (k (M - 1))).
+    k (N,) link counts; labels (N,) network of every unit; live (N,) bool. NaN where k = 0
+    or the unit is dead.
+    """
+    k = np.asarray(k, dtype=np.float64)
+    labels = np.asarray(labels)
+    L_s = np.bincount(labels[live], minlength=int(labels.max()) + 1).astype(np.float64)
+    M = float(live.sum() - 1)
+    sum_sq = ((L_s ** 2).sum() - 2 * L_s[labels] + 1) / M ** 2      # sum_s p_s^2, own network minus self
+    with np.errstate(divide='ignore', invalid='ignore'):
+        E = (1 - sum_sq) * (1 - (M - k) / (k * (M - 1)))
+    E[(k <= 0) | ~live] = np.nan
+    return E
