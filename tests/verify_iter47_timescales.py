@@ -223,15 +223,19 @@ try:
     N = nl * wd
     lag = np.arange(L + 1)
     unit_tau = 1.0 + np.repeat(np.arange(nl), wd) + rs.uniform(0, 1, N)
+    unit_B = rs.uniform(0.02, 0.3, N)          # plateau, relative to the decaying amplitude
+    unit_A = rs.uniform(0.3, 0.8, N)
     with h5py.File(os.path.join(tmp, 'acf.h5'), 'w') as f:
         f.attrs['max_lag'] = L
         f['coordinates'] = np.stack(np.divmod(np.arange(N), wd), 1).astype(np.int32)
         f['layer_types'] = np.array(['linear_attention', 'linear_attention', 'full_attention'], dtype='S')
-        for c, scale in (('intact', 1.0), ('shuffled', 0.5)):
+        for c, scale in (('intact', 1.0), ('shuffled', 2.0)):
             for dname in ('wikitext', 'bookcorpus'):
                 for h in ('halfA', 'halfB'):
                     g = f.require_group('%s/%s/%s' % (c, dname, h))
-                    g['acf'] = np.exp(-lag[None] / (scale * unit_tau[:, None])) + rs.normal(0, 0.002, (N, L + 1))
+                    a_ = unit_A[:, None] * (np.exp(-lag[None] / (scale * unit_tau[:, None])) + unit_B[:, None])
+                    a_[:, 0] = 1.0
+                    g['acf'] = a_ + rs.normal(0, 0.0005, (N, L + 1))
                     g['mean'] = np.zeros(N); g['var'] = rs.uniform(0.5, 2, N)
                     g['positive_share'] = rs.uniform(0.2, 0.8, N); g['n_pairs'] = np.ones(L + 1)
     coords = np.stack(np.divmod(np.arange(N), wd), 1)
@@ -252,20 +256,26 @@ try:
     sys.argv = ['x', 'analyze', '--out', tmp, '--networks', os.path.join(tmp, 'nets'), '--patching', proot,
                 '--pct', '10', '--draws', '50', '--perm', '20', '--cores', '2']
     bt.main()
-    s = json.load(open(os.path.join(tmp, 'analysis', 'summary.json')))
-    circ = list(csv.DictReader(open(os.path.join(tmp, 'analysis', 'circuits.csv'))))
-    nets = list(csv.DictReader(open(os.path.join(tmp, 'analysis', 'networks.csv'))))
-    u = np.load(os.path.join(tmp, 'analysis', 'units.npz'))
-    check('analyze: tau_int of the synthetic ACF is about tau - 0.5 (intact)',
-          np.allclose(u['tau_intact'], np.exp(-lag[1:, None] / unit_tau[None]).sum(0), atol=0.05))
-    check('analyze: diff = intact - shuffled', np.allclose(u['tau_diff'], u['tau_intact'] - u['tau_shuffled']))
-    check('analyze: split-half reliability near 1 on noise-free ACFs, gate passed',
-          s['split_half']['intact'] > 0.95 and s['gate_passed'])
-    check('analyze: exponential fits succeed on exponential ACFs', s['exp_fit_ok']['intact'] > 0.95)
-    check('analyze: one circuit row per task and measure, accuracy attached',
-          len(circ) == 9 and np.allclose(sorted({round(float(r['accuracy']), 6) for r in circ}), [0.7, 0.8, 0.9]))
-    check('analyze: one network row per partition (2 halves x real/null) and measure (4)', len(nets) == 16)
-    check('analyze: depth correlation positive', s['depth_spearman']['intact'] > 0.5)
+    o = os.path.join(tmp, 'analysis_fit')
+    s = json.load(open(os.path.join(o, 'summary.json')))
+    circ = list(csv.DictReader(open(os.path.join(o, 'circuits.csv'))))
+    nets = list(csv.DictReader(open(os.path.join(o, 'networks.csv'))))
+    u = np.load(os.path.join(o, 'units.npz'))
+    check('analyze: decay recovers log tau, persistence A x B, amplitude A (intact)',
+          np.allclose(u['intact_decay'], np.log(unit_tau), atol=0.05)
+          and np.allclose(u['intact_persistence'], unit_A * unit_B, atol=0.01)
+          and np.allclose(u['intact_amplitude'], unit_A, atol=0.02))
+    check('analyze: shuffled decay recovers its doubled time constant',
+          np.allclose(u['shuffled_decay'], np.log(2.0 * unit_tau), atol=0.05))
+    check('analyze: tau_int kept as a reference', np.allclose(
+        u['intact_tau_int_halfA'], (unit_A[:, None] * (np.exp(-lag[1:] / unit_tau[:, None]) + unit_B[:, None])).sum(1), atol=0.05))
+    check('analyze: split-half reliability near 1 on near-noise-free ACFs, gate passed',
+          s['split_half']['intact_decay'] > 0.95 and s['split_half']['intact_persistence'] > 0.95 and s['gate_passed'])
+    check('analyze: exponential fits succeed', min(s['fit_ok'].values()) > 0.95)
+    check('analyze: one circuit row per task and measure (4), accuracy attached',
+          len(circ) == 12 and np.allclose(sorted({round(float(r['accuracy']), 6) for r in circ}), [0.7, 0.8, 0.9]))
+    check('analyze: one network row per partition (2 halves x real/null) and measure (6)', len(nets) == 24)
+    check('analyze: decay correlates with depth', s['depth_spearman']['intact_decay'] > 0.5)
 finally:
     shutil.rmtree(tmp)
 

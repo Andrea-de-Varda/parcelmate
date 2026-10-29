@@ -10,6 +10,8 @@
 #                    About 1.2M tokens of forward passes; the fit's types x units table and its
 #                    copy on the GPU are smaller than in Iteration 43, which ran on the same card.
 # analyze (CPU):     reliability, depth, networks, circuits; starts when acf ends (afterok).
+#                    `submit-analyze` reruns it alone on an existing acf.h5. Since 2026-10-29 it
+#                    fits each half (4 x 147,456 exponential fits) and writes analysis_fit/.
 #
 # Disk: acf.h5 about 1.3 GB (8 ACFs of 147,456 x 257 float32) plus the windows; the non-streaming
 # wikitext and bookcorpus downloads go to the shared HF cache.
@@ -23,8 +25,8 @@ MODE=${1:-}
 NAME=${2:-}
 
 case "$MODE" in
-    generate|submit) ;;
-    *) echo "usage: $0 generate | submit qwen3.5-2b" >&2; exit 2 ;;
+    generate|submit|submit-analyze) ;;
+    *) echo "usage: $0 generate | submit qwen3.5-2b | submit-analyze qwen3.5-2b" >&2; exit 2 ;;
 esac
 
 cd "$WORK"
@@ -84,6 +86,12 @@ submit() {
     a=$(sbatch --parsable jobs/timescales-$NAME-acf.pbs)
     sbatch --parsable --dependency=afterok:$a jobs/timescales-$NAME-analyze.pbs
     echo "acf $a"
+}
+
+submit-analyze() {
+    # The analysis alone, on an existing acf.h5 (decay and persistence, 2026-10-29).
+    [ "$NAME" = qwen3.5-2b ] || { echo "only qwen3.5-2b is configured" >&2; exit 2; }
+    sbatch --parsable jobs/timescales-$NAME-analyze.pbs
 }
 
 $MODE
