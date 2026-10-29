@@ -17,6 +17,13 @@ after scoring and the network-neuroscience stages need the connectome itself.
                                      Full pipeline (connectivity, parcellation, score).
 
 The `-tiles` suffix keeps the job names apart from the original runs' jobs.
+
+  <model>-resid-pool4-docs           (Iteration 48) the same three connectomes on document-
+                                     coherent text (`data_kwargs: {sampling: documents}`):
+                                     wikitext and bookcorpus as windows of contiguous text,
+                                     agnews and tldr17 packed with the end-of-text token between
+                                     documents. Full pipeline for every model, tiles kept: one
+                                     tree serves both the circuit comparison and the rich club.
 """
 
 import os
@@ -37,6 +44,9 @@ SPECS = {
                                          neurons=2048, pool_as='pooled', resid=True, pool_tokens=102400,
                                          domains=['wikitext', 'bookcorpus', 'agnews', 'tldr17']),
 }
+for _m in ('qwen3.5-2b', 'qwen3.5-4b', 'pythia-70m'):
+    _base = {k: v for k, v in SPECS['%s-resid-pool4-tiles' % _m].items() if k != 'source'}
+    SPECS['%s-resid-pool4-docs' % _m] = dict(_base, docs=True)
 
 HEADER = """# Rich-club stage (LOG.md Iteration 45, info/RICH_CLUB_PLAN.md): %(model)s, all %(units)d MLP
 # neurons, the POOLED RESIDUAL connectome of Iteration 43 (four prose datasets; half A = sample 1
@@ -54,11 +64,17 @@ def make(name, spec):
     cfg['purge_connectivity'] = False
     if spec.get('revision'):
         cfg['connectivity']['revision'] = spec['revision']
+    if spec.get('docs'):
+        cfg['connectivity']['data_kwargs'] = {'sampling': 'documents'}
     units = spec['layers'] * spec['neurons']
     gb = units * units * 2 / 1e9
     if spec.get('source'):
         origin = ('Connectivity identical to configs/qwen35/%s.yml; its stored partitions are\n'
                   '# copied into this tree and re-scored as the reproduction check.' % spec['source'])
+    elif spec.get('docs'):
+        origin = ('Document-coherent text (Iteration 48): wikitext and bookcorpus as windows of\n'
+                  '# contiguous text, agnews and tldr17 with the end-of-text token between documents.\n'
+                  '# Full pipeline in this tree.')
     else:
         origin = 'The pilot: full pipeline in this tree.'
     return HEADER % dict(model=spec['model'], units=units, gb=gb, total=4 * gb, origin=origin) + \

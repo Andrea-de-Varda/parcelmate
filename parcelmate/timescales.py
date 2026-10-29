@@ -25,65 +25,14 @@ chosen, non-overlapping blocks of rows (the rows are in book order). The connect
 be reused: `get_dataset` shuffles rows before packing them.
 """
 
-import re
-
 import numpy as np
 import torch
 
+from parcelmate.data import article_windows, block_windows, wikitext_articles  # noqa: F401 (moved to data, Iteration 48)
 from parcelmate.util import derive_seed, stderr
-
-WIKITEXT_TITLE = re.compile(r'^ = [^=].* = \n$')
 
 
 # ---------------------------------------------------------------------------- windows
-
-def wikitext_articles(lines):
-    """Group wikitext lines into articles at the level-1 headings (` = Title = `); the text
-    before the first heading is dropped. Section headings (` = = X = = `) stay inside."""
-    articles, cur = [], None
-    for t in lines:
-        if WIKITEXT_TITLE.match(t):
-            if cur:
-                articles.append(''.join(cur))
-            cur = [t]
-        elif cur is not None:
-            cur.append(t)
-    if cur:
-        articles.append(''.join(cur))
-    return articles
-
-
-def article_windows(articles, tokenizer, n, seq_len, rng):
-    """The first `seq_len` tokens of `n` randomly chosen articles at least that long, in the
-    order drawn. Returns (windows (n, seq_len) int64, article indices)."""
-    out, idx = [], []
-    for i in rng.permutation(len(articles)):
-        ids = tokenizer(articles[i])['input_ids']
-        if len(ids) >= seq_len:
-            out.append(ids[:seq_len])
-            idx.append(int(i))
-            if len(out) == n:
-                break
-    assert len(out) == n, 'only %d articles reach %d tokens' % (len(out), seq_len)
-    return np.asarray(out, dtype=np.int64), np.asarray(idx)
-
-
-def block_windows(get_rows, n_rows, tokenizer, n, seq_len, rng, block=200):
-    """`seq_len` contiguous tokens from each of `n` randomly chosen blocks of `block` consecutive
-    rows (rows joined by a space), in the order drawn. Blocks lie on a fixed grid, so no two
-    windows share a row. get_rows(start, stop) -> list of str. Returns (windows, block starts)."""
-    out, starts = [], []
-    for b in rng.permutation(n_rows // block):
-        s = int(b) * block
-        ids = tokenizer(' '.join(get_rows(s, s + block)))['input_ids']
-        if len(ids) >= seq_len:
-            out.append(ids[:seq_len])
-            starts.append(s)
-            if len(out) == n:
-                break
-    assert len(out) == n, 'only %d blocks reach %d tokens' % (len(out), seq_len)
-    return np.asarray(out, dtype=np.int64), np.asarray(starts)
-
 
 def load_windows(dataset, tokenizer, n, seq_len, seed):
     """`n` windows of `dataset` (wikitext or bookcorpus) and where each came from."""

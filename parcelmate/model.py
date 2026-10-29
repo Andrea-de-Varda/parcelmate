@@ -1263,6 +1263,8 @@ def run_connectivity(
                       unit_type=unit_type)
     if data_kwargs.get('shuffle_words'):
         provenance['shuffle_words'] = 'within each seq_len window'
+    if data_kwargs.get('sampling', 'rows') != 'rows':
+        provenance['sampling'] = data_kwargs['sampling']
 
     if isinstance(domains, str):
         domains = (domains,)

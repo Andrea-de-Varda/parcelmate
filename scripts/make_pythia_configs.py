@@ -54,12 +54,23 @@ RESID_HEADER = """#
 # exactly those of configs/pythia/.
 """
 
+DOCS_HEADER = """#
+# DOCUMENT-COHERENT TEXT (LOG.md Iteration 48): wikitext and bookcorpus as windows of contiguous
+# text (the first 1,024 tokens of random articles; 1,024 tokens of consecutive sentences from
+# random blocks), agnews and tldr17 packed with the end-of-text token between documents
+# (`data_kwargs: {sampling: documents}`). Everything else as in the tree without `_docs`.
+"""
 
-def config(size, step, resid=False):
+
+def tree_name(resid=False, docs=False):
+    return 'pythia' + ('_resid' if resid else '') + ('_docs' if docs else '')
+
+
+def config(size, step, resid=False, docs=False):
     spec = SIZES[size]
     model = 'EleutherAI/pythia-%s' % size
     units = spec['layers'] * spec['neurons']
-    out_dir = 'results/%s/pythia-%s/step%d' % ('pythia_resid' if resid else 'pythia', size, step)
+    out_dir = 'results/%s/pythia-%s/step%d' % (tree_name(resid, docs), size, step)
     cfg = dict(
         output_dir=out_dir,
         seed=42,
@@ -110,26 +121,31 @@ def config(size, step, resid=False):
     if resid:
         cfg['connectivity'].update(residualize='token_position', residual_ref_tokens=None,
                                    residual_min_count=3)
+    if docs:
+        cfg['connectivity']['data_kwargs'] = {'sampling': 'documents'}
     header = HEADER % dict(model=model, step=step, layers=spec['layers'],
                            neurons=spec['neurons'], units=units,
                            gb=4 * 2 * units * units * 4 / 1e9)
     if resid:
         header += RESID_HEADER
+    if docs:
+        header += DOCS_HEADER
     return header + yaml.safe_dump(cfg, sort_keys=False, default_flow_style=False)
 
 
-def config_name(size, step, resid=False):
-    return '%s-%s_step%d.yml' % ('pythia_resid' if resid else 'pythia', size, step)
+def config_name(size, step, resid=False, docs=False):
+    return '%s-%s_step%d.yml' % (tree_name(resid, docs), size, step)
 
 
 if __name__ == '__main__':
-    # `--resid` writes the residual-connectome twins into configs/pythia_resid/.
-    resid = '--resid' in sys.argv
-    out = OUT + ('_resid' if resid else '')
+    # `--resid` writes the residual-connectome twins into configs/pythia_resid/; `--docs` the
+    # document-coherent ones (Iteration 48) into configs/pythia[_resid]_docs/.
+    resid, docs = '--resid' in sys.argv, '--docs' in sys.argv
+    out = os.path.join(os.path.dirname(OUT), tree_name(resid, docs))
     os.makedirs(out, exist_ok=True)
     for size in SIZES:
         for step in STEPS:
-            path = os.path.join(out, config_name(size, step, resid))
+            path = os.path.join(out, config_name(size, step, resid, docs))
             with open(path, 'w') as f:
-                f.write(config(size, step, resid))
+                f.write(config(size, step, resid, docs))
             print(os.path.relpath(path, os.path.join(HERE, '..')))

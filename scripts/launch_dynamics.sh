@@ -27,6 +27,7 @@ MODE=${1:-}
 SIZE=${2:-}
 MAX_GPU=${MAX_GPU:-4}
 # TREE=pythia_resid: the residual-connectome twins (LOG.md Iteration 39).
+# TREE=pythia_docs / pythia_resid_docs: document-coherent text (Iteration 48).
 TREE=${TREE:-pythia}
 # Nodes to avoid (comma-separated). jagupard32 had a GPU held by a stale 43 GB process on
 # 2026-09-23 that killed three jobs (LOG.md Iteration 28).

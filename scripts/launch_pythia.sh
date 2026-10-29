@@ -30,6 +30,7 @@ MODE=${1:-}
 SIZE=${2:-}
 # TREE=pythia_resid runs the residual-connectome twins (LOG.md Iteration 39): configs/pythia_resid,
 # results/pythia_resid, job names pythia_resid-*. Default: the original runs.
+# TREE=pythia_docs / pythia_resid_docs: the same on document-coherent text (Iteration 48).
 TREE=${TREE:-pythia}
 
 STEPS="0 1 4 16 64 256 1000 4000 16000 64000 143000"
@@ -67,7 +68,9 @@ generate() {
         conda activate "$CONDA_ENV"
     fi
     mkdir -p jobs logs
-    python scripts/make_pythia_configs.py $( [ "$TREE" = pythia_resid ] && echo --resid ) > /dev/null
+    # pythia, pythia_resid (Iteration 39), pythia_docs and pythia_resid_docs (Iteration 48).
+    python scripts/make_pythia_configs.py $(case "$TREE" in *_resid*) echo --resid ;; esac) \
+        $(case "$TREE" in *_docs) echo --docs ;; esac) > /dev/null
     local M="python -m parcelmate.bin.make_jobs"
     local CPU=configs/cluster/sc-cpu.yml
     local GPU=configs/cluster/sc.yml

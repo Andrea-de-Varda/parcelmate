@@ -1,3 +1,4 @@
+import re
 import time
 import numpy as np
 from scipy import signal
@@ -82,6 +83,85 @@ def shuffle_words_within(rows, starts, seed):
     return out
 
 
+# Document-coherent sampling (LOG.md Iteration 48). Wikitext and bookcorpus rows are fragments
+# of documents (a line, a sentence), so packing shuffled rows makes windows of unrelated
+# fragments; these datasets are cut into windows of contiguous text instead. Every other dataset
+# is a set of whole documents, packed as before but with the end-of-text token between them.
+WIKITEXT_TITLE = re.compile(r'^ = [^=].* = \n$')
+COHERENT_DATASETS = ('Salesforce/wikitext', 'rojagtap/bookcorpus')
+DOCUMENT_SEPARATOR = '<|endoftext|>'
+
+
+def wikitext_articles(lines):
+    """Group wikitext lines into articles at the level-1 headings (` = Title = `); the text
+    before the first heading is dropped. Section headings (` = = X = = `) stay inside."""
+    articles, cur = [], None
+    for t in lines:
+        if WIKITEXT_TITLE.match(t):
+            if cur:
+                articles.append(''.join(cur))
+            cur = [t]
+        elif cur is not None:
+            cur.append(t)
+    if cur:
+        articles.append(''.join(cur))
+    return articles
+
+
+def article_windows(articles, tokenizer, n, seq_len, rng):
+    """The first `seq_len` tokens of `n` randomly chosen articles at least that long, in the
+    order drawn. Returns (windows (n, seq_len) int64, article indices)."""
+    out, idx = [], []
+    for i in rng.permutation(len(articles)):
+        ids = tokenizer(articles[i])['input_ids']
+        if len(ids) >= seq_len:
+            out.append(ids[:seq_len])
+            idx.append(int(i))
+            if len(out) == n:
+                break
+    assert len(out) == n, 'only %d articles reach %d tokens' % (len(out), seq_len)
+    return np.asarray(out, dtype=np.int64), np.asarray(idx)
+
+
+def block_windows(get_rows, n_rows, tokenizer, n, seq_len, rng, block=200):
+    """`seq_len` contiguous tokens from each of `n` randomly chosen blocks of `block` consecutive
+    rows (rows joined by a space), in the order drawn. Blocks lie on a fixed grid, so no two
+    windows share a row. get_rows(start, stop) -> list of str. Returns (windows, block starts)."""
+    out, starts = [], []
+    for b in rng.permutation(n_rows // block):
+        s = int(b) * block
+        ids = tokenizer(' '.join(get_rows(s, s + block)))['input_ids']
+        if len(ids) >= seq_len:
+            out.append(ids[:seq_len])
+            starts.append(s)
+            if len(out) == n:
+                break
+    assert len(out) == n, 'only %d blocks reach %d tokens' % (len(out), seq_len)
+    return np.asarray(out, dtype=np.int64), np.asarray(starts)
+
+
+def coherent_windows(dataset, tokenizer, n_tokens, seq_len, split, seed, **kwargs):
+    """`n_tokens // seq_len` windows of contiguous text: wikitext, the first `seq_len` tokens of
+    randomly chosen articles; bookcorpus, `seq_len` tokens from randomly chosen blocks of
+    consecutive sentences. Windows come in the order drawn, so a call for more tokens returns
+    the same windows first (the residual fit's reference windows follow the analysed ones)."""
+    assert n_tokens % seq_len == 0, 'documents sampling needs n_tokens a multiple of seq_len'
+    assert seed is not None, 'documents sampling needs a seed'
+    rng = np.random.RandomState(int(seed) % (2 ** 32))
+    ds = datasets.load_dataset(dataset, split=split, **kwargs)
+    if dataset == 'Salesforce/wikitext':
+        return article_windows(wikitext_articles(ds['text']), tokenizer, n_tokens // seq_len, seq_len, rng)[0]
+    return block_windows(lambda s, e: ds[s:e]['text'], len(ds), tokenizer, n_tokens // seq_len, seq_len, rng)[0]
+
+
+def document_separator_id(tokenizer):
+    # A round trip, not a comparison with unk: Pythia's end-of-text token is also its unk (id 0).
+    i = tokenizer.convert_tokens_to_ids(DOCUMENT_SEPARATOR)
+    assert i is not None and tokenizer.convert_ids_to_tokens(i) == DOCUMENT_SEPARATOR, \
+        'tokenizer has no %s token' % DOCUMENT_SEPARATOR
+    return i
+
+
 def get_dataset(
         dataset,
         tokenizer,
@@ -93,6 +173,7 @@ def get_dataset(
         shuffle=True,
         seed=None,
         shuffle_words=False,
+        sampling='rows',
         verbose=True,
         indent=0,
         **kwargs
@@ -102,10 +183,25 @@ def get_dataset(
     `shuffle_words=True` (LOG.md Iteration 32) permutes whole words within each seq_len
     window after tokenization (`shuffle_words_within`): the same documents, tokens and
     windows, the same bag of words and of tokens per window, only the order destroyed.
+
+    `sampling='documents'` (LOG.md Iteration 48): wikitext and bookcorpus as windows of
+    contiguous text (`coherent_windows`; `take`, `wrap` and `shuffle` do not apply); any other
+    dataset as before, with the end-of-text token after every document. `'rows'` is the
+    original packing of shuffled rows without separators.
     """
     if verbose:
         stderr('%sGetting input data\n' % (' ' * indent))
     assert seq_len > 0, 'seq_len must be positive'
+    assert sampling in ('rows', 'documents'), 'sampling must be rows or documents, got %r' % (sampling,)
+    separator = None
+
+    if sampling == 'documents' and dataset in COHERENT_DATASETS:
+        input_ids = coherent_windows(dataset, tokenizer, n_tokens, seq_len, split, seed, **kwargs).tolist()
+        if shuffle_words:
+            input_ids = shuffle_words_within(input_ids, word_start_table(tokenizer),
+                                             derive_seed(seed, 'shuffle_words'))
+        input_ids = torch.as_tensor(pad(input_ids))
+        return input_ids, torch.ones_like(input_ids)
 
     if dataset in ('whitespace', 'random'):
         dataset = BaselineDataset(dataset, seq_len, tokenizer=tokenizer, seed=seed)
@@ -125,6 +221,8 @@ def get_dataset(
                     raise ValueError('no known content key found in dataset')
             _dataset.append(instance[key])
         dataset = _dataset
+        if sampling == 'documents':
+            separator = document_separator_id(tokenizer)
         if shuffle and take:
             # Local RNG rather than the global one, so a domain's document order is
             # reproducible in isolation (see util.derive_seed).
@@ -137,6 +235,8 @@ def get_dataset(
     for instance in dataset:
         toks = tokenizer(instance)
         ids, mask = toks['input_ids'], toks['attention_mask']
+        if separator is not None:
+            ids, mask = ids + [separator], mask + [1]
         if _n_tokens + len(ids) > n_tokens:
             ids = ids[:n_tokens - _n_tokens]
             mask = mask[:n_tokens - _n_tokens]
