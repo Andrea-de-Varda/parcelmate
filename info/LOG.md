@@ -1417,6 +1417,15 @@ The timescales (35) and residual (16) suites pass unchanged. The real Pythia-70m
 
 That is 30 jobs for the pooled trees (3 GPU) and 94 for the dynamics (44 GPU). Disk: about 870 GB of new kept tiles (172 GB at 2B, 696 GB at 4B), and the dynamics tiles are purged after scoring. Peak about 1.9 TB until the old tiles go.
 
+**Submitted 2026-10-29 at commit `2d66e30`.**
+- **Pythia-70m pilot** (18182170-77, all completed: connectivity 5 min 41, parcellations 4-5 min, score 1 min 43, richclub 2 min, topk 1 min). The provenance records `sampling: documents`; the residual fit kept 13,016 token types on 394,561 reference tokens. New against the shuffled-rows tree: reliability (ARI) 0.926 against 0.939 (null 0.732 / 0.741); held-out fidelity r 0.629 / 0.624 (null 0.502 / 0.498); layer AMI 0.343 / 0.357. The rich-club H1 holds on the strength ranking for n = 50-1,142.
+- **Qwen3.5-2B:** connectivity 18182477, parcellations 18182478-81, score 18182482, richclub 18182483, topk 18182484, bankconc 18182485.
+- **Qwen3.5-4B:** 18182486, 18182487-92, 18182493, 18182494, 18182495, 18182496.
+- **pythia_resid_docs 70m:** chains 18182507-42, checkpoints 18182543, dynamics 18182544-56.
+- **pythia_resid_docs 160m:** chains 18182557-89, checkpoints 18182590, dynamics 18182591-603.
+
+Footprint before the Qwen submission: 1.0 TB under devarda, share 16 TB free, no other jobs.
+
 ## Decisions made
 
 - 2026-10-29 (document-coherent text): **the paper's connectomes are recomputed on document-coherent text: wikitext and bookcorpus as windows of contiguous text (the timescales sampler), agnews and tldr17 with `<|endoftext|>` between documents; new trees `results/richclub/<model>-resid-pool4-docs` (one kept-tiles tree per model for both the circuits and the rich club) and `results/pythia_resid_docs/`; old results kept as the shuffled-rows reference, old tiles deleted after the new runs check out; cohesion and timescales not rerun; dynamics on the residual tree only.** Turning the shuffle off was rejected (a half would come from one or two books). Iteration 48. Andrea, 2026-10-29.
@@ -1826,6 +1835,7 @@ Every code change to the repo, newest last. Format: date — files — what and 
 
 - 2026-10-29 -- Iteration 47 revision results (job 18178531) recorded; no code changes.
 - 2026-10-29 -- **Iteration 48**: [parcelmate/data.py](../parcelmate/data.py) (`sampling`, `coherent_windows`, `document_separator_id`; window helpers moved in from timescales), [parcelmate/timescales.py](../parcelmate/timescales.py) (imports them), [parcelmate/model.py](../parcelmate/model.py) (provenance), [scripts/make_richclub_configs.py](../scripts/make_richclub_configs.py), [scripts/launch_richclub.sh](../scripts/launch_richclub.sh), [scripts/make_pythia_configs.py](../scripts/make_pythia_configs.py) (`--docs`), [scripts/launch_pythia.sh](../scripts/launch_pythia.sh), [scripts/launch_dynamics.sh](../scripts/launch_dynamics.sh), configs `configs/richclub/*-resid-pool4-docs.yml` and `configs/pythia_resid_docs/` (new), [tests/verify_iter48_documents.py](../tests/verify_iter48_documents.py) (new). Nothing submitted.
+- 2026-10-29 -- Iteration 48 submissions and Pythia-70m pilot result recorded.
 
 ## Cluster
 
