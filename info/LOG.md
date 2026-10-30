@@ -1873,6 +1873,7 @@ Every code change to the repo, newest last. Format: date — files — what and 
 - 2026-10-29 -- [figures/make_timescales_figures.py](../figures/make_timescales_figures.py) `fig_depth`: 3 x 2 grid (rows ACF(1), ACF(10), ACF(100); columns intact, shuffled), each panel on its own y-axis (Andrea: the ranges differ too much to share axes).
 - 2026-10-29 -- Iteration 47 third revision (within-window ACF): [parcelmate/timescales.py](../parcelmate/timescales.py) `window_lagged_sums`, `WindowACFAccumulator`, `unit_acf(centring=...)`; [parcelmate/bin/timescales.py](../parcelmate/bin/timescales.py) `acf --centring window` -> `acf_within.h5`, `analyze --acf`; [scripts/launch_timescales.sh](../scripts/launch_timescales.sh) `acf-within`, `analyze-within`, `submit-within`; [tests/verify_iter47_timescales.py](../tests/verify_iter47_timescales.py) 11 new checks (47, all pass). Not submitted yet.
 - 2026-10-29 -- [scripts/launch_richclub.sh](../scripts/launch_richclub.sh): Qwen3.5-4B connectivity requests `--constraint=80G` (18182486 ran out of memory on a 40 GB A100); 4B -docs chain cancelled and resubmitted (18189577-85). Iteration 48.
+- 2026-10-30 -- [scripts/launch_timescales.sh](../scripts/launch_timescales.sh): `analyze-within` runs with `--ignore-gate` (Andrea: within-window intact ACF(100) has split-half 0.51 and stopped the first `analyze-within`, 18189551, after A); new mode `submit-analyze-within`.
 
 ## Cluster
 

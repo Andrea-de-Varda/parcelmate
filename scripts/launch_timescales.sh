@@ -15,7 +15,9 @@
 # acf-within, analyze-within (third revision, 2026-10-29): the within-window ACF (each window
 #                    centred and scaled on its own, Fisher mean over windows) on the windows stored
 #                    in acf.h5 -> acf_within.h5, then the same analysis -> analysis_within/.
-#                    `submit-within` submits the pair (acf.h5 must exist).
+#                    `submit-within` submits the pair (acf.h5 must exist); `submit-analyze-within`
+#                    reruns the analysis alone. It runs with --ignore-gate (Andrea, 2026-10-30):
+#                    within-window ACF(100) is near zero on intact text and fails the 0.7 gate.
 #
 # Disk: acf.h5 about 1.3 GB (8 ACFs of 147,456 x 257 float32) plus the windows; the non-streaming
 # wikitext and bookcorpus downloads go to the shared HF cache.
@@ -29,7 +31,7 @@ MODE=${1:-}
 NAME=${2:-}
 
 case "$MODE" in
-    generate|submit|submit-analyze|submit-within) ;;
+    generate|submit|submit-analyze|submit-within|submit-analyze-within) ;;
     *) echo "usage: $0 generate | submit qwen3.5-2b | submit-analyze qwen3.5-2b | submit-within qwen3.5-2b" >&2; exit 2 ;;
 esac
 
@@ -85,7 +87,7 @@ generate() {
     write_pbs timescales-$m-acf-within jag-standard "#SBATCH --gres=gpu:a6000:1" 8 64 4 \
         python -m parcelmate.bin.timescales acf --model Qwen/Qwen3.5-2B --out $out --centring window
     write_pbs timescales-$m-analyze-within john "" 6 48 4 \
-        python -m parcelmate.bin.timescales analyze --out $out --acf acf_within.h5 --tag analysis_within \
+        python -m parcelmate.bin.timescales analyze --out $out --acf acf_within.h5 --tag analysis_within --ignore-gate \
             --networks results/qwen35/qwen3.5-2b-resid-pool4 \
             --patching results/patching_bank/Qwen_Qwen3-5-2B results/patching/Qwen_Qwen3-5-2B \
             --richclub results/richclub/qwen3.5-2b-resid-pool4-tiles/metrics/richclub
@@ -113,6 +115,12 @@ submit-within() {
     a=$(sbatch --parsable jobs/timescales-$NAME-acf-within.pbs)
     echo "acf-within $a"
     echo "analyze-within $(sbatch --parsable --dependency=afterok:$a jobs/timescales-$NAME-analyze-within.pbs)"
+}
+
+submit-analyze-within() {
+    [ "$NAME" = qwen3.5-2b ] || { echo "only qwen3.5-2b is configured" >&2; exit 2; }
+    test -f results/timescales/$NAME/acf_within.h5 || { echo "acf_within.h5 missing" >&2; exit 2; }
+    sbatch --parsable jobs/timescales-$NAME-analyze-within.pbs
 }
 
 $MODE
