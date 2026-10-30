@@ -13,7 +13,11 @@ within each window, `data.shuffle_words_within`), one fit on the reference windo
 datasets, then the ACF of every unit's residual over lags 0..--max-lag for each dataset and half.
 Writes <out>/acf.h5: `<condition>/<dataset>/<half>/{acf, mean, var, positive_share, n_pairs}`, the
 windows' token ids and sources, unit coordinates and the model's layer types. A finished
-(condition, dataset, half) is skipped on a rerun.
+(condition, dataset, half) is skipped on a rerun. `--centring window` (third revision,
+2026-10-29) computes the within-window ACF on the same windows (copied from acf.h5): each window
+centred and scaled on its own, Fisher mean over windows; it writes <out>/acf_within.h5 with also
+`var_within`, `var_between` and the counts `n_windows`, `n_undefined`, `n_clipped` per unit. Run
+`analyze --acf acf_within.h5 --tag analysis_within` on it.
 
 `analyze` (CPU). Per condition and half, the ACF is the mean over the two datasets, read at lags
 1, 10 and 100 (`load_measures`): how similar the unit's residual is to itself the next token, about a
@@ -50,6 +54,7 @@ os.umask(0o002)
 DATASETS = ('wikitext', 'bookcorpus')
 CONDITIONS = ('intact', 'shuffled')
 HALVES = ('halfA', 'halfB')
+ACF_FILES = {'global': 'acf.h5', 'window': 'acf_within.h5'}   # --centring -> file under --out
 
 
 def run_acf(args):
@@ -60,13 +65,22 @@ def run_acf(args):
     from parcelmate.timescales import load_windows, unit_acf
 
     os.makedirs(args.out, exist_ok=True)
-    path = os.path.join(args.out, 'acf.h5')
-    model, tok = get_model_and_tokenizer(args.model)
+    path = os.path.join(args.out, ACF_FILES[args.centring])
     n = args.n_windows
+    if args.centring == 'window' and not os.path.exists(path):
+        # The same windows as the global ACF: copied from acf.h5, which must exist.
+        src = os.path.join(args.out, ACF_FILES['global'])
+        with h5py.File(src, 'r') as s, h5py.File(path, 'w') as f:
+            for k in ('n_windows', 'seq_len', 'seed'):
+                assert s.attrs[k] == getattr(args, k), '%s: %s differs from %s' % (src, k, getattr(args, k))
+            s.copy(s['windows'], f, name='windows')
+            if 'layer_types' in s:
+                s.copy(s['layer_types'], f, name='layer_types')
+    model, tok = get_model_and_tokenizer(args.model)
     windows = {}
     with h5py.File(path, 'a') as f:
         f.attrs.update(model=args.model, n_windows=n, seq_len=args.seq_len, max_lag=args.max_lag,
-                       seed=args.seed, min_count=args.min_count)
+                       seed=args.seed, min_count=args.min_count, centring=args.centring)
         layer_types = getattr(model.config, 'layer_types', None)
         if layer_types is None and hasattr(model.config, 'text_config'):
             layer_types = getattr(model.config.text_config, 'layer_types', None)
@@ -104,11 +118,17 @@ def run_acf(args):
                                        min_count=args.min_count, indent=2)
         for d, h in todo:
             stderr('%s / %s / %s\n' % (cond, d, h))
-            out = unit_acf(model, ids[(d, h)], fit, args.max_lag, batch_size=args.batch_size, indent=2)
+            out = unit_acf(model, ids[(d, h)], fit, args.max_lag, batch_size=args.batch_size, indent=2,
+                           centring=args.centring)
             with h5py.File(path, 'a') as f:
                 g = f.require_group('%s/%s/%s' % (cond, d, h))
-                for k in ('mean', 'var', 'positive_share', 'n_pairs'):
-                    g[k] = out[k]
+                for k in ('mean', 'var', 'positive_share', 'n_pairs', 'var_within', 'var_between', 'n_windows',
+                          'n_undefined', 'n_clipped'):
+                    if k in out:
+                        g[k] = out[k]
+                if args.centring == 'window':
+                    stderr('  windows with zero variance (unit-windows): %d; clipped r: %d\n'
+                           % (out['n_undefined'].sum(), out['n_clipped'].sum()))
                 g.attrs.update(n_tokens=out['n_tokens'], **fit.provenance())
                 g['acf'] = out['acf']                     # written last: its presence marks done
                 if 'coordinates' not in f:
@@ -190,7 +210,7 @@ def run_analyze(args):
 
     out = os.path.join(args.out, args.tag)
     os.makedirs(out, exist_ok=True)
-    T = load_measures(os.path.join(args.out, 'acf.h5'))
+    T = load_measures(os.path.join(args.out, args.acf))
     coords = T['coords']
     layers = coords[:, 0].astype(np.int64)
     n_layers, width = int(layers.max()) + 1, int(coords[:, 1].max()) + 1
@@ -333,8 +353,12 @@ def main():
     a.add_argument('--batch-size', type=int, default=8)
     a.add_argument('--min-count', type=int, default=3)
     a.add_argument('--seed', type=int, default=42)
+    a.add_argument('--centring', choices=('global', 'window'), default='global',
+                   help='global: one mean and variance per sample (acf.h5); window: per window, Fisher '
+                        'mean over windows (acf_within.h5, same windows as acf.h5)')
     b = sub.add_parser('analyze')
     b.add_argument('--out', required=True)
+    b.add_argument('--acf', default='acf.h5', help='ACF file under --out (acf_within.h5 for the within-window ACF)')
     b.add_argument('--networks', required=True)
     b.add_argument('--patching', nargs='+', required=True)
     b.add_argument('--richclub', default=None)

@@ -11,6 +11,12 @@ windows do not overlap; the shuffled condition keeps each window's bag of tokens
 permutation keeps every network's layer counts; the network test is null when tau depends only on
 layer and detects a planted slow network; covariate residualization removes a covariate effect;
 the circuit test keeps layer counts and detects a slow circuit (mean) and a mixed one (variance).
+Within-window ACF (third revision): per-window lagged sums equal brute force; the accumulator
+equals a direct per-window Fisher mean, with masked tokens; a unit with per-window offsets and no
+memory has a global ACF at the between-window share and a within-window ACF near 0; AR(1) gives
+phi^k less the window-mean bias; within + between variance equals the total; a window with zero
+variance is counted and left out, not the unit; `unit_acf(centring='window')` equals a direct
+computation; `analyze --acf` reads the named file.
 """
 
 import os
@@ -20,9 +26,10 @@ os.environ['CUDA_VISIBLE_DEVICES'] = ''
 import numpy as np
 import torch
 
-from parcelmate.timescales import (ACFAccumulator, article_windows, block_windows, circuit_tau_test, exp_fit,
-                                   lagged_sums, layer_adjusted_network_tau, network_test, permute_within_layer,
-                                   residualize_within_layer, tau_int, unit_acf, wikitext_articles)
+from parcelmate.timescales import (ACFAccumulator, WindowACFAccumulator, article_windows, block_windows,
+                                   circuit_tau_test, exp_fit, lagged_sums, layer_adjusted_network_tau, network_test,
+                                   permute_within_layer, residualize_within_layer, tau_int, unit_acf,
+                                   window_lagged_sums, wikitext_articles)
 
 failures = []
 n_checks = [0]
@@ -84,6 +91,86 @@ for name, mask in (('no mask', np.ones(X.shape[:2])), ('5% masked', (rs.rand(*X.
           abs(tau_int(a).mean() - true) < 0.15 * true)
 check('accumulator: mean is the series mean (0.3)', np.allclose(res['mean'], 0.3, atol=0.1))
 
+# ---------------------------------------------------------------- within-window ACF
+def direct_window_acf(X, mask, K):
+    """Per window: centre and scale on the window's kept tokens, r_w(k) over its pairs; Fisher mean.
+    A window whose sd is below 1e-5 of its mean's magnitude is constant and left out."""
+    nwin, T_, U_ = X.shape
+    zs = np.zeros((K, U_)); zc = np.zeros((K, U_))
+    for w in range(nwin):
+        kp = mask[w] > 0
+        mu_w = X[w][kp].mean(0); v_w = X[w][kp].var(0)
+        v_w = np.where(v_w > (1e-5 * mu_w) ** 2 + 1e-30, v_w, 0)
+        Z_ = (X[w] - mu_w) * mask[w][:, None]
+        for kk in range(1, K + 1):
+            num = (Z_[:T_ - kk] * Z_[kk:]).sum(0)
+            cnt = (mask[w][:T_ - kk] * mask[w][kk:]).sum()
+            ok = (v_w > 0) & (cnt > 0)
+            r_ = np.where(ok, num / (max(cnt, 1) * np.where(v_w > 0, v_w, 1)), 0)
+            zs[kk - 1] += np.where(ok, np.arctanh(np.clip(r_, -1 + 1e-7, 1 - 1e-7)), 0); zc[kk - 1] += ok
+    return np.concatenate([np.ones((1, U_)), np.tanh(zs / zc)]).T
+
+
+Bw, Tw_, Uw, Kw = 4, 50, 3, 8
+Xw = rs.normal(size=(Bw, Tw_, Uw)) + rs.normal(size=(Bw, 1, Uw)) * 3
+mw = (rs.rand(Bw, Tw_) > 0.15).astype(float)
+xxw, nkw = [x.numpy() for x in window_lagged_sums(torch.tensor(Xw * mw[..., None]), torch.tensor(mw), Kw)]
+bf = np.array([[(Xw[w, :Tw_ - k] * mw[w, :Tw_ - k, None] * Xw[w, k:] * mw[w, k:, None]).sum(0) for k in range(Kw + 1)]
+               for w in range(Bw)])
+check('window lagged sums: FFT equals brute force, per window',
+      np.allclose(xxw, bf, atol=1e-8) and np.allclose(nkw[:, 3], [(mw[w, :-3] * mw[w, 3:]).sum() for w in range(Bw)]))
+acc = WindowACFAccumulator(Uw, Kw, 'cpu')
+acc.add(torch.tensor(Xw[:2] * mw[:2, :, None]), torch.tensor(mw[:2]), slice(0, Uw))
+acc.add(torch.tensor(Xw[2:] * mw[2:, :, None]), torch.tensor(mw[2:]), slice(0, Uw))
+resw = acc.finalize()
+check('within-window accumulator equals a direct per-window Fisher mean, with masked tokens, over two batches '
+      '(max error %.1e)' % np.abs(resw['acf'] - direct_window_acf(Xw, mw, Kw)).max(),
+      np.allclose(resw['acf'], direct_window_acf(Xw, mw, Kw), atol=1e-6))
+
+# offsets per window, no memory: global ACF = between share at every lag, within-window ACF ~ 0
+nwin, Tl, Kl = 200, 512, 100
+off = rs.normal(size=(nwin, 1, 2)) * np.array([1.0, 2.0])     # between variance 1 and 4, noise variance 1
+Xo = off + rs.normal(size=(nwin, Tl, 2))
+ones = np.ones((nwin, Tl))
+g_acc, w_acc = ACFAccumulator(2, Kl, 'cpu'), WindowACFAccumulator(2, Kl, 'cpu')
+for i in range(0, nwin, 50):
+    g_acc.add(torch.tensor(Xo[i:i + 50]), torch.tensor(ones[i:i + 50]), slice(0, 2))
+    w_acc.add(torch.tensor(Xo[i:i + 50]), torch.tensor(ones[i:i + 50]), slice(0, 2))
+g, w_ = g_acc.finalize(), w_acc.finalize()
+share = w_['var_between'] / w_['var']
+check('offsets, no memory: global ACF(1..100) sits at the between-window share (%s against %s)'
+      % (np.round(g['acf'][:, 1:].mean(1), 3), np.round(share, 3)),
+      np.allclose(g['acf'][:, 1:].mean(1), share, atol=0.03) and share[1] > share[0] > 0.3)
+check('offsets, no memory: within-window ACF(1..100) is about 0 (max |mean| %.4f)' % np.abs(w_['acf'][:, 1:].mean(1)).max(),
+      np.abs(w_['acf'][:, 1:].mean(1)).max() < 0.01)
+check('within + between variance = total; between is the offset variance (%s)' % np.round(w_['var_between'], 2),
+      np.allclose(w_['var_within'] + w_['var_between'], w_['var']) and np.allclose(w_['var_between'], [1, 4], rtol=0.3))
+check('within-window: no window undefined or clipped on real-valued noise',
+      w_['n_undefined'].sum() == 0 and w_['n_clipped'].sum() == 0 and np.all(w_['n_windows'] == nwin))
+
+# AR(1): phi^k less the bias of a window mean estimated from the same window
+phi, Ka, Ta = 0.8, 30, 1024
+Xa = ar1(phi, 100, Ta, 2, rs, mu=0) + rs.normal(size=(100, 1, 2)) * 2
+wa = WindowACFAccumulator(2, Ka, 'cpu')
+for i in range(0, 100, 25):
+    wa.add(torch.tensor(Xa[i:i + 25]), torch.ones(25, Ta, dtype=torch.float64), slice(0, 2))
+aa = wa.finalize()['acf']
+bias = (1 + phi) / ((1 - phi) * Ta)          # the window mean absorbs about this much of the ACF
+check('AR(1) with window offsets: within-window ACF(k) = phi^k - %.3f (max error %.3f)'
+      % (bias, np.abs(aa - (phi ** np.arange(Ka + 1) - bias * (np.arange(Ka + 1) > 0))).max()),
+      np.abs(aa - (phi ** np.arange(Ka + 1) - bias * (np.arange(Ka + 1) > 0))).max() < 0.03)
+
+# a window in which a unit is constant: counted, left out of that unit only
+Xc = rs.normal(size=(5, 40, 2)); Xc[2, :, 0] = 0.7
+cacc = WindowACFAccumulator(2, 5, 'cpu')
+cacc.add(torch.tensor(Xc), torch.ones(5, 40, dtype=torch.float64), slice(0, 2))
+cres = cacc.finalize()
+keep_w = [0, 1, 3, 4]
+check('a constant window is counted (n_undefined %s) and left out; the unit keeps a finite ACF'
+      % cres['n_undefined'].astype(int),
+      list(cres['n_undefined']) == [1, 0] and list(cres['n_windows']) == [4, 5] and np.isfinite(cres['acf']).all()
+      and np.allclose(cres['acf'][0], direct_window_acf(Xc[keep_w], np.ones((4, 40)), 5)[0], atol=1e-6))
+
 # ---------------------------------------------------------------- exponential ACF
 k = np.arange(257)
 taus = np.array([2.0, 10.0, 40.0])
@@ -130,6 +217,12 @@ check('unit_acf equals a direct computation from hooked activations (max error %
       % np.abs(out['acf'] - direct).max(), np.allclose(out['acf'], direct, atol=1e-4))
 check('unit_acf: positive share counts kept tokens above zero',
       np.allclose(out['positive_share'], ((X > 0) & keep[..., None]).sum((0, 1)) / keep.sum()))
+
+outw = unit_acf(model, win, fit, 10, batch_size=4, verbose=False, centring='window')
+check('unit_acf(centring=window) equals a direct per-window Fisher mean of the residuals (max error %.1e)'
+      % np.abs(outw['acf'] - direct_window_acf(Rr, keep.astype(float), 10)).max(),
+      np.allclose(outw['acf'], direct_window_acf(Rr, keep.astype(float), 10), atol=1e-4))
+check('unit_acf(centring=window): the total variance is the global one', np.allclose(outw['var'], out['var'], rtol=1e-4))
 
 # ---------------------------------------------------------------- windows
 lines = ['', ' = A = \n', '', ' x y \n', ' = = Sec = = \n', ' z \n', ' = B = \n', ' w \n']
@@ -277,6 +370,18 @@ try:
     from scipy.stats import spearmanr
     check('analyze: depth Spearman of acf10 matches a direct computation', np.isclose(
         s['depth_spearman']['intact_acf10'], spearmanr(np.repeat(np.arange(nl), wd), u['intact_acf10'])[0]))
+    shutil.copy(os.path.join(tmp, 'acf.h5'), os.path.join(tmp, 'acf_within.h5'))
+    with h5py.File(os.path.join(tmp, 'acf.h5'), 'a') as f:
+        for c in ('intact', 'shuffled'):
+            for dname in ('wikitext', 'bookcorpus'):
+                for h in ('halfA', 'halfB'):
+                    f['%s/%s/%s/acf' % (c, dname, h)][...] = 0.0     # acf.h5 no longer holds the values
+    sys.argv = ['x', 'analyze', '--out', tmp, '--acf', 'acf_within.h5', '--tag', 'analysis_within', '--networks',
+                os.path.join(tmp, 'nets'), '--patching', proot, '--pct', '10', '--draws', '50', '--perm', '20',
+                '--ignore-gate']
+    bt.main()
+    u2 = np.load(os.path.join(tmp, 'analysis_within', 'units.npz'))
+    check('analyze --acf acf_within.h5 reads that file, not acf.h5', np.allclose(u2['intact_acf10'], u['intact_acf10']))
     lay_rows = list(csv.DictReader(open(os.path.join(o, 'layers.csv'))))
     check('analyze: layers.csv has a median for every measure and layer',
           len(lay_rows) == nl and all('%s_median' % m in lay_rows[0] for m in bt.DESCRIBED))

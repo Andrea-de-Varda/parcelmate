@@ -15,6 +15,11 @@ zero where masked) and n_k = sum m_t m_{t+k}; the centred covariance is
 
     C(k) = sum x_t x_{t+k} - mu (sum x_t m_{t+k} + sum m_t x_{t+k}) + n_k mu^2.
 
+With one mean per sample, a level that differs between windows makes pairs inside a window
+correlate even when the unit has no memory. The within-window ACF (`WindowACFAccumulator`,
+third revision, 2026-10-29) centres and scales each window on its own and takes the Fisher mean
+of the per-window correlations over windows.
+
 tau_int is the sum of ACF(1..L): in tokens, about how long the activation stays correlated with
 itself (an exponential decay with time constant tau gives about tau).
 
@@ -69,6 +74,18 @@ def lagged_sums(R, m, max_lag):
     return xx, xm, mx, nk
 
 
+def window_lagged_sums(R, m, max_lag):
+    """`lagged_sums` kept per window: xx (B, max_lag + 1, U) and nk (B, max_lag + 1), with
+    xx[w, k] = sum_t R_t R_{t+k} and nk[w, k] = sum_t m_t m_{t+k} over the pairs of window w."""
+    T = R.shape[1]
+    n = 1 << int(np.ceil(np.log2(T + max_lag + 1)))
+    FR = torch.fft.rfft(R, n=n, dim=1)
+    Fm = torch.fft.rfft(m, n=n, dim=1)
+    xx = torch.fft.irfft(FR.conj() * FR, n=n, dim=1)[:, :max_lag + 1]
+    nk = torch.fft.irfft(Fm.conj() * Fm, n=n, dim=1)[:, :max_lag + 1]
+    return xx, nk
+
+
 class ACFAccumulator:
     """Sums over batches of windows, per unit, in float64; `finalize` gives the ACF."""
 
@@ -108,10 +125,86 @@ class ACFAccumulator:
                     n_pairs=self.nk.cpu().numpy())
 
 
+class WindowACFAccumulator:
+    """The within-window ACF (Iteration 47, third revision). Per window w and unit, the residual
+    is centred on the window's own mean and scaled by the window's own variance,
+
+        r_w(k) = sum over the window's pairs (t, t + k) of (x_t - mu_w)(x_{t+k} - mu_w) / (n_wk sigma_w^2),
+
+    and the ACF is the Fisher mean over windows, tanh(mean_w atanh r_w(k)). A level that differs
+    between windows is no longer correlation, as it is in `ACFAccumulator` (one mean per sample).
+
+    A window in which the unit is constant has no r_w and is left out of that unit's mean; such
+    windows are counted (`n_undefined`). Constant means up to rounding: sd below 1e-5 of the
+    window mean's magnitude (`CONST`), since a constant window's variance is not exactly 0 in
+    floating point. |r_w| is clipped to 1 - 1e-7 before
+    atanh, and the clipped values are counted (`n_clipped`). Also per unit: the total variance and
+    its token-weighted split into the mean within-window variance and the variance of the window
+    means (`var_within` + `var_between` = `var`)."""
+
+    CLIP = 1 - 1e-7
+    CONST = 1e-5
+
+    def __init__(self, n_units, max_lag, device):
+        z = lambda *s: torch.zeros(*s, dtype=torch.float64, device=device)
+        self.max_lag = max_lag
+        self.zsum, self.zcnt = z(max_lag, n_units), z(max_lag, n_units)
+        self.nk = z(max_lag + 1)
+        self.s1, self.s2, self.sw, self.pos = z(n_units), z(n_units), z(n_units), z(n_units)
+        self.undefined, self.clipped = z(n_units), z(n_units)
+        self.n = 0.0
+
+    def add(self, R, m, cols, positive=None):
+        """As `ACFAccumulator.add`: R (B, T, len(cols)) residuals zeroed where masked, m (B, T)."""
+        nw = m.sum(1)                                              # (B,) kept tokens per window
+        mu_w = R.sum(1) / nw.clamp(min=1)[:, None]                 # (B, U)
+        Rc = (R - mu_w[:, None]) * m[..., None]
+        var_w = (Rc.double() ** 2).sum(1) / nw.double().clamp(min=1)[:, None]
+        xx, nk = window_lagged_sums(Rc, m, self.max_lag)
+        xx, nk = xx[:, 1:].double(), torch.round(nk.double())
+        # constant in the window, up to rounding: sd below CONST x |window mean| (float32 rounding
+        # of the mean leaves about 1e-7 of it); not a cut on small but real fluctuations
+        ok_w = (var_w > (self.CONST * mu_w.double()) ** 2 + 1e-30) & (nw > 0)[:, None]   # (B, U)
+        valid = ok_w[:, None, :] & (nk[:, 1:] > 0)[..., None]      # (B, K, U)
+        r = xx / (nk[:, 1:, None].clamp(min=1) * torch.where(ok_w, var_w, torch.ones_like(var_w))[:, None])
+        self.clipped[cols] += ((r.abs() > self.CLIP) & valid).sum((0, 1)).double()
+        z = torch.atanh(r.clamp(-self.CLIP, self.CLIP))
+        self.zsum[:, cols] += torch.where(valid, z, torch.zeros_like(z)).sum(0)
+        self.zcnt[:, cols] += valid.sum(0).double()
+        self.undefined[cols] += (~ok_w & (nw > 0)[:, None]).sum(0).double()
+        self.s1[cols] += R.sum((0, 1)).double()
+        self.s2[cols] += (R.double() ** 2).sum((0, 1))
+        self.sw[cols] += (var_w * nw.double()[:, None]).sum(0)
+        if positive is not None:
+            self.pos[cols] += positive.double()
+        if cols.start == 0:                       # the mask is shared by every unit: count it once
+            self.nk += nk.sum(0)
+            self.n += float(m.sum())
+
+    def finalize(self):
+        """ACF (units, max_lag + 1) with ACF(0) = 1, the variances, counts, as `ACFAccumulator`."""
+        mu = self.s1 / self.n
+        var = self.s2 / self.n - mu ** 2
+        within = self.sw / self.n
+        zbar = self.zsum / self.zcnt                                # NaN where no window had r
+        acf = torch.cat([torch.ones_like(zbar[:1]), torch.tanh(zbar)], 0)
+        acf[0, self.zcnt[0] == 0] = float('nan')
+        return dict(acf=acf.T.float().cpu().numpy(), mean=mu.cpu().numpy(), var=var.cpu().numpy(),
+                    var_within=within.cpu().numpy(), var_between=(var - within).cpu().numpy(),
+                    positive_share=(self.pos / self.n).cpu().numpy(), n_tokens=self.n,
+                    n_pairs=self.nk.cpu().numpy(), n_windows=self.zcnt[0].cpu().numpy(),
+                    n_undefined=self.undefined.cpu().numpy(), n_clipped=self.clipped.cpu().numpy())
+
+
 @torch.no_grad()
-def unit_acf(model, input_ids, fit, max_lag, batch_size=8, device=None, verbose=True, indent=0):
+def unit_acf(model, input_ids, fit, max_lag, batch_size=8, device=None, verbose=True, indent=0,
+             centring='global'):
     """ACF of every MLP unit's token-and-position residual over `input_ids` (windows, seq_len),
-    all windows full length. `fit` is a `residual.TokenPositionFit` on reference windows."""
+    all windows full length. `fit` is a `residual.TokenPositionFit` on reference windows.
+    `centring`: 'global' (one mean and variance per sample, `ACFAccumulator`) or 'window' (per
+    window, Fisher mean over windows, `WindowACFAccumulator`)."""
+    assert centring in ('global', 'window'), centring
+    Acc = ACFAccumulator if centring == 'global' else WindowACFAccumulator
     from parcelmate.residual import _mlp_capture
     device = device or ('cuda:0' if torch.cuda.is_available() else 'cpu')
     model = model.to(device).eval()
@@ -138,7 +231,7 @@ def unit_acf(model, input_ids, fit, max_lag, batch_size=8, device=None, verbose=
             widths = [int(captured[l].shape[-1]) for l in range(len(captured))]
             offsets = np.concatenate([[0], np.cumsum(widths)])
             if acc is None:
-                acc = ACFAccumulator(int(offsets[-1]), max_lag, device)
+                acc = Acc(int(offsets[-1]), max_lag, device)
             for l in range(len(widths)):
                 cols = slice(int(offsets[l]), int(offsets[l + 1]))
                 X = captured[l].float()
