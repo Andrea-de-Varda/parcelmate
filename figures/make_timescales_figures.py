@@ -14,6 +14,11 @@ writes plots/timescales/*.{svg,png}:
   circuits_mean     per task: circuit mean against layer-matched random units (z), by domain
   circuits_var      per task: circuit spread of ACF(10) (z), by domain
   circuits_var_accuracy  the same against the task's both-correct accuracy
+Within-window ACF (third revision; reads acf_within.h5 and analysis_within/):
+  window_schematic  illustration (simulated unit with no memory and a different level per window):
+                    pooled ACF against within-window ACF
+  depth_within      as depth, within-window ACF (solid) with the pooled ACF (dashed) for reference
+  between_share     share of each unit's variance that lies between windows, by layer
 """
 
 import os
@@ -33,6 +38,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 RES = os.path.join(ROOT, 'results', 'timescales', 'qwen3.5-2b')
 TAG = 'analysis_lags'
+TAG_WITHIN = 'analysis_within'
 LAGS = (1, 10, 100)
 OUT = os.path.join(ROOT, 'plots', 'timescales')
 
@@ -213,6 +219,119 @@ def fig_depth(u):
     save(fig, 'depth')
 
 
+def fig_window_schematic():
+    """Illustration: a unit with no memory (white noise) whose level differs between windows. The
+    pooled ACF (one mean for all windows) is high at every lag; the within-window ACF is ~0."""
+    rng = np.random.RandomState(5)
+    n_win, T, sd_level = 400, 1024, 0.7
+    levels = rng.normal(0, sd_level, n_win)
+    X = levels[:, None] + rng.normal(0, 1, (n_win, T))
+    mu, var = X.mean(), X.var()
+    pooled = [((X[:, :-k] - mu) * (X[:, k:] - mu)).mean() / var for k in LAGS]
+    Xc = X - X.mean(1, keepdims=True)
+    within = [np.tanh(np.arctanh((Xc[:, :-k] * Xc[:, k:]).mean(1) / Xc.var(1)).mean()) for k in LAGS]
+    fig, (a1, a2) = plt.subplots(1, 2, figsize=(6.2 * .9, 2.3 * .9), gridspec_kw=dict(width_ratios=[2.1, 1]))
+    show, L = [0, 1, 2], 120
+    for j, w in enumerate(show):
+        x = np.arange(L) + j * (L + 15)
+        a1.plot(x, X[w, :L], color=INTACT, lw=0.8, zorder=3)
+        a1.plot(x, [X[w, :L].mean()] * L, color='#C0392B', lw=2, zorder=4)
+        a1.text(x.mean(), 3.6, 'window %d' % (j + 1), ha='center', fontsize=8)
+    a1.axhline(mu, color='#999999', lw=1.2, ls='--', zorder=2)
+    a1.set_ylim(-5.2, 4.4)
+    a1.set_xticks([])
+    a1.set_xlabel('Tokens', fontsize=10)
+    a1.set_ylabel('Activation', fontsize=10)
+    a1.tick_params(labelsize=8)
+    chrome(a1)
+    h = [Line2D([0], [0], color='#C0392B', lw=2, label='window mean'),
+         Line2D([0], [0], color='#999999', lw=1.2, ls='--', label='mean of all windows')]
+    a1.legend(handles=h, frameon=False, fontsize=7, loc='lower left', ncol=2)
+    x = np.arange(len(LAGS))
+    a2.bar(x - 0.18, pooled, 0.36, color=GRAY_FILL, edgecolor=GRAY_EDGE, lw=1, zorder=3, label='pooled')
+    a2.bar(x + 0.18, within, 0.36, color=INTACT, edgecolor='black', lw=1, zorder=3, label='within window')
+    a2.axhline(0, color='black', lw=1)
+    a2.set_xticks(x); a2.set_xticklabels(['%d' % k for k in LAGS])
+    a2.set_xlabel('Lag (tokens)', fontsize=10)
+    a2.set_ylabel('ACF', fontsize=10)
+    a2.set_ylim(-0.05, 0.5)
+    a2.tick_params(labelsize=8)
+    chrome(a2)
+    a2.legend(frameon=False, fontsize=7, loc='upper right')
+    fig.tight_layout()
+    save(fig, 'window_schematic')
+    print('  simulated: pooled %s, within %s, between share %.2f' % (np.round(pooled, 3), np.round(within, 3),
+                                                                     sd_level ** 2 / (1 + sd_level ** 2)))
+
+
+def fig_depth_within(u, w):
+    """As fig_depth, on the within-window ACF, with the pooled ACF dashed for reference."""
+    lay = u['layer']
+    L = int(lay.max()) + 1
+    layers = np.arange(L)
+    fig, axes = plt.subplots(3, 2, figsize=(5.2 * .9, 5.4 * .9), sharex=True)
+    for r, k in enumerate(LAGS):
+        for c, (cond, col, name) in enumerate((('intact', INTACT, 'Intact text'), ('shuffled', SHUF, 'Words shuffled'))):
+            ax = axes[r, c]
+            v = w['%s_acf%d' % (cond, k)]
+            q = np.array([np.nanquantile(v[lay == l], [0.25, 0.5, 0.75]) for l in layers])
+            ax.fill_between(layers, q[:, 0], q[:, 2], color=col, alpha=0.25, lw=0, zorder=2)
+            ax.plot(layers, q[:, 1], color=col, lw=2, marker='o', ms=2.5, zorder=3)
+            p = np.array([np.nanmedian(u['%s_acf%d' % (cond, k)][lay == l]) for l in layers])
+            ax.plot(layers, p, color=col, lw=1.2, ls='--', alpha=0.8, zorder=3)
+            ax.axhline(0, color='black', lw=0.8, zorder=1)
+            ax.set_xlim(-0.5, L - 0.5)
+            ax.tick_params(labelsize=8)
+            chrome(ax)
+            if r == 0:
+                ax.set_title(name, fontsize=9, weight='bold')
+            if c == 0:
+                ax.set_ylabel('ACF(%d)' % k, fontsize=10)
+            if r == 2:
+                ax.set_xlabel('Layer', fontsize=10)
+    h = [Line2D([0], [0], color='#555555', lw=2, label='within window'),
+         Line2D([0], [0], color='#555555', lw=1.2, ls='--', label='pooled (previous slides)')]
+    fig.legend(handles=h, frameon=False, fontsize=8, loc='upper center', ncol=2, bbox_to_anchor=(0.5, 1.03))
+    fig.tight_layout()
+    save(fig, 'depth_within')
+
+
+def between_share():
+    """Per unit and condition: variance of the window means over total variance (token-weighted),
+    mean over datasets and halves, and per half."""
+    out = {}
+    with h5py.File(os.path.join(RES, 'acf_within.h5'), 'r') as f:
+        for c in ('intact', 'shuffled'):
+            per = {h: np.mean([f['%s/%s/%s/var_between' % (c, d, h)][:] / f['%s/%s/%s/var' % (c, d, h)][:]
+                               for d in ('wikitext', 'bookcorpus')], 0) for h in ('halfA', 'halfB')}
+            out[c] = (per['halfA'] + per['halfB']) / 2
+            out[c + '_halves'] = per
+    return out
+
+
+def fig_between_share(u, S):
+    lay = u['layer']
+    L = int(lay.max()) + 1
+    layers = np.arange(L)
+    fig, axes = plt.subplots(1, 2, figsize=(5.2 * .9, 2.2 * .9), sharex=True)
+    for ax, (cond, col, name) in zip(axes, (('intact', INTACT, 'Intact text'), ('shuffled', SHUF, 'Words shuffled'))):
+        q = np.array([np.nanquantile(S[cond][lay == l], [0.25, 0.5, 0.75]) for l in layers])
+        ax.fill_between(layers, q[:, 0], q[:, 2], color=col, alpha=0.25, lw=0, zorder=2)
+        ax.plot(layers, q[:, 1], color=col, lw=2, marker='o', ms=2.5, zorder=3)
+        ax.set_title(name, fontsize=9, weight='bold')
+        ax.set_xlabel('Layer', fontsize=10)
+        ax.set_xlim(-0.5, L - 0.5)
+        ax.set_ylim(0, None)
+        ax.tick_params(labelsize=8)
+        chrome(ax)
+    axes[0].set_ylabel('Between-window share', fontsize=10)
+    fig.tight_layout()
+    save(fig, 'between_share')
+    for c in ('intact', 'shuffled'):
+        print('  between share %s: split-half rho %.3f, vs pooled ACF(100) rho %.3f'
+              % (c, spearmanr(*S[c + '_halves'].values())[0], spearmanr(S[c], u[c + '_acf100'], nan_policy='omit')[0]))
+
+
 def fig_networks():
     N = pd.read_csv(os.path.join(RES, TAG, 'networks.csv'), keep_default_na=False)
     fig, ax = plt.subplots(figsize=(3.2 * .9, 2.5 * .9))
@@ -320,6 +439,10 @@ def main():
     C = circuits()
     fig_circuits_mean(C)
     fig_circuits_var(C)
+    fig_window_schematic()
+    w = dict(np.load(os.path.join(RES, TAG_WITHIN, 'units.npz')))
+    fig_depth_within(u, w)
+    fig_between_share(u, between_share())
 
 
 if __name__ == '__main__':
