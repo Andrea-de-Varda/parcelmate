@@ -19,6 +19,7 @@ Within-window ACF (third revision; reads acf_within.h5 and analysis_within/):
                     pooled ACF against within-window ACF
   depth_within      as depth, within-window ACF (solid) with the pooled ACF (dashed) for reference
   between_share     share of each unit's variance that lies between windows, by layer
+  networks_within, circuits_mean_within, circuits_var_within(_accuracy)  as above, within-window ACF
 """
 
 import os
@@ -332,8 +333,8 @@ def fig_between_share(u, S):
               % (c, spearmanr(*S[c + '_halves'].values())[0], spearmanr(S[c], u[c + '_acf100'], nan_policy='omit')[0]))
 
 
-def fig_networks():
-    N = pd.read_csv(os.path.join(RES, TAG, 'networks.csv'), keep_default_na=False)
+def fig_networks(tag=TAG, name='networks'):
+    N = pd.read_csv(os.path.join(RES, tag, 'networks.csv'), keep_default_na=False)
     fig, ax = plt.subplots(figsize=(3.2 * .9, 2.5 * .9))
     groups = [('intact_acf10', 'ACF(10)'), ('intact_acf100', 'ACF(100)')]
     bars = [('perm', 'shuffled labels', 'white', GRAY_EDGE), ('real', 'real networks', INTACT, 'black'),
@@ -355,11 +356,11 @@ def fig_networks():
     ax.tick_params(labelsize=8)
     chrome(ax)
     ax.legend(frameon=False, fontsize=7.5, loc='upper left', bbox_to_anchor=(1.0, 1.0))
-    save(fig, 'networks')
+    save(fig, name)
 
 
-def circuits():
-    C = pd.read_csv(os.path.join(RES, TAG, 'circuits.csv'))
+def circuits(tag=TAG):
+    C = pd.read_csv(os.path.join(RES, tag, 'circuits.csv'))
     lab = pd.read_csv(os.path.join(ROOT, 'figures', 'bank_task_labels.csv'))
     C = C.merge(lab[['root', 'group', 'task', 'domain']], on=['root', 'group', 'task'], how='left')
     assert C.domain.notna().all(), 'tasks without a domain label'
@@ -385,7 +386,7 @@ def strip(ax, C, measure, stat, order, rng):
     chrome(ax)
 
 
-def fig_circuits_mean(C):
+def fig_circuits_mean(C, name='circuits_mean'):
     order = (C[C.measure == 'intact_acf10'].groupby('domain').mean_z.median().sort_values().index.tolist())
     fig, axes = plt.subplots(2, 1, figsize=(6.4 * .9, 4.6 * .9), sharex=True)
     rng = np.random.RandomState(0)
@@ -401,17 +402,17 @@ def fig_circuits_mean(C):
          Line2D([0], [0], color='black', lw=2, label='domain median')]
     axes[0].legend(handles=h, frameon=False, fontsize=7, loc='upper left', ncol=3, bbox_to_anchor=(0, 1.18))
     fig.tight_layout()
-    save(fig, 'circuits_mean')
+    save(fig, name)
 
 
-def fig_circuits_var(C):
+def fig_circuits_var(C, name='circuits_var'):
     D = C[C.measure == 'intact_acf10']
     order = D.groupby('domain').mean_z.median().sort_values().index.tolist()
     fig, ax = plt.subplots(figsize=(6.4 * .9, 2.4 * .9))
     strip(ax, C, 'intact_acf10', 'var', order, np.random.RandomState(1))
     ax.set_ylabel('Spread of ACF(10) (z)', fontsize=10)
     fig.tight_layout()
-    save(fig, 'circuits_var')
+    save(fig, name)
 
     fig, ax = plt.subplots(figsize=(3.0 * .9, 2.5 * .9))
     for d in order:
@@ -426,7 +427,7 @@ def fig_circuits_var(C):
     ax.tick_params(labelsize=8)
     chrome(ax)
     ax.legend(frameon=False, fontsize=6.5, loc='upper left', bbox_to_anchor=(1.0, 1.0), handletextpad=0.1)
-    save(fig, 'circuits_var_accuracy')
+    save(fig, name + '_accuracy')
 
 
 def main():
@@ -443,6 +444,10 @@ def main():
     w = dict(np.load(os.path.join(RES, TAG_WITHIN, 'units.npz')))
     fig_depth_within(u, w)
     fig_between_share(u, between_share())
+    fig_networks(TAG_WITHIN, 'networks_within')
+    Cw = circuits(TAG_WITHIN)
+    fig_circuits_mean(Cw, 'circuits_mean_within')
+    fig_circuits_var(Cw, 'circuits_var_within')
 
 
 if __name__ == '__main__':
