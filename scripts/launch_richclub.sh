@@ -19,7 +19,8 @@
 #     ssh sc 'bash .../scripts/launch_richclub.sh submit qwen3.5-2b-docs'
 #
 # Nothing is purged. Disk on juice6: 1.2 GB (pythia-70m), 172 GB (2B), 696 GB (4B).
-# Sizing: connectivity as Iteration 43 (2B 130 GB peak measured, 4B 320 GB on sphinx); score as
+# Sizing: connectivity as Iteration 43 (2B 130 GB peak measured, 4B 320 GB on sphinx, on an 80 GB
+# A100: the residual fit ran out of memory on a 40 GB card, 18182486); score as
 # Iteration 43; richclub streams each half three times per tree (12 passes), row blocks of
 # 2,048 rows (1.2 GB at 2B, 2.4 GB at 4B) plus per-unit network strengths (under 1 GB).
 set -e
@@ -98,7 +99,7 @@ generate() {
         case "${m%-docs}" in
             pythia-70m) GPU_OPTS="-t 3 -m 48"; SCO="-t 4 -m 16"; RC=(4 16 4); TK=(2 16 4 1024); PAR="-t 4 -m 16" ;;
             qwen3.5-2b) GPU_OPTS="-t 10 -m 180"; SCO="-t 24 -m 32"; RC=(24 32 8); TK=(16 32 8 1024); PAR="-t 8 -m 32" ;;
-            qwen3.5-4b) GPU_OPTS="-t 16 -m 320 -P sphinx -G a100"; SCO="-t 36 -m 48"; RC=(48 48 8); TK=(40 48 8 512); PAR="-t 24 -m 48" ;;
+            qwen3.5-4b) GPU_OPTS="-t 16 -m 320 -P sphinx -G a100 -C 80G"; SCO="-t 36 -m 48"; RC=(48 48 8); TK=(40 48 8 512); PAR="-t 24 -m 48" ;;
         esac
         # Fixed-k participation (2026-10-22): reads the kept tiles and the richclub outputs, so it
         # runs on its own after `submit`. Four passes (2 trees x 2 halves), each with a per-row
