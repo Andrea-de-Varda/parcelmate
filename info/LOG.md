@@ -1401,6 +1401,8 @@ Conditions: intact and word-shuffled within window, so that the part of τ that 
 
 **Cost.** One A6000 for about 25 min (the global acf took 21 min, 18165648), then one CPU analysis of about 45 min.
 
+**Submitted (2026-10-29, commit `8f9d471`).** `acf-within` 18189550 (jag-standard, A6000), `analyze-within` 18189551 (john, afterok). Qwen3.5-2B only.
+
 ## Iteration 48 -- document-coherent text for the paper's connectomes (2026-10-29)
 
 **Problem.** Iteration 47 found that `get_dataset` takes the first 100,000 streamed rows of a dataset, shuffles them, tokenizes each row separately and packs the rows into 1,024-token windows with no separator. Every connectome so far was built this way. Per dataset (checked 2026-10-29): a wikitext row is one paragraph line, so a window is lines of many unrelated articles; a bookcorpus row is one sentence, so a window is about 50 random sentences from different books, and since rows have no trailing space the sentences are glued (`... right ?usually`); an agnews row is one article and a tldr17 row one post, and both train splits are already interleaved (agnews: 40,331 label changes in the first 100,000 rows; tldr17: 876 subreddits in the first 3,000 posts), so for them the shuffle changes little, but documents are glued with no separator. The token-and-position fit's reference windows come from the same loader.
