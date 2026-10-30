@@ -7,8 +7,8 @@ writes plots/timescales/*.{svg,png}:
   acf_schematic     illustration (simulated unit): pairs of tokens k apart, and their correlation
   acf_examples      the ACF of three real units, read at lags 1, 10 and 100
   reliability       half A against half B, per unit, for ACF(10) and ACF(100)
-  depth             median and interquartile range per layer of ACF(1), ACF(10), ACF(100),
-                    intact and word-shuffled text
+  depth             median and interquartile range per layer of ACF(1), ACF(10), ACF(100) (rows),
+                    intact and word-shuffled text (columns), each panel on its own y-axis
   networks          share of the within-layer variance carried by the networks: shuffled labels,
                     real networks, circular-shift null networks
   circuits_mean     per task: circuit mean against layer-matched random units (z), by domain
@@ -187,24 +187,28 @@ def fig_reliability(u):
 
 
 def fig_depth(u):
+    """One row per lag, intact and shuffled in separate columns; each panel its own y-range."""
     lay = u['layer']
     L = int(lay.max()) + 1
     layers = np.arange(L)
-    fig, axes = plt.subplots(1, 3, figsize=(7.6 * .9, 2.4 * .9))
-    for ax, k in zip(axes, LAGS):
-        for cond, col, name in (('intact', INTACT, 'intact text'), ('shuffled', SHUF, 'words shuffled')):
+    fig, axes = plt.subplots(3, 2, figsize=(5.2 * .9, 5.4 * .9), sharex=True)
+    for r, k in enumerate(LAGS):
+        for c, (cond, col, name) in enumerate((('intact', INTACT, 'Intact text'), ('shuffled', SHUF, 'Words shuffled'))):
+            ax = axes[r, c]
             v = u['%s_acf%d' % (cond, k)]
             q = np.array([np.nanquantile(v[lay == l], [0.25, 0.5, 0.75]) for l in layers])
-            ax.fill_between(layers, q[:, 0], q[:, 2], color=col, alpha=0.2, lw=0, zorder=2)
-            ax.plot(layers, q[:, 1], color=col, lw=2, marker='o', ms=2.5, zorder=3, label=name)
-        ax.set_title('ACF(%d)' % k, fontsize=9, weight='bold')
-        ax.set_xlabel('Layer', fontsize=10)
-        ax.set_xlim(-0.5, L - 0.5)
-        ax.set_ylim(0, None)
-        ax.tick_params(labelsize=8)
-        chrome(ax)
-    axes[0].set_ylabel('Autocorrelation', fontsize=10)
-    axes[0].legend(frameon=False, fontsize=7.5, loc='upper left')
+            ax.fill_between(layers, q[:, 0], q[:, 2], color=col, alpha=0.25, lw=0, zorder=2)
+            ax.plot(layers, q[:, 1], color=col, lw=2, marker='o', ms=2.5, zorder=3)
+            ax.set_xlim(-0.5, L - 0.5)
+            ax.set_ylim(0, None)
+            ax.tick_params(labelsize=8)
+            chrome(ax)
+            if r == 0:
+                ax.set_title(name, fontsize=9, weight='bold')
+            if c == 0:
+                ax.set_ylabel('ACF(%d)' % k, fontsize=10)
+            if r == 2:
+                ax.set_xlabel('Layer', fontsize=10)
     fig.tight_layout()
     save(fig, 'depth')
 
