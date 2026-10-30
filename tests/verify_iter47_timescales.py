@@ -219,7 +219,7 @@ import h5py
 
 tmp = tempfile.mkdtemp()
 try:
-    nl, wd, kk, L = 3, 40, 4, 16
+    nl, wd, kk, L = 3, 40, 4, 128
     N = nl * wd
     lag = np.arange(L + 1)
     unit_tau = 1.0 + np.repeat(np.arange(nl), wd) + rs.uniform(0, 1, N)
@@ -254,28 +254,32 @@ try:
             w_.writerow(['grp', 't%d' % i, 0.7 + 0.1 * i, 200])
     from parcelmate.bin import timescales as bt
     sys.argv = ['x', 'analyze', '--out', tmp, '--networks', os.path.join(tmp, 'nets'), '--patching', proot,
-                '--pct', '10', '--draws', '50', '--perm', '20', '--cores', '2']
+                '--pct', '10', '--draws', '50', '--perm', '20']
     bt.main()
-    o = os.path.join(tmp, 'analysis_fit')
+    o = os.path.join(tmp, 'analysis_lags')
     s = json.load(open(os.path.join(o, 'summary.json')))
     circ = list(csv.DictReader(open(os.path.join(o, 'circuits.csv'))))
     nets = list(csv.DictReader(open(os.path.join(o, 'networks.csv'))))
     u = np.load(os.path.join(o, 'units.npz'))
-    check('analyze: decay recovers log tau, persistence A x B, amplitude A (intact)',
-          np.allclose(u['intact_decay'], np.log(unit_tau), atol=0.05)
-          and np.allclose(u['intact_persistence'], unit_A * unit_B, atol=0.01)
-          and np.allclose(u['intact_amplitude'], unit_A, atol=0.02))
-    check('analyze: shuffled decay recovers its doubled time constant',
-          np.allclose(u['shuffled_decay'], np.log(2.0 * unit_tau), atol=0.05))
+    true = {(c, k): unit_A * (np.exp(-k / (sc * unit_tau)) + unit_B) for c, sc in (('intact', 1.0), ('shuffled', 2.0))
+            for k in (1, 10, 100)}
+    check('analyze: acf1, acf10, acf100 are the ACF at those lags, both conditions',
+          all(np.allclose(u['%s_acf%d' % ck], v, atol=0.002) for ck, v in true.items()))
+    check('analyze: per-half values kept', np.allclose(u['intact_acf10_halfA'], true[('intact', 10)], atol=0.002))
     check('analyze: tau_int kept as a reference', np.allclose(
-        u['intact_tau_int_halfA'], (unit_A[:, None] * (np.exp(-lag[1:] / unit_tau[:, None]) + unit_B[:, None])).sum(1), atol=0.05))
+        u['intact_tau_int_halfA'], (unit_A[:, None] * (np.exp(-lag[1:] / unit_tau[:, None]) + unit_B[:, None])).sum(1), atol=0.1))
     check('analyze: split-half reliability near 1 on near-noise-free ACFs, gate passed',
-          s['split_half']['intact_decay'] > 0.95 and s['split_half']['intact_persistence'] > 0.95 and s['gate_passed'])
-    check('analyze: exponential fits succeed', min(s['fit_ok'].values()) > 0.95)
+          min(s['split_half'][m] for m in bt.TESTED) > 0.95 and s['gate_passed'])
+    check('analyze: no fit in the summary', 'fit_ok' not in s and s['lags'] == [1, 10, 100])
     check('analyze: one circuit row per task and measure (4), accuracy attached',
           len(circ) == 12 and np.allclose(sorted({round(float(r['accuracy']), 6) for r in circ}), [0.7, 0.8, 0.9]))
     check('analyze: one network row per partition (2 halves x real/null) and measure (6)', len(nets) == 24)
-    check('analyze: decay correlates with depth', s['depth_spearman']['intact_decay'] > 0.5)
+    from scipy.stats import spearmanr
+    check('analyze: depth Spearman of acf10 matches a direct computation', np.isclose(
+        s['depth_spearman']['intact_acf10'], spearmanr(np.repeat(np.arange(nl), wd), u['intact_acf10'])[0]))
+    lay_rows = list(csv.DictReader(open(os.path.join(o, 'layers.csv'))))
+    check('analyze: layers.csv has a median for every measure and layer',
+          len(lay_rows) == nl and all('%s_median' % m in lay_rows[0] for m in bt.DESCRIBED))
 finally:
     shutil.rmtree(tmp)
 

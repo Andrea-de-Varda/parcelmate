@@ -11,7 +11,7 @@
 #                    copy on the GPU are smaller than in Iteration 43, which ran on the same card.
 # analyze (CPU):     reliability, depth, networks, circuits; starts when acf ends (afterok).
 #                    `submit-analyze` reruns it alone on an existing acf.h5. Since 2026-10-29 it
-#                    fits each half (4 x 147,456 exponential fits) and writes analysis_fit/.
+#                    reads the ACF at lags 1, 10, 100 (no fit) and writes analysis_lags/.
 #
 # Disk: acf.h5 about 1.3 GB (8 ACFs of 147,456 x 257 float32) plus the windows; the non-streaming
 # wikitext and bookcorpus downloads go to the shared HF cache.
@@ -72,8 +72,8 @@ generate() {
     local m=qwen3.5-2b out=results/timescales/qwen3.5-2b
     write_pbs timescales-$m-acf jag-standard "#SBATCH --gres=gpu:a6000:1" 8 64 4 \
         python -m parcelmate.bin.timescales acf --model Qwen/Qwen3.5-2B --out $out
-    write_pbs timescales-$m-analyze john "" 6 48 16 \
-        python -m parcelmate.bin.timescales analyze --out $out --cores 16 \
+    write_pbs timescales-$m-analyze john "" 6 48 4 \
+        python -m parcelmate.bin.timescales analyze --out $out \
             --networks results/qwen35/qwen3.5-2b-resid-pool4 \
             --patching results/patching_bank/Qwen_Qwen3-5-2B results/patching/Qwen_Qwen3-5-2B \
             --richclub results/richclub/qwen3.5-2b-resid-pool4-tiles/metrics/richclub
@@ -89,7 +89,7 @@ submit() {
 }
 
 submit-analyze() {
-    # The analysis alone, on an existing acf.h5 (decay and persistence, 2026-10-29).
+    # The analysis alone, on an existing acf.h5 (fixed lags, 2026-10-29).
     [ "$NAME" = qwen3.5-2b ] || { echo "only qwen3.5-2b is configured" >&2; exit 2; }
     sbatch --parsable jobs/timescales-$NAME-analyze.pbs
 }

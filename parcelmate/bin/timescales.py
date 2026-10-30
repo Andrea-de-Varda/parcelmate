@@ -15,15 +15,17 @@ Writes <out>/acf.h5: `<condition>/<dataset>/<half>/{acf, mean, var, positive_sha
 windows' token ids and sources, unit coordinates and the model's layer types. A finished
 (condition, dataset, half) is skipped on a rerun.
 
-`analyze` (CPU). Per condition and half, the ACF is the mean over the two datasets, fitted with
-A (exp(-k / tau) + B) (`load_measures`). Two measures per unit and condition, each the mean of the
-halves: decay = log tau (the decaying part's time constant) and persistence = A x B (the level kept
-at long lags). They replace tau_int, which was 80-99% plateau (LOG.md Iteration 47, first results).
-Writes to <out>/<--tag>/ (default analysis_fit; the first run's tau_int results are in analysis/):
+`analyze` (CPU). Per condition and half, the ACF is the mean over the two datasets, read at lags
+1, 10 and 100 (`load_measures`): how similar the unit's residual is to itself the next token, about a
+sentence later and about a paragraph later. Each measure is the mean of the halves. Lags 10 and 100
+are tested against networks and circuits; lag 1 is descriptive. No curve is fitted: the first
+definition (tau_int) was 80-99% plateau, and the exponential fit that replaced it decided arbitrarily
+whether the slow drift of the shuffled top layers was decay or floor (LOG.md Iteration 47).
+Writes to <out>/<--tag>/ (default analysis_lags; tau_int in analysis/, the fit in analysis_fit/):
   units.npz           the measures per unit, per half, the references (tau_int, tail level), covariates
-  reliability.csv     A: split-half Spearman (decay also by tertile of the amplitude A), relations
-                      to tau_int and to the model-free tail level
-  layers.csv          B: tau (in tokens), persistence and amplitude by layer
+  reliability.csv     A: split-half Spearman, relations between lags, to tau_int, to the tail level
+                      and between conditions
+  layers.csv          B: quantiles and mean of every measure by layer
   networks.csv        C: spread of layer-adjusted network values against within-layer permutations,
                       also as a share of the mean within-layer variance; every partition and measure
   network_values.csv  C: layer-adjusted value of every network
@@ -137,61 +139,45 @@ def _write_csv(path, rows):
     stderr('wrote %s (%d rows)\n' % (path, len(rows)))
 
 
-def _fit_chunk(a):
-    from parcelmate.timescales import exp_fit
-    return exp_fit(a)
+def load_measures(path, max_lag=None):
+    """The per-unit measures (Iteration 47, revised again 2026-10-29). Per condition and half, the
+    ACF is the mean over the two datasets, read at fixed lags (LAGS):
 
+      <condition>_acf<k>   the ACF at lag k: the correlation of the unit's residual at token t with
+                           its residual at token t + k, over every such pair inside a window; mean
+                           of the halves
 
-def _fit_all(acf, cores):
-    """`timescales.exp_fit` of every row of `acf`, in parallel over chunks."""
-    from multiprocessing import Pool
-    chunks = np.array_split(acf, max(1, cores * 4))
-    with Pool(cores) as p:
-        res = p.map(_fit_chunk, chunks)
-    return {k: np.concatenate([r[k] for r in res]) for k in ('tau', 'A', 'B', 'ok')}
-
-
-def load_measures(path, cores, max_lag=None):
-    """The per-unit measures (Iteration 47, revised 2026-10-29). Per condition and half, the ACF is
-    the mean over the two datasets and is fitted with A (exp(-k / tau) + B) over lags 1..max_lag:
-
-      <condition>_decay        log tau, the time constant of the decaying part, mean of the halves
-      <condition>_persistence  A x B, the level the ACF keeps at long lags (variance that is constant
-                               within a window and differs between windows), mean of the halves
-
-    A unit whose fit fails in either half gets NaN for both. tau_int (sum of the ACF over lags
-    1..max_lag, the first definition) and the model-free tail level (mean ACF over the last half of
-    the lags) are kept as references."""
+    No curve is fitted: the exponential fit labelled the slow drift of the shuffled top layers as
+    floor, and a model-free width labelled it as decay (LOG.md Iteration 47, second revision).
+    tau_int (sum of the ACF over lags 1..max_lag, the first definition) and the tail level (mean
+    ACF over the last half of the lags) are kept as references."""
     from parcelmate.timescales import tau_int
     with h5py.File(path, 'r') as f:
         coords = np.asarray(f['coordinates'])
         layer_types = [x.decode() for x in f['layer_types']] if 'layer_types' in f else None
         L = int(f.attrs['max_lag']) if max_lag is None else max_lag
+        assert L >= max(LAGS), 'the ACF stops at lag %d, before lag %d' % (L, max(LAGS))
         acf = {(c, h): np.mean([np.asarray(f['%s/%s/%s/acf' % (c, d, h)])[:, :L + 1] for d in DATASETS], 0)
                for c in CONDITIONS for h in HALVES}
         cov = {k: np.mean([np.asarray(f['intact/%s/%s/%s' % (d, h, k)]) for d in DATASETS for h in HALVES], 0)
                for k in ('positive_share', 'var')}
-    fits, half, ref = {}, {}, {}
+    half, ref = {}, {}
     for key, a in acf.items():
-        fits[key] = _fit_all(a, cores)
-        stderr('exponential fit, %s %s: %.2f%% succeeded\n' % (key + (100 * fits[key]['ok'].mean(),)))
-        ok = fits[key]['ok']
-        half[(key[0] + '_decay', key[1])] = np.where(ok, np.log(fits[key]['tau']), np.nan)
-        half[(key[0] + '_persistence', key[1])] = np.where(ok, fits[key]['A'] * fits[key]['B'], np.nan)
-        half[(key[0] + '_amplitude', key[1])] = np.where(ok, fits[key]['A'], np.nan)
+        for k in LAGS:
+            half[('%s_acf%d' % (key[0], k), key[1])] = a[:, k].astype(np.float64)
         ref[(key[0] + '_tau_int', key[1])] = tau_int(a, L)
         ref[(key[0] + '_tail', key[1])] = a[:, L // 2 + 1:].mean(1)
     measures = {}
     for c in CONDITIONS:
-        both = fits[(c, 'halfA')]['ok'] & fits[(c, 'halfB')]['ok']
-        for m in ('decay', 'persistence', 'amplitude'):
-            v = (half[(c + '_' + m, 'halfA')] + half[(c + '_' + m, 'halfB')]) / 2
-            measures['%s_%s' % (c, m)] = np.where(both, v, np.nan)
-    return dict(coords=coords, layer_types=layer_types, half=half, ref=ref, measures=measures, cov=cov,
-                fits=fits, max_lag=L)
+        for k in LAGS:
+            m = '%s_acf%d' % (c, k)
+            measures[m] = (half[(m, 'halfA')] + half[(m, 'halfB')]) / 2
+    return dict(coords=coords, layer_types=layer_types, half=half, ref=ref, measures=measures, cov=cov, max_lag=L)
 
 
-TESTED = ('intact_decay', 'intact_persistence', 'shuffled_decay', 'shuffled_persistence')
+LAGS = (1, 10, 100)
+TESTED = ('intact_acf10', 'intact_acf100', 'shuffled_acf10', 'shuffled_acf100')
+DESCRIBED = tuple('%s_acf%d' % (c, k) for c in CONDITIONS for k in LAGS)
 
 
 def run_analyze(args):
@@ -204,71 +190,60 @@ def run_analyze(args):
 
     out = os.path.join(args.out, args.tag)
     os.makedirs(out, exist_ok=True)
-    T = load_measures(os.path.join(args.out, 'acf.h5'), args.cores)
+    T = load_measures(os.path.join(args.out, 'acf.h5'))
     coords = T['coords']
     layers = coords[:, 0].astype(np.int64)
     n_layers, width = int(layers.max()) + 1, int(coords[:, 1].max()) + 1
     assert np.array_equal(coords[:, 0] * width + coords[:, 1], np.arange(len(coords))), 'units not in flat order'
     M = dict(T['measures'])
     cov = np.column_stack([T['cov']['positive_share'], np.log(np.clip(T['cov']['var'], 1e-30, None))])
-    for m in ('intact_decay', 'intact_persistence'):
+    for m in ('intact_acf10', 'intact_acf100'):
         M[m + '_cov'] = residualize_within_layer(M[m], cov, layers)
-    tested = list(TESTED) + ['intact_decay_cov', 'intact_persistence_cov']
+    tested = list(TESTED) + ['intact_acf10_cov', 'intact_acf100_cov']
     np.savez(os.path.join(out, 'units.npz'), coordinates=coords, **M,
              **{'%s_%s' % k: v for k, v in T['half'].items()}, **{'%s_%s' % k: v for k, v in T['ref'].items()},
              positive_share=T['cov']['positive_share'], var=T['cov']['var'])
-    summary = dict(max_lag=T['max_lag'], n_units=int(len(coords)),
-                   fit_ok={'%s_%s' % k: float(v['ok'].mean()) for k, v in T['fits'].items()},
+    summary = dict(max_lag=T['max_lag'], lags=list(LAGS), n_units=int(len(coords)),
                    n_finite={m: int(np.isfinite(M[m]).sum()) for m in M})
 
-    # A. reliability, and how the new measures relate to the old ones
+    # A. reliability, and how the lags relate to each other and to the old measures
     rows = []
     H = T['half']
     for c in CONDITIONS:
-        for m in ('decay', 'persistence', 'amplitude'):
-            k = c + '_' + m
-            rows.append(dict(measure=k, comparison='halfA_vs_halfB', subset='all',
-                             spearman=_spearman(H[(k, 'halfA')], H[(k, 'halfB')])))
-        # decay reliability by tertile of the decaying amplitude: tau is only defined when A is not ~0
-        amp = M[c + '_amplitude']
-        q = np.nanquantile(amp, [1 / 3, 2 / 3])
-        for name, sel in (('amplitude_low', amp < q[0]), ('amplitude_mid', (amp >= q[0]) & (amp < q[1])),
-                          ('amplitude_high', amp >= q[1])):
-            rows.append(dict(measure=c + '_decay', comparison='halfA_vs_halfB', subset=name,
-                             spearman=_spearman(H[(c + '_decay', 'halfA')][sel], H[(c + '_decay', 'halfB')][sel])))
         tau_int = (T['ref'][(c + '_tau_int', 'halfA')] + T['ref'][(c + '_tau_int', 'halfB')]) / 2
         tail = (T['ref'][(c + '_tail', 'halfA')] + T['ref'][(c + '_tail', 'halfB')]) / 2
-        for k, ref_name, ref in ((c + '_persistence', 'tail', tail), (c + '_persistence', 'tau_int', tau_int),
-                                 (c + '_decay', 'tau_int', tau_int), (c + '_decay', c + '_persistence', M[c + '_persistence'])):
-            rows.append(dict(measure=k, comparison='vs_' + ref_name, subset='all', spearman=_spearman(M[k], ref)))
-    for m in ('decay', 'persistence'):
-        rows.append(dict(measure='intact_vs_shuffled', comparison=m, subset='all',
-                         spearman=_spearman(M['intact_' + m], M['shuffled_' + m])))
+        for k in LAGS:
+            m = '%s_acf%d' % (c, k)
+            rows.append(dict(measure=m, comparison='halfA_vs_halfB', spearman=_spearman(H[(m, 'halfA')], H[(m, 'halfB')])))
+            for ref_name, ref in (('tau_int', tau_int), ('tail', tail)):
+                rows.append(dict(measure=m, comparison='vs_' + ref_name, spearman=_spearman(M[m], ref)))
+        for i, k1 in enumerate(LAGS):
+            for k2 in LAGS[i + 1:]:
+                rows.append(dict(measure='%s_acf%d' % (c, k1), comparison='vs_%s_acf%d' % (c, k2),
+                                 spearman=_spearman(M['%s_acf%d' % (c, k1)], M['%s_acf%d' % (c, k2)])))
+    for k in LAGS:
+        rows.append(dict(measure='intact_acf%d' % k, comparison='vs_shuffled_acf%d' % k,
+                         spearman=_spearman(M['intact_acf%d' % k], M['shuffled_acf%d' % k])))
     _write_csv(os.path.join(out, 'reliability.csv'), rows)
-    summary['split_half'] = {r['measure']: r['spearman'] for r in rows
-                             if r['comparison'] == 'halfA_vs_halfB' and r['subset'] == 'all'}
-    summary['gate_passed'] = bool(min(summary['split_half']['intact_decay'],
-                                      summary['split_half']['intact_persistence']) >= 0.7)
+    summary['split_half'] = {r['measure']: r['spearman'] for r in rows if r['comparison'] == 'halfA_vs_halfB'}
+    summary['gate_passed'] = bool(min(summary['split_half'][m] for m in TESTED) >= 0.7)
     if not summary['gate_passed'] and not args.ignore_gate:
         stderr('reliability gate failed (%s): stopping before B-D\n' % summary['split_half'])
         json.dump(summary, open(os.path.join(out, 'summary.json'), 'w'), indent=1)
         return
 
-    # B. depth (decay reported in tokens)
+    # B. depth
     rows = []
     for l in range(n_layers):
         r = dict(layer=l, layer_type=T['layer_types'][l] if T['layer_types'] else '')
-        for m in TESTED + ('intact_amplitude', 'shuffled_amplitude'):
+        for m in DESCRIBED:
             v = M[m][(layers == l) & np.isfinite(M[m])]
-            v = np.exp(v) if m.endswith('decay') else v
             q = np.quantile(v, [0.1, 0.25, 0.5, 0.75, 0.9])
-            name = m.replace('decay', 'tau_tokens')
-            r.update({'%s_q10' % name: q[0], '%s_q25' % name: q[1], '%s_median' % name: q[2],
-                      '%s_q75' % name: q[3], '%s_q90' % name: q[4]})
-            r['%s_finite' % name] = float(np.isfinite(M[m][layers == l]).mean())
+            r.update({'%s_q10' % m: q[0], '%s_q25' % m: q[1], '%s_median' % m: q[2],
+                      '%s_q75' % m: q[3], '%s_q90' % m: q[4], '%s_mean' % m: float(v.mean())})
         rows.append(r)
     _write_csv(os.path.join(out, 'layers.csv'), rows)
-    summary['depth_spearman'] = {m: _spearman(layers.astype(float), M[m]) for m in TESTED}
+    summary['depth_spearman'] = {m: _spearman(layers.astype(float), M[m]) for m in DESCRIBED}
 
     # C. networks
     parts = load_partitions(args.networks, args.variant)
@@ -367,10 +342,9 @@ def main():
     b.add_argument('--pct', type=float, default=0.1)
     b.add_argument('--draws', type=int, default=1000)
     b.add_argument('--perm', type=int, default=1000)
-    b.add_argument('--cores', type=int, default=8)
     b.add_argument('--seed', type=int, default=42)
     b.add_argument('--ignore-gate', action='store_true')
-    b.add_argument('--tag', default='analysis_fit', help='output subdirectory of --out')
+    b.add_argument('--tag', default='analysis_lags', help='output subdirectory of --out')
     args = ap.parse_args()
     run_acf(args) if args.mode == 'acf' else run_analyze(args)
 
