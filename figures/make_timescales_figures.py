@@ -2,15 +2,17 @@
 
     python figures/make_timescales_figures.py
 
-Reads results/timescales/qwen3.5-2b/{acf.h5, analysis_fit/} and figures/bank_task_labels.csv;
+Reads results/timescales/qwen3.5-2b/{acf.h5, analysis_lags/} and figures/bank_task_labels.csv;
 writes plots/timescales/*.{svg,png}:
-  acf_examples      the ACF of three real units with their fits: decay (tau) and persistence (A x B)
-  reliability       half A against half B, per unit, for decay and persistence
-  depth             median and interquartile range per layer, intact and word-shuffled text
+  acf_schematic     illustration (simulated unit): pairs of tokens k apart, and their correlation
+  acf_examples      the ACF of three real units, read at lags 1, 10 and 100
+  reliability       half A against half B, per unit, for ACF(10) and ACF(100)
+  depth             median and interquartile range per layer of ACF(1), ACF(10), ACF(100),
+                    intact and word-shuffled text
   networks          share of the within-layer variance carried by the networks: shuffled labels,
                     real networks, circular-shift null networks
   circuits_mean     per task: circuit mean against layer-matched random units (z), by domain
-  circuits_var      per task: circuit variance of log tau (z), by domain
+  circuits_var      per task: circuit spread of ACF(10) (z), by domain
   circuits_var_accuracy  the same against the task's both-correct accuracy
 """
 
@@ -30,6 +32,8 @@ mpl.rcParams['font.family'] = 'DejaVu Sans'
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 RES = os.path.join(ROOT, 'results', 'timescales', 'qwen3.5-2b')
+TAG = 'analysis_lags'
+LAGS = (1, 10, 100)
 OUT = os.path.join(ROOT, 'plots', 'timescales')
 
 # Same domain colours as the circuits-vs-networks figures (make_bank_concentration_figure.py).
@@ -72,49 +76,83 @@ def stat_box(ax, text, loc='upper left', fontsize=8):
 
 
 def load():
-    u = dict(np.load(os.path.join(RES, 'analysis_fit', 'units.npz')))
+    u = dict(np.load(os.path.join(RES, TAG, 'units.npz')))
     u['layer'] = u['coordinates'][:, 0]
     return u
 
 
 # ---------------------------------------------------------------------------- figures
 
+def fig_acf_schematic():
+    """Illustration with a simulated unit (AR(1), phi 0.85): the residual over tokens, two pairs of
+    tokens k = 5 apart, and the scatter of all such pairs, whose correlation is ACF(5)."""
+    rng = np.random.RandomState(3)
+    n, k, phi = 4000, 5, 0.85
+    r = np.zeros(n)
+    for t in range(1, n):
+        r[t] = phi * r[t - 1] + rng.normal(0, np.sqrt(1 - phi ** 2))
+    fig, (a1, a2) = plt.subplots(1, 2, figsize=(6.2 * .9, 2.3 * .9), gridspec_kw=dict(width_ratios=[2.1, 1]))
+    T = 40
+    a1.plot(np.arange(T), r[:T], color=INTACT, lw=1.2, marker='o', ms=2.5, zorder=3)
+    for t0, col in ((6, '#C0392B'), (24, '#2471A3')):
+        a1.plot([t0, t0 + k], [r[t0], r[t0 + k]], 'o', ms=6, color=col, zorder=4)
+        top = max(r[t0], r[t0 + k]) + 0.5
+        a1.annotate('', xy=(t0 + k, top), xytext=(t0, top),
+                    arrowprops=dict(arrowstyle='<->', color=col, lw=1.2))
+        a1.text(t0 + k / 2, top + 0.12, 'k = %d' % k, color=col, ha='center', va='bottom', fontsize=7.5)
+    a1.set_xlabel('Token position in the window', fontsize=10)
+    a1.set_ylabel('Residual activation', fontsize=10)
+    a1.set_xlim(-1, T)
+    a1.tick_params(labelsize=8)
+    chrome(a1)
+    x, y = r[:-k], r[k:]
+    a2.scatter(x, y, s=2, color='#888888', alpha=0.25, lw=0, zorder=2)
+    for t0, col in ((6, '#C0392B'), (24, '#2471A3')):
+        a2.scatter(r[t0], r[t0 + k], s=28, color=col, edgecolors='black', lw=0.5, zorder=4)
+    a2.set_xlabel('Activation at t', fontsize=10)
+    a2.set_ylabel('Activation at t + k', fontsize=10)
+    a2.tick_params(labelsize=8)
+    lim = np.quantile(np.abs(r), 0.999)
+    a2.set_xlim(-lim, lim); a2.set_ylim(-lim, lim)
+    chrome(a2, grid=None)
+    stat_box(a2, 'ACF(%d) = r = %.2f' % (k, np.corrcoef(x, y)[0, 1]), fontsize=7.5)
+    fig.tight_layout()
+    save(fig, 'acf_schematic')
+
+
 def fig_acf_examples(u):
-    """Three real units: fast, slow-decaying, persistent. ACF = mean over datasets and halves."""
-    lay, tau = u['layer'], np.exp(u['intact_decay'])
-    per, amp = u['intact_persistence'], u['intact_amplitude']
-    ok = np.isfinite(tau) & np.isfinite(per)
+    """Three real units, ACF = mean over datasets and halves: fast (next token only), slow (still
+    correlated a sentence later) and persistent (correlated across the window)."""
+    lay = u['layer']
+    a1, a10, a100 = u['intact_acf1'], u['intact_acf10'], u['intact_acf100']
     cands = {
-        'fast': np.flatnonzero(ok & (lay == 3) & (tau > 1) & (tau < 2) & (per < 0.02)),        # short tau, no plateau
-        'slow': np.flatnonzero(ok & (lay == 22) & (tau > 12) & (tau < 40) & (per < 0.08)),      # long tau
-        'persistent': np.flatnonzero(ok & (lay == 22) & (tau < 4) & (per > 0.2)),               # large plateau
+        'fast': (lay == 3) & (a10 < 0.02) & (a100 < 0.01),
+        'slow': (lay == 22) & (a100 < 0.03),
+        'persistent': (lay == 22) & (a100 > 0.25),
     }
-    lag = np.arange(1, 257)
-    picks, acf = {}, {}
+    score = {'fast': a1, 'slow': a10, 'persistent': a1}
+    picks = {k: int(np.flatnonzero(c)[np.argmax(score[k][c])]) for k, c in cands.items()}
+    acf = {}
     with h5py.File(os.path.join(RES, 'acf.h5'), 'r') as f:
-        for k, c in cands.items():
-            a = np.mean([f['intact/%s/%s/acf' % (d, h)][np.sort(c)] for d in ('wikitext', 'bookcorpus')
-                         for h in ('halfA', 'halfB')], 0)[:, 1:]
-            c = np.sort(c)
-            fit = amp[c, None] * np.exp(-lag[None] / tau[c, None]) + per[c, None]
-            rmse = np.sqrt(((a - fit) ** 2).mean(1))
-            # a well-fitted unit (rmse in its candidates' best 10%) with a clearly visible ACF at lag 1
-            good = rmse <= np.quantile(rmse, 0.1)
-            j = np.flatnonzero(good)[np.argmax(a[good, 0])]
-            picks[k], acf[k] = c[j], np.r_[1.0, a[j]]
-    lag = np.arange(1, 257)
+        for k, i in picks.items():
+            acf[k] = np.mean([f['intact/%s/%s/acf' % (d, h)][i] for d in ('wikitext', 'bookcorpus')
+                              for h in ('halfA', 'halfB')], 0)
     style = {'fast': ('#5DADE2', 'fast unit'), 'slow': ('#C0392B', 'slow unit'),
              'persistent': ('#B7950B', 'persistent unit')}
+    lag = np.arange(1, 257)
     fig, ax = plt.subplots(figsize=(3.6 * .9, 2.6 * .9))
+    for x in LAGS:
+        ax.axvline(x, color='black', lw=0.8, ls=':', zorder=1)
     for k, i in picks.items():
-        col, lab = style[k]
-        A, t, P = amp[i], tau[i], per[i]
-        ax.plot(lag, acf[k][1:], color=col, lw=1.0, alpha=0.45, zorder=2)
-        ax.plot(lag, A * np.exp(-lag / t) + P, color=col, lw=1.8, ls='--', zorder=3)
-        print('  %s: layer %d, unit %d, tau %.1f tokens, persistence %.3f' % (k, lay[i], u['coordinates'][i, 1], t, P))
+        col, _ = style[k]
+        ax.plot(lag, acf[k][1:], color=col, lw=1.6, zorder=2)
+        ax.scatter(LAGS, acf[k][list(LAGS)], s=22, color=col, edgecolors='black', lw=0.6, zorder=4)
+        print('  %s: layer %d, unit %d, ACF(1) %.3f, ACF(10) %.3f, ACF(100) %.3f'
+              % (k, lay[i], u['coordinates'][i, 1], *acf[k][list(LAGS)]))
     ax.set_xscale('log')
     ax.set_xticks([1, 2, 5, 10, 20, 50, 100, 200])
     ax.set_xticklabels(['1', '2', '5', '10', '20', '50', '100', '200'])
+    ax.minorticks_off()
     ax.set_xlim(1, 256)
     ax.set_ylim(-0.02, None)
     ax.set_xlabel('Lag (tokens)', fontsize=11)
@@ -123,38 +161,24 @@ def fig_acf_examples(u):
     chrome(ax)
     h = [Line2D([0], [0], color=style[k][0], lw=2, label='%s (layer %d)' % (style[k][1], lay[picks[k]]))
          for k in ('fast', 'slow', 'persistent')]
-    h += [Line2D([0], [0], color='gray', lw=1, alpha=0.5, label='data'),
-          Line2D([0], [0], color='gray', lw=1.8, ls='--', label='fit')]
+    h += [Line2D([0], [0], color='black', lw=0.8, ls=':', label='lags 1, 10, 100')]
     ax.legend(handles=h, frameon=False, fontsize=7.5, loc='upper left', bbox_to_anchor=(1.0, 1.0))
     save(fig, 'acf_examples')
 
 
 def fig_reliability(u):
     fig, axes = plt.subplots(1, 2, figsize=(5.4 * .9, 2.5 * .9))
-    for ax, (m, lab, logs) in zip(axes, (('intact_decay', 'Decay τ (tokens)', True),
-                                         ('intact_persistence', 'Persistence', False))):
+    for ax, k in zip(axes, (10, 100)):
+        m = 'intact_acf%d' % k
         a, b = u[m + '_halfA'], u[m + '_halfB']
         ok = np.isfinite(a) & np.isfinite(b)
         a, b = a[ok], b[ok]
-        if logs:
-            a, b = np.exp(a), np.exp(b)
-            lo, hi = np.quantile(np.r_[a, b], [0.005, 0.995])
-            ax.set_xscale('log'); ax.set_yscale('log')
-            bins = 'log'
-            ax.hexbin(a, b, gridsize=45, xscale='log', yscale='log', bins=bins, cmap='Greys',
-                      mincnt=1, extent=(np.log10(lo), np.log10(hi), np.log10(lo), np.log10(hi)), linewidths=0)
-        else:
-            lo, hi = np.quantile(np.r_[a, b], [0.005, 0.995])
-            ax.hexbin(a, b, gridsize=45, bins='log', cmap='Greys', mincnt=1, extent=(lo, hi, lo, hi), linewidths=0)
+        lo, hi = np.quantile(np.r_[a, b], [0.005, 0.995])
+        ax.hexbin(a, b, gridsize=45, bins='log', cmap='Greys', mincnt=1, extent=(lo, hi, lo, hi), linewidths=0)
         ax.plot([lo, hi], [lo, hi], color='#C0392B', lw=1, ls='--')
         ax.set_xlim(lo, hi); ax.set_ylim(lo, hi)
-        if logs:
-            t = [x for x in (0.5, 1, 2, 5, 10, 20, 50) if lo <= x <= hi]
-            ax.set_xticks(t); ax.set_yticks(t)
-            ax.set_xticklabels(['%g' % x for x in t]); ax.set_yticklabels(['%g' % x for x in t])
-            ax.minorticks_off()
         ax.set_xlabel('Half A', fontsize=10); ax.set_ylabel('Half B', fontsize=10)
-        ax.set_title(lab, fontsize=9, weight='bold')
+        ax.set_title('ACF(%d)' % k, fontsize=9, weight='bold')
         ax.tick_params(labelsize=8)
         chrome(ax, grid=None)
         stat_box(ax, 'ρ = %.2f' % spearmanr(a, b)[0])
@@ -165,32 +189,30 @@ def fig_reliability(u):
 def fig_depth(u):
     lay = u['layer']
     L = int(lay.max()) + 1
-    fig, axes = plt.subplots(1, 2, figsize=(6.0 * .9, 2.5 * .9))
-    for ax, (m, lab) in zip(axes, (('decay', 'Decay τ (tokens)'), ('persistence', 'Persistence'))):
+    layers = np.arange(L)
+    fig, axes = plt.subplots(1, 3, figsize=(7.6 * .9, 2.4 * .9))
+    for ax, k in zip(axes, LAGS):
         for cond, col, name in (('intact', INTACT, 'intact text'), ('shuffled', SHUF, 'words shuffled')):
-            v = u['%s_%s' % (cond, m)]
-            v = np.exp(v) if m == 'decay' else v
-            layers = np.arange(1, L) if m == 'decay' else np.arange(L)   # layer 0: tau not identified
+            v = u['%s_acf%d' % (cond, k)]
             q = np.array([np.nanquantile(v[lay == l], [0.25, 0.5, 0.75]) for l in layers])
             ax.fill_between(layers, q[:, 0], q[:, 2], color=col, alpha=0.2, lw=0, zorder=2)
             ax.plot(layers, q[:, 1], color=col, lw=2, marker='o', ms=2.5, zorder=3, label=name)
-        if m == 'decay':
-            ax.set_yscale('log')
-            ax.set_yticks([0.5, 1, 2, 5, 10, 20]); ax.set_yticklabels(['0.5', '1', '2', '5', '10', '20'])
+        ax.set_title('ACF(%d)' % k, fontsize=9, weight='bold')
         ax.set_xlabel('Layer', fontsize=10)
-        ax.set_ylabel(lab, fontsize=10)
         ax.set_xlim(-0.5, L - 0.5)
+        ax.set_ylim(0, None)
         ax.tick_params(labelsize=8)
         chrome(ax)
-    axes[1].legend(frameon=False, fontsize=8, loc='upper left')
+    axes[0].set_ylabel('Autocorrelation', fontsize=10)
+    axes[0].legend(frameon=False, fontsize=7.5, loc='upper left')
     fig.tight_layout()
     save(fig, 'depth')
 
 
 def fig_networks():
-    N = pd.read_csv(os.path.join(RES, 'analysis_fit', 'networks.csv'), keep_default_na=False)
+    N = pd.read_csv(os.path.join(RES, TAG, 'networks.csv'), keep_default_na=False)
     fig, ax = plt.subplots(figsize=(3.2 * .9, 2.5 * .9))
-    groups = [('intact_decay', 'Decay'), ('intact_persistence', 'Persistence')]
+    groups = [('intact_acf10', 'ACF(10)'), ('intact_acf100', 'ACF(100)')]
     bars = [('perm', 'shuffled labels', 'white', GRAY_EDGE), ('real', 'real networks', INTACT, 'black'),
             ('null', 'circular-shift networks', GRAY_FILL, GRAY_EDGE)]
     w = 0.26
@@ -214,7 +236,7 @@ def fig_networks():
 
 
 def circuits():
-    C = pd.read_csv(os.path.join(RES, 'analysis_fit', 'circuits.csv'))
+    C = pd.read_csv(os.path.join(RES, TAG, 'circuits.csv'))
     lab = pd.read_csv(os.path.join(ROOT, 'figures', 'bank_task_labels.csv'))
     C = C.merge(lab[['root', 'group', 'task', 'domain']], on=['root', 'group', 'task'], how='left')
     assert C.domain.notna().all(), 'tasks without a domain label'
@@ -241,11 +263,10 @@ def strip(ax, C, measure, stat, order, rng):
 
 
 def fig_circuits_mean(C):
-    order = (C[C.measure == 'intact_decay'].groupby('domain').mean_z.median().sort_values().index.tolist())
+    order = (C[C.measure == 'intact_acf10'].groupby('domain').mean_z.median().sort_values().index.tolist())
     fig, axes = plt.subplots(2, 1, figsize=(6.4 * .9, 4.6 * .9), sharex=True)
     rng = np.random.RandomState(0)
-    for ax, (m, lab) in zip(axes, (('intact_decay', 'Decay τ (z)'),
-                                   ('intact_persistence', 'Persistence (z)'))):
+    for ax, (m, lab) in zip(axes, (('intact_acf10', 'ACF(10) (z)'), ('intact_acf100', 'ACF(100) (z)'))):
         strip(ax, C, m, 'mean', order, rng)
         ax.set_ylabel(lab, fontsize=10)
     for t in axes[0].get_xticklabels():
@@ -261,11 +282,11 @@ def fig_circuits_mean(C):
 
 
 def fig_circuits_var(C):
-    D = C[C.measure == 'intact_decay']
+    D = C[C.measure == 'intact_acf10']
     order = D.groupby('domain').mean_z.median().sort_values().index.tolist()
     fig, ax = plt.subplots(figsize=(6.4 * .9, 2.4 * .9))
-    strip(ax, C, 'intact_decay', 'var', order, np.random.RandomState(1))
-    ax.set_ylabel('Spread of τ (z)', fontsize=10)
+    strip(ax, C, 'intact_acf10', 'var', order, np.random.RandomState(1))
+    ax.set_ylabel('Spread of ACF(10) (z)', fontsize=10)
     fig.tight_layout()
     save(fig, 'circuits_var')
 
@@ -276,9 +297,9 @@ def fig_circuits_var(C):
                    label=SHORT[d].replace('\n', ' '))
     ax.axhline(0, color='black', lw=1, zorder=2)
     r, p = spearmanr(D.accuracy, D.var_z)
-    stat_box(ax, 'ρ = %.2f, p = %.2f' % (r, p), loc='upper left', fontsize=7.5)
+    stat_box(ax, 'ρ = %.2f, p = %.2g' % (r, p), loc='upper left', fontsize=7.5)
     ax.set_xlabel('Task accuracy', fontsize=10)
-    ax.set_ylabel('Spread of τ (z)', fontsize=10)
+    ax.set_ylabel('Spread of ACF(10) (z)', fontsize=10)
     ax.tick_params(labelsize=8)
     chrome(ax)
     ax.legend(frameon=False, fontsize=6.5, loc='upper left', bbox_to_anchor=(1.0, 1.0), handletextpad=0.1)
@@ -286,6 +307,7 @@ def fig_circuits_var(C):
 
 
 def main():
+    fig_acf_schematic()
     u = load()
     fig_acf_examples(u)
     fig_reliability(u)
