@@ -361,27 +361,21 @@ def unit_handles():
             for m, lab in (('o', 'residual stream'), ('s', 'MLP neurons'))]
 
 
-def best_per_unit(metric, value):
-    """The arm with the largest real - null on `metric` among residual and among MLP arms.
-
-    Ringed separately: residual-stream transfer is inflated by chain-following (Iteration
-    18), so one overall winner would always be a residual arm and say nothing about MLP.
-    """
-    out = []
-    for unit in (False, True):
-        pool = [a for a in ARMS if is_mlp(a) == unit and np.isfinite(delta(metric, a))]
-        if pool:
-            best = max(pool, key=lambda a: delta(metric, a))
-            out.append((best, value(best)))
-    return out
+FINAL = 'mlp:vmf_sparse_pca100_lloyd100_n200'   # the selected pipeline (METHOD_SELECTION.md)
+ORIGINAL = 'legacy'   # the inherited pipeline as the ladder ran it (see fig_original_vs_final)
 
 
-def ring_best(ax, metric, value):
-    for arm, y in best_per_unit(metric, value):
-        ax.scatter(XPOS[arm], y, s=190, facecolors='none', edgecolors='0.25',
-                   linewidths=1.1, zorder=4)
-    ax.text(0.01, 0.80, 'ringed: best transfer\nwithin each unit type', transform=ax.transAxes,
-            ha='left', va='top', fontsize=7.5, color='0.2')
+def ring_final(ax, y):
+    """Ring the final pipeline's point on an arm axis."""
+    if FINAL in XPOS and np.isfinite(y):
+        ax.scatter(XPOS[FINAL], y, s=190, facecolors='none', edgecolors='0.15',
+                   linewidths=1.3, zorder=4)
+
+
+def final_handle():
+    return Line2D([0], [0], marker='o', color='none', markerfacecolor='none',
+                  markeredgecolor='0.15', markeredgewidth=1.3, markersize=11,
+                  label='final pipeline')
 
 
 PANELS = [
@@ -428,10 +422,10 @@ def fig_references():
             ax.set_ylabel(rowlabel, fontsize=9.5, fontweight='bold', labelpad=8)
 
     unit_divider(axes, axes[0])
-    # One callout, on the panel that carries the selection criterion: a ring on each unit
-    # type's best arm plus a corner note, since a leader line would cross other arms.
-    ring_best(axes[1, 1], 'fidelity_across_halves',
-              lambda a: mean('fidelity_across_halves', 'real', a))
+    # The final pipeline is ringed in every panel, so its standing on each measure is read
+    # off directly.
+    for (i, j), metric, _, _ in PANELS:
+        ring_final(axes[i, j], mean(metric, 'real', FINAL))
 
     arm_labels(axes[1])
 
@@ -442,12 +436,13 @@ def fig_references():
                markeredgecolor='black', markersize=6, label='real'),
         Line2D([0], [0], color=NS_EDGE, lw=3, alpha=0.35,
                label='does not beat it in every domain'),
+        final_handle(),
     ]
     # Below everything, including the bracket band, which hangs outside the axes; a
     # legend reserved inside the figure lands on top of it. bbox_inches='tight' at save
     # time keeps the negative offset in frame.
     fig.legend(handles=handles, loc='upper center', bbox_to_anchor=(0.5, -0.035),
-               ncol=3, frameon=False, fontsize=8.5)
+               ncol=4, frameon=False, fontsize=8.5)
     fig.tight_layout(rect=(0, 0.10, 1, 1))
     place_brackets(fig, axes[1])
     save_fig(fig, 'arms_references')
@@ -487,7 +482,8 @@ def fig_deltas():
             ax.set_ylabel(rowlabel, fontsize=9.5, fontweight='bold', labelpad=8)
 
     unit_divider(axes, axes[0])
-    ring_best(axes[1, 1], 'fidelity_across_halves', lambda a: delta('fidelity_across_halves', a))
+    for (i, j), metric, _, _ in PANELS:
+        ring_final(axes[i, j], delta(metric, FINAL))
 
     arm_labels(axes[1])
     handles = [
@@ -497,9 +493,10 @@ def fig_deltas():
                markeredgecolor='none', markersize=4, label='one prose domain (or pair)'),
         Line2D([0], [0], color=NS_EDGE, lw=3, alpha=0.35,
                label='does not beat the null in every domain'),
+        final_handle(),
     ]
     fig.legend(handles=handles, loc='upper center', bbox_to_anchor=(0.5, -0.035),
-               ncol=3, frameon=False, fontsize=8.5)
+               ncol=4, frameon=False, fontsize=8.5)
     fig.tight_layout(rect=(0, 0.10, 1, 1))
     place_brackets(fig, axes[1])
     save_fig(fig, 'arms_deltas')
@@ -569,6 +566,19 @@ def fig_hubness_tradeoff():
 # Figure 3 -- the same dissociation arm by arm. Everything sits below the identity line:
 # no arm transfers as well as it fits.
 # ---------------------------------------------------------------------------------------
+def label_final(ax, x, y, off=(10, 8), leader=False):
+    """Ring and name the final pipeline in a scatter of arms. With `leader`, `off` is a
+    position in data coordinates and a thin line joins it to the ring."""
+    ax.scatter(x, y, s=210, facecolors='none', edgecolors='0.15', linewidths=1.3, zorder=4)
+    if leader:
+        ax.annotate('final pipeline', (x, y), xytext=off, textcoords='data', ha='left',
+                    va='center', fontsize=8, fontweight='bold', color='0.1',
+                    arrowprops=dict(arrowstyle='-', color='0.3', lw=0.8, shrinkA=2, shrinkB=7))
+    else:
+        ax.annotate('final pipeline', (x, y), textcoords='offset points', xytext=off,
+                    fontsize=8, fontweight='bold', color='0.1')
+
+
 def fig_within_vs_across():
     fig, ax = plt.subplots(figsize=(5.6 * 0.9, 5.0 * 0.9), dpi=300)
     # Both axes are Pearson r: the across-domain measure cannot be R^2 (the two domains sit
@@ -613,6 +623,9 @@ def fig_within_vs_across():
         else:
             ax.annotate(text, (x, y), textcoords='offset points', xytext=off, ha=ha,
                         fontsize=7.5, color='0.2')
+    if FINAL in XPOS:
+        label_final(ax, delta('fidelity_within_r', FINAL), delta('fidelity_across_halves', FINAL),
+                    off=(0.33, 0.07), leader=True)
     ax.set_xlabel('Within-domain fidelity r, real $-$ null', fontsize=10)
     ax.set_ylabel('Across-domain fidelity r, real $-$ null', fontsize=10)
     # Room on the right for the labels of the two right-most arms.
@@ -625,6 +638,289 @@ def fig_within_vs_across():
               loc='upper left', bbox_to_anchor=(1.04, 1.0), frameon=False, fontsize=8)
     fig.tight_layout()
     save_fig(fig, 'within_vs_across')
+
+
+# ---------------------------------------------------------------------------------------
+# Figure 3b -- the two across-domain measures against each other: does a partition whose
+# labels transfer also predict the other domain's connectivity?
+# ---------------------------------------------------------------------------------------
+SCOPE = {
+    'across': ('reliability_across_halves', 'fidelity_across_halves', 'Across-domain',
+               (0.62, 0.12)),
+    'within': ('reliability_within', 'fidelity_within_r', 'Within-domain', (0.75, 0.56)),
+}
+
+
+def fig_across_reliability_vs_fidelity(mlp_only=False, scope='across'):
+    """Reliability against fidelity for one scope (across or within domains).
+
+    With `mlp_only`, only the MLP arms: residual-stream arms are confounded by dimension
+    chains (Iteration 18), which inflate both axes, and the final choice was made among MLP
+    arms."""
+    m_rel, m_fid, name, label_at = SCOPE[scope]
+    fig, ax = plt.subplots(figsize=(6.4 * 0.9, 4.6 * 0.9), dpi=300)
+    xs, ys = [], []
+    for arm in ARMS:
+        if mlp_only and not is_mlp(arm):
+            continue
+        x, y = delta(m_rel, arm), delta(m_fid, arm)
+        if not (np.isfinite(x) and np.isfinite(y)):
+            continue
+        xs.append(x)
+        ys.append(y)
+        ax.scatter(x, y, s=54 if is_mlp(arm) else 62, marker='s' if is_mlp(arm) else 'o',
+                   color=ARM_COLORS[arm], edgecolors='black', linewidths=0.5, zorder=3)
+    ax.text(0.04, 0.96, 'r = %+.2f' % float(np.corrcoef(xs, ys)[0, 1]),
+            transform=ax.transAxes, ha='left', va='top', fontsize=9,
+            bbox=dict(facecolor='white', edgecolor='gray', boxstyle='round,pad=0.3'))
+    # One scale on both axes, square, so distances along x and y compare directly.
+    hi = 1.08 * max(max(xs), max(ys))
+    ax.set_xlim(0, hi)
+    ax.set_ylim(0, hi)
+    ax.set_aspect('equal')
+    ax.plot([0, hi], [0, hi], color='0.6', lw=1.0, ls='--', zorder=1)
+    if FINAL in XPOS:
+        # Label from empty space (per scope), clear of the crowded consensus arms.
+        label_final(ax, delta(m_rel, FINAL), delta(m_fid, FINAL),
+                    off=(label_at[0] * hi, label_at[1] * hi), leader=True)
+    ax.set_xlabel('%s reliability (ARI),\nreal $-$ null' % name, fontsize=10)
+    ax.set_ylabel('%s fidelity r,\nreal $-$ null' % name, fontsize=10)
+    ax.grid(linestyle='--', alpha=0.4, zorder=0)
+    style_spines(ax, drop_top_right=True)
+    ax.tick_params(axis='both', which='major', labelsize=9)
+    if mlp_only:
+        handles = [h for h, (_, _, _, arms) in zip(group_handles(), GROUPS) if is_mlp(arms[0][0])]
+    else:
+        handles = group_handles() + unit_handles()
+    ax.legend(handles=handles, loc='upper left', bbox_to_anchor=(1.04, 1.0), frameon=False,
+              fontsize=8)
+    fig.tight_layout()
+    save_fig(fig, '%s_reliability_vs_fidelity%s' % (scope, '_mlp' if mlp_only else ''))
+
+
+# ---------------------------------------------------------------------------------------
+# Figure 3b' -- all four measures against each other on one scale, MLP arms only. Every
+# measure is real minus the null partition, so 0 means "no better than per-unit properties"
+# on every axis and the panels compare directly.
+# ---------------------------------------------------------------------------------------
+MATRIX_MEASURES = [
+    ('reliability_within', 'Within-domain\nreliability (ARI)'),
+    ('fidelity_within_r', 'Within-domain\nfidelity (r)'),
+    ('reliability_across_halves', 'Across-domain\nreliability (ARI)'),
+    ('fidelity_across_halves', 'Across-domain\nfidelity (r)'),
+]
+
+
+def fig_measures_matrix():
+    arms = [a for a in ARMS if is_mlp(a)
+            and all(np.isfinite(delta(m, a)) for m, _ in MATRIX_MEASURES)]
+    if not arms:
+        return
+    D = {m: np.array([delta(m, a) for a in arms]) for m, _ in MATRIX_MEASURES}
+    hi = 1.06 * max(v.max() for v in D.values())
+    lo = min(0.0, min(v.min() for v in D.values()))
+    n = len(MATRIX_MEASURES)
+    fig, axes = plt.subplots(n, n, figsize=(8.4, 8.4), dpi=300)
+    fi = arms.index(FINAL) if FINAL in arms else None
+    for i, (my, ylab) in enumerate(MATRIX_MEASURES):
+        for j, (mx, xlab) in enumerate(MATRIX_MEASURES):
+            ax = axes[i, j]
+            if j > i:
+                ax.axis('off')
+                continue
+            ax.set_xlim(lo, hi)
+            ax.set_aspect('equal')
+            if i == j:
+                # Diagonal: the measure's spread over arms as a strip along its own axis, in a
+                # panel the same size and scale as the scatters.
+                ax.set_ylim(lo, hi)
+                band = lo + (hi - lo) * (0.06 + 0.10 * np.linspace(0, 1, len(arms)))
+                ax.scatter(D[mx], band, s=12, marker='s', color=[ARM_COLORS[a] for a in arms],
+                           edgecolors='black', linewidths=0.3, zorder=3)
+                if fi is not None:
+                    ax.axvline(D[mx][fi], color='0.15', lw=1.1, ls=(0, (3, 2)), zorder=2)
+                    ax.text(D[mx][fi], lo + 0.22 * (hi - lo), ' final', fontsize=7,
+                            color='0.15', ha='left', va='bottom')
+                ax.set_yticks([])
+                ax.spines['left'].set_visible(False)
+                ax.text(0.5, 0.62, xlab, transform=ax.transAxes, ha='center', va='center',
+                        fontsize=9, fontweight='bold', zorder=5,
+                        bbox=dict(facecolor='white', edgecolor='none', pad=1.5))
+            else:
+                ax.set_ylim(lo, hi)
+                ax.plot([lo, hi], [lo, hi], color='0.7', lw=0.8, ls='--', zorder=1)
+                ax.scatter(D[mx], D[my], s=16, marker='s', color=[ARM_COLORS[a] for a in arms],
+                           edgecolors='black', linewidths=0.3, zorder=3)
+                if fi is not None:
+                    ax.scatter(D[mx][fi], D[my][fi], s=95, facecolors='none',
+                               edgecolors='0.1', linewidths=1.2, zorder=4)
+                r = float(np.corrcoef(D[mx], D[my])[0, 1])
+                ax.text(0.05, 0.95, 'r = %+.2f' % r, transform=ax.transAxes, ha='left',
+                        va='top', fontsize=7,
+                        bbox=dict(facecolor='white', edgecolor='gray',
+                                  boxstyle='round,pad=0.25'))
+            ax.grid(linestyle='--', alpha=0.35, zorder=0)
+            style_spines(ax, drop_top_right=True)
+            ax.tick_params(axis='both', labelsize=7)
+            if i == n - 1:
+                ax.set_xlabel(xlab, fontsize=8.5)
+            else:
+                ax.set_xticklabels([])
+            if j == 0 and i > 0:
+                ax.set_ylabel(ylab, fontsize=8.5)
+            elif i != j:
+                ax.set_yticklabels([])
+    handles = [h for h, (_, _, _, g) in zip(group_handles(), GROUPS) if is_mlp(g[0][0])]
+    for h in handles:
+        h.set_marker('s')
+    handles.append(final_handle())
+    fig.legend(handles=handles, loc='upper right', bbox_to_anchor=(0.97, 0.93), frameon=False,
+               fontsize=8.5, title='MLP arms, real $-$ null\n(same scale on every axis)',
+               title_fontsize=8.5)
+    fig.tight_layout(h_pad=0.6, w_pad=0.6)
+    save_fig(fig, 'measures_matrix_mlp')
+
+
+# ---------------------------------------------------------------------------------------
+# Figure 3d -- the final pipeline against every other arm, one column per measure, nested
+# within/across x reliability/fidelity. All four are real minus the null partition, so they
+# share one axis. Adapted from the grouped dot-plot with hierarchical brackets.
+# ---------------------------------------------------------------------------------------
+FINAL_RED = '#c0392b'
+FVA_COLUMNS = [   # (metric, column label, top-level group)
+    ('reliability_within', 'Reliability\n(ARI)', 'Within domain'),
+    ('fidelity_within_r', 'Fidelity\n(r)', 'Within domain'),
+    ('reliability_across_halves', 'Reliability\n(ARI)', 'Across domains'),
+    ('fidelity_across_halves', 'Fidelity\n(r)', 'Across domains'),
+]
+
+
+def _ordinal(n):
+    return '%d%s' % (n, 'th' if 10 <= n % 100 <= 20 else {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th'))
+
+
+def fig_final_vs_arms(mlp_only=False):
+    from scipy.stats import gaussian_kde
+    if FINAL not in XPOS:
+        return
+    others = [a for a in ARMS if a != FINAL and (is_mlp(a) or not mlp_only)]
+    xs = [0.0, 1.0, 2.4, 3.4]   # a wider gap between the within and across pairs
+    rng = np.random.default_rng(0)
+    tops = []
+    fig, ax = plt.subplots(figsize=(4.6 * 0.9, 3.5 * 0.9), dpi=300)
+    for x, (metric, _, _) in zip(xs, FVA_COLUMNS):
+        v = np.array([delta(metric, a) for a in others])
+        v = v[np.isfinite(v)]
+        f = delta(metric, FINAL)
+        # Half-violin on the left: the distribution over arms, run out to three bandwidths
+        # past the extreme arms so the density tapers to zero instead of being cut off.
+        kde = gaussian_kde(v, bw_method=0.35)   # narrower than Scott's rule: tails stay near the data
+        bw = 3 * kde.factor * v.std(ddof=1)
+        grid = np.linspace(v.min() - bw, v.max() + bw, 300)
+        dens = kde(grid)
+        # Stop where the density falls under 2% of its peak: the curve tapers, but its tails
+        # do not run past values no arm reaches.
+        keep = dens >= 0.02 * dens.max()
+        grid, dens = grid[keep], dens[keep]
+        dens = 0.34 * dens / dens.max()
+        ax.fill_betweenx(grid, x - 0.06 - dens, x - 0.06, color='0.55', alpha=0.28, lw=0,
+                         zorder=2)
+        ax.plot(x - 0.06 - dens, grid, color='0.45', lw=0.8, zorder=2.2)
+        # Jittered dots on the right: one per arm.
+        ax.scatter(x + 0.06 + rng.uniform(0, 0.22, len(v)), v, s=11, color='0.45', alpha=0.35,
+                   edgecolors='none', zorder=3)
+        # The final pipeline across both halves of the column, with its value and rank.
+        rank = 1 + int((v > f).sum())
+        ax.scatter(x, f, s=90, color=FINAL_RED, edgecolors='black', linewidths=0.7, zorder=5)
+        # Value and rank above the column, clear of the violin and the dots.
+        ax.text(x, grid.max() + 0.02, '%.2f\n%s / %d' % (f, _ordinal(rank), len(v) + 1),
+                ha='center', va='bottom', fontsize=7, color=FINAL_RED, fontweight='bold',
+                zorder=6)
+        tops.append(grid.max())
+    ax.axhline(0, color='0.35', lw=1.0, zorder=1.5)
+    ax.set_ylim(top=max(tops) + 0.16)
+    ax.set_xticks(xs)
+    ax.set_xticklabels([lab for _, lab, _ in FVA_COLUMNS], fontsize=8.5)
+    ax.set_xlim(-0.55, xs[-1] + 0.45)
+    ax.set_ylabel('Real $-$ null partition', fontsize=10)
+    ax.grid(axis='y', linestyle='--', alpha=0.5, zorder=1)
+    style_spines(ax, drop_top_right=True)
+    ax.tick_params(axis='y', labelsize=9)
+    ax.tick_params(axis='x', length=0, pad=4)
+    # Top-level brackets under the column labels.
+    tr = ax.get_xaxis_transform()
+    for (x0, x1), name in (((xs[0], xs[1]), 'Within domain'), ((xs[2], xs[3]), 'Across domains')):
+        y = -0.20
+        ax.plot([x0 - 0.3, x0 - 0.3, x1 + 0.3, x1 + 0.3], [y + 0.025, y, y, y + 0.025],
+                color='0.2', lw=1.2, transform=tr, clip_on=False)
+        ax.text((x0 + x1) / 2, y - 0.03, name, ha='center', va='top', fontsize=9,
+                fontweight='bold', transform=tr)
+    ax.legend(handles=[
+        Line2D([0], [0], marker='o', color='none', markerfacecolor=FINAL_RED,
+               markeredgecolor='black', markersize=8, label='final pipeline'),
+        Line2D([0], [0], marker='o', color='none', markerfacecolor='0.45', alpha=0.5,
+               markeredgecolor='none', markersize=4,
+               label='other arms (%s, n = %d)' % ('MLP' if mlp_only else 'all', len(others))),
+    ], loc='upper right', frameon=False, fontsize=7.5)
+    fig.tight_layout()
+    save_fig(fig, 'final_vs_arms' + ('_mlp' if mlp_only else ''))
+
+
+# ---------------------------------------------------------------------------------------
+# Figure 3c -- the inherited pipeline against the final one, on every measure. The inherited
+# pipeline is the ladder's `legacy` arm: residual stream, column-wise binarization (the S2
+# bug), whitened PCA-200, MiniBatch k-means at k = 50. It ran 20 restarts, where the original
+# code defaulted to 100, so it is the original method on a smaller restart budget.
+# ---------------------------------------------------------------------------------------
+ORIG_PANELS = [
+    ('reliability_within', 'Reliability (ARI)\nwithin domain'),
+    ('fidelity_within_r', 'Fidelity (r)\nwithin domain'),
+    ('reliability_across_halves', 'Reliability (ARI)\nacross domains'),
+    ('fidelity_across_halves', 'Fidelity (r)\nacross domains'),
+    ('triviality_ami_hubness', 'Hubness (AMI)\nlower is better'),
+]
+
+
+def fig_original_vs_final():
+    if ORIGINAL not in XPOS or FINAL not in XPOS:
+        return
+    pair = [(ORIGINAL, 'original', ARM_COLORS[ORIGINAL]), (FINAL, 'final', GROUP_DARK[FINAL])]
+    fig, axes = plt.subplots(1, len(ORIG_PANELS), figsize=(11.0 * 0.82, 3.5 * 0.82), dpi=300)
+    for ax, (metric, title) in zip(axes, ORIG_PANELS):
+        with_null = not metric.startswith('triviality')
+        for i, (arm, _, c) in enumerate(pair):
+            real = mean(metric, 'real', arm)
+            v = vals(metric, 'real', arm)
+            ax.scatter(np.full(len(v), i) + np.linspace(-0.08, 0.08, len(v)), v, s=9, color=c,
+                       alpha=0.35, edgecolors='none', zorder=2.5)
+            if with_null:
+                ref = mean(metric, 'pnull', arm)
+                ax.vlines(i, min(real, ref), max(real, ref), color=c, alpha=0.45, lw=3.2,
+                          zorder=2)
+                ax.scatter(i, ref, s=40, facecolors='white', edgecolors=c, linewidths=1.2,
+                           zorder=3)
+            ax.scatter(i, real, s=50, color=c, edgecolors='black', linewidths=0.5, zorder=3.5)
+            ax.annotate('%.2f' % real, (i, real), textcoords='offset points', xytext=(9, 0),
+                        va='center', fontsize=7.5, color='0.2')
+        ax.set_xticks([0, 1])
+        ax.set_xticklabels([lab for _, lab, _ in pair], fontsize=9)
+        ax.set_xlim(-0.5, 1.6)
+        ax.set_ylim(bottom=0)
+        ax.set_title(title, fontsize=9, fontweight='bold')
+        ax.grid(axis='y', linestyle='--', alpha=0.5, zorder=1)
+        style_spines(ax, drop_top_right=True)
+        ax.tick_params(axis='y', labelsize=8.5)
+    fig.legend(handles=[
+        Line2D([0], [0], marker='o', color='none', markerfacecolor='0.3',
+               markeredgecolor='black', markersize=6, label='real'),
+        Line2D([0], [0], marker='o', color='none', markerfacecolor='white',
+               markeredgecolor='0.3', markersize=6, label='null partition, real data'),
+        Line2D([0], [0], marker='o', color='none', markerfacecolor='0.6',
+               markeredgecolor='none', markersize=4, alpha=0.6,
+               label='one prose domain (or pair)'),
+    ], loc='lower center', bbox_to_anchor=(0.5, -0.08), ncol=3, frameon=False, fontsize=8)
+    fig.tight_layout(w_pad=1.0)
+    save_fig(fig, 'original_vs_final')
 
 
 # ---------------------------------------------------------------------------------------
@@ -854,6 +1150,84 @@ def fig_pooled_estimation():
     save_fig(fig, 'pooled_estimation')
 
 
+POOL_SINGLE = ('vmf_pca100_lloyd100', 'Lloyd PCA-100 consensus')
+
+
+def fig_pooled_estimation_single():
+    """`pooled_estimation` for one arm, one bar per comparison.
+
+    The final pipeline (sparse profiles, 200 restarts) was not run in T4. The nearest arm that
+    was is its base, `vmf_pca100_lloyd100`: the same pipeline without sparsification and with
+    40 restarts.
+    """
+    rows = load_plain(POOLED_FILE)
+    if rows is None:
+        return
+    variant, name = POOL_SINGLE
+    idx = {}
+    for r in rows:
+        idx.setdefault((r['metric'], r['tree'], r['variant']), {})[(r['fit'], r['eval'])] = r['value']
+
+    def pairs_of(metric, tree, v, test):
+        return {k: x for k, x in idx.get((metric, tree, v), {}).items() if test(*k)}
+
+    def deltas(metric, test):
+        real, ref = pairs_of(metric, 'real', variant, test), pairs_of(metric, 'pnull', variant, test)
+        return np.array([real[k] - ref[k] for k in sorted(set(real) & set(ref))])
+
+    c = GROUP_DARK.get('mlp:' + variant, '0.3')
+    fig, axes = plt.subplots(1, 3, figsize=(12.0 * 0.82, 3.8 * 0.82), dpi=300,
+                             gridspec_kw=dict(width_ratios=[1.2, 1.2, 0.8]))
+    for ax, metric, is_delta, ylabel in (
+            (axes[0], 'fidelity_across_halves', True, 'Across-domain fidelity r, real $-$ null'),
+            (axes[1], 'reliability_across_halves', False, 'Across-domain reliability (ARI)')):
+        labels = []
+        for t, (cname, test) in enumerate(POOL_TYPES):
+            v = deltas(metric, test) if is_delta else \
+                np.array(list(pairs_of(metric, 'real', variant, test).values()))
+            ceil = pairs_of('fidelity_across_halves', 'real', '(ceiling)', test)
+            labels.append('%s\nceiling %.2f' % (cname, np.mean(list(ceil.values()))) if ceil else cname)
+            if not len(v):
+                continue
+            ax.bar(t, v.mean(), width=0.6, color=c, alpha=0.75, edgecolor='black', lw=0.6,
+                   zorder=2)
+            ax.scatter(np.full(len(v), t) + np.linspace(-0.15, 0.15, len(v)), v, s=10,
+                       color='0.15', alpha=0.6, edgecolors='none', zorder=3)
+        ax.set_xticks(range(len(POOL_TYPES)))
+        ax.set_xticklabels(labels, fontsize=7.5)
+        ax.set_ylabel(ylabel, fontsize=9)
+        ax.set_xlim(-0.6, len(POOL_TYPES) - 0.4)
+        ax.grid(axis='y', linestyle='--', alpha=0.5, zorder=0)
+        style_spines(ax, drop_top_right=True)
+        ax.tick_params(axis='y', labelsize=8.5)
+
+    ax = axes[2]
+    for d in PROSE:
+        one = deltas('fidelity_across_halves', lambda f, e, d=d: f in PROSE and e == d)
+        lodo = deltas('fidelity_across_halves', lambda f, e, d=d: f == 'lodo_' + d and e == d)
+        if not (len(one) and len(lodo)):
+            continue
+        ax.plot([0, 1], [one.mean(), lodo.mean()], color=c, lw=1.2, zorder=2)
+        ax.scatter([0, 1], [one.mean(), lodo.mean()], s=34, color=c, edgecolors='black',
+                   linewidths=0.5, zorder=3)
+        ax.text(1.08, lodo.mean(), d, fontsize=7, va='center', color='0.25')
+    ax.set_xticks([0, 1])
+    ax.set_xticklabels(['mean of the\n3 single domains', 'pool of the\n3 domains'], fontsize=7.5)
+    ax.set_xlim(-0.35, 1.75)
+    ax.set_ylabel('Fidelity r into the held-out domain,\nreal $-$ null', fontsize=9)
+    ax.grid(axis='y', linestyle='--', alpha=0.5, zorder=0)
+    style_spines(ax, drop_top_right=True)
+    ax.tick_params(axis='y', labelsize=8.5)
+    fig.legend(handles=[
+        mpl.patches.Patch(facecolor=c, alpha=0.75, edgecolor='black',
+                          label=name + ' (final pipeline not run in T4)'),
+        Line2D([0], [0], marker='o', color='none', markerfacecolor='0.15', alpha=0.6,
+               markeredgecolor='none', markersize=4, label='one domain pair'),
+    ], loc='lower center', bbox_to_anchor=(0.5, -0.09), ncol=2, frameon=False, fontsize=8)
+    fig.tight_layout(w_pad=1.2)
+    save_fig(fig, 'pooled_estimation_single')
+
+
 YARDSTICK_ARMS = [('vmf_ward100', 'Ward'), ('vmf_lloyd100', 'Lloyd,\nfull profiles'),
                   ('vmf_pca100_lloyd100', 'Lloyd,\nPCA-100')]
 
@@ -917,10 +1291,19 @@ if __name__ == '__main__':
     fig_deltas()
     fig_hubness_tradeoff()
     fig_within_vs_across()
+    fig_across_reliability_vs_fidelity()
+    fig_across_reliability_vs_fidelity(mlp_only=True)
+    fig_across_reliability_vs_fidelity(mlp_only=True, scope='within')
+    fig_measures_matrix()
+    fig_final_vs_arms()
+    fig_final_vs_arms(mlp_only=True)
+    fig_original_vs_final()
     fig_maps_vs_labels()
     fig_final_candidates()
     fig_pooled_estimation()
+    fig_pooled_estimation_single()
     fig_yardstick()
     print('wrote plots/{arms_references,arms_deltas,hubness_tradeoff,within_vs_across,'
-          'maps_vs_labels,final_candidates,pooled_estimation,yardstick}'
+          'across_reliability_vs_fidelity{,_mlp},within_reliability_vs_fidelity_mlp,measures_matrix_mlp,final_vs_arms{,_mlp},original_vs_final,maps_vs_labels,final_candidates,'
+          'pooled_estimation,pooled_estimation_single,yardstick}'
           '.{svg,png} from %d arms' % len(ARMS))

@@ -41,12 +41,15 @@ CITE = {
     'Lan': 'Han et al. (2026)', 'MD': 'Han et al. (2026)', 'ToM': 'Han et al. (2026)', 'phys': 'Han et al. (2026)',
 }
 
-LANG = {'de': 'German', 'fr': 'French', 'he': 'Hebrew', 'ru': 'Russian'}
+LANG = {'en': 'English', 'de': 'German', 'fr': 'French', 'he': 'Hebrew', 'ru': 'Russian'}
 STRUCT = {'long_vp_coord': 'long VP coordination', 'vp_coord': 'VP coordination',
           'obj_rel_across_anim': 'across object RC', 'obj_rel_across_inanim': 'across object RC, inanimate',
           'obj_rel_within_anim': 'within object RC', 'obj_rel_within_inanim': 'within object RC, inanimate',
           'obj_rel_no_comp_within_inanim': 'within reduced RC, inanimate',
-          'subj_rel': 'across subject RC', 'simple_agrmt': 'simple', 'prep_anim': 'across PP'}
+          'subj_rel': 'across subject RC', 'simple_agrmt': 'simple', 'prep_anim': 'across PP',
+          'obj_rel_no_comp_within_anim': 'within reduced RC', 'prep_inanim': 'across PP, inanimate'}
+# CLAMS English reflexives (antecedent number), named apart from subject-verb agreement
+REFLEXIVE = {'reflexives_across': 'across object RC', 'simple_reflexives': 'simple'}
 STRUCT_CG = {'obj-relc': 'across object RC', 'subj-relc': 'across subject RC', 'pp': 'across PP'}
 
 NAMES = {
@@ -69,6 +72,7 @@ NAMES = {
     'docstring_goog': 'Docstring argument (Google style)', 'docstring_rest': 'Docstring argument (reST)',
     # arithmetic
     'embedded': 'Word problems (+, -)', 'numeric': 'Addition/subtraction, digits',
+    'english': 'Addition/subtraction, English words', 'spanish': 'Addition/subtraction, Spanish words',
     'add': 'Addition', 'sub': 'Subtraction', 'mul': 'Multiplication', 'div': 'Division',
     'operator_change': 'Operator change',
     'addition_carry': 'Addition, carry', 'addition_random': 'Addition, random operands',
@@ -98,15 +102,20 @@ NAMES = {
     'hypernymy': 'Hypernymy', 'npi': 'NPI licensing', 'subject_verb_agreement': 'Subject-verb agreement',
     'wug': 'Wug test (novel plurals)',
     'add_sub_2op_symbolic': 'Add/subtract, 2 operands, digits', 'add_sub_2op_verbal': 'Add/subtract, 2 operands, words',
-    'add_sub_3op_symbolic': 'Add/subtract, 3 operands, digits', 'mul_div_2op_symbolic': 'Multiply/divide, 2 operands, digits',
+    'add_sub_3op_symbolic': 'Add/subtract, 3 operands, digits', 'add_sub_3op_verbal': 'Add/subtract, 3 operands, words',
+    'mul_div_2op_symbolic': 'Multiply/divide, 2 operands, digits', 'mul_div_2op_verbal': 'Multiply/divide, 2 operands, words',
+    'mul_div_3op_symbolic': 'Multiply/divide, 3 operands, digits',
     'number_sorting': 'Number sorting', 'code_A': 'Code output: modulo branch', 'code_B': 'Code output: string split',
     'code_conditional': 'Code output: threshold branch', 'code_list': 'Code output: list index',
+    'code_loop': 'Code output: for loop', 'logic_propositional_symbolic': 'Propositional logic, symbolic',
     'logic_syllogism_1': 'Syllogism validity', 'logic_syllogism_symbolic': 'Syllogism, symbolic',
+    'agent': 'Belief or doubt', 'norm_moral': 'Moral judgment',
     'desires_goals': 'Desires and goals', 'emotion_fewshot': 'Emotion inference (few-shot)',
     'norm_appropriate': 'Norm appropriateness', 'primary_emotions': 'Primary emotions',
     'secondary_emotions': 'Secondary emotions', 'social_interactions': 'Social interactions',
     'phys_newton': 'Packing order (Newton)', 'phys_prost': 'Object affordances (PROST)',
-    'physics_brightness': 'Brightness', 'physics_solubility': 'Solubility', 'physics_temperature': 'Temperature',
+    'physics_brightness': 'Brightness', 'physics_buoyancy': 'Buoyancy', 'physics_elasticity': 'Elasticity',
+    'physics_speed': 'Speed', 'physics_stability': 'Stability', 'physics_solubility': 'Solubility', 'physics_temperature': 'Temperature',
     'pragworld_flip': 'Pragmatic world model',
 }
 
@@ -165,6 +174,8 @@ def label(group, task):
         return NAMES[t], 0
     if group == 'clams':
         lang, rest = t.split('_', 1)
+        if rest in REFLEXIVE:
+            return '%s reflexive, %s' % (LANG[lang], REFLEXIVE[rest]), 0
         return '%s subject-verb, %s' % (LANG[lang], STRUCT[rest]), 0
     if group == 'newman_sva':
         return 'Subject-verb, %s' % STRUCT[t], 0

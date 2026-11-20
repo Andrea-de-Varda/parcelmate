@@ -102,7 +102,7 @@ def main():
             if idx is None or l not in idx:
                 return None
             x = inp[0].clone()
-            x[..., idx[l]] = means[l][idx[l]]
+            x[..., idx[l]] = means[l][idx[l]].to(x.dtype)
             return (x,) + tuple(inp[1:])
         return h
     for l, p in projs:
